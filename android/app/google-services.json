@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "850624934951",
+    "project_id": "story-sprout-test-project",
+    "storage_bucket": "story-sprout-test-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850624934951:android:66f04c5ae5feb45bbf0a02",
+        "android_client_info": {
+          "package_name": "com.UNT.storysprout"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIaMX9R5NFm0V5ARG5B-UtI16A6ilZ6bQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
