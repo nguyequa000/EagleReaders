@@ -2,10 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// ─────────────────────────────────────────────
-//  DATA MODEL
-// ─────────────────────────────────────────────
-
+// Data model
 class ComprehensionQuestion {
   final String question;
   final List<String> answers;
@@ -26,10 +23,7 @@ class ComprehensionQuestion {
   }
 }
 
-// ─────────────────────────────────────────────
-//  SCREEN WIDGET
-// ─────────────────────────────────────────────
-
+//  Screen widget
 class ComprehensionScreen extends StatefulWidget {
   /// The chapter number that just finished (e.g. 3)
   final int chapterNumber;
@@ -54,7 +48,7 @@ class ComprehensionScreen extends StatefulWidget {
 
 class _ComprehensionScreenState extends State<ComprehensionScreen>
     with SingleTickerProviderStateMixin {
-  // ── state ──────────────────────────────────
+  // state 
   List<ComprehensionQuestion> _questions = [];
   int _currentIndex = 0;
   int? _selectedAnswer;
@@ -65,7 +59,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  // ── Story Sprout brand colours ──────────────
+  // Story Sprout brand colours 
   static const Color _darkBg = Color(0xFF1A1F1A);
   static const Color _cardBg = Color(0xFF252B25);
   static const Color _green = Color(0xFF4CAF50);
@@ -75,7 +69,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   static const Color _correctGreen = Color(0xFF66BB6A);
   static const Color _wrongRed = Color(0xFFEF5350);
 
-  // ── lifecycle ──────────────────────────────
+  // lifecycle 
   @override
   void initState() {
     super.initState();
@@ -96,7 +90,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     super.dispose();
   }
 
-  // ── data loading ───────────────────────────
+  // data loading 
   Future<void> _loadQuestions() async {
     try {
       List<ComprehensionQuestion> loaded;
@@ -126,7 +120,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     }
   }
 
-  // ── helpers ────────────────────────────────
+  // helpers 
   ComprehensionQuestion get _current => _questions[_currentIndex];
 
   bool get _isLastQuestion => _currentIndex == _questions.length - 1;
@@ -154,7 +148,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     }
   }
 
-  // ── answer tile colour ─────────────────────
+  //answer tile colour 
   Color _tileColor(int index) {
     if (!_answered) return _cardBg;
     if (index == _current.correctIndex) return _correctGreen.withOpacity(0.25);
@@ -171,7 +165,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     return Colors.transparent;
   }
 
-  // ── build ──────────────────────────────────
+  // build 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,7 +201,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // ── main body ──────────────────────────────
+  //  main body 
   Widget _buildBody() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -232,7 +226,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // ── progress dots ──────────────────────────
+  // progress dots 
   Widget _buildProgressIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -253,7 +247,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // ── question bubble ────────────────────────
+  // question bubble
   Widget _buildQuestionBubble() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +293,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // ── answer tiles ───────────────────────────
+  //answer tiles
   List<Widget> _buildAnswerTiles() {
     return List.generate(_current.answers.length, (i) {
       final isCorrect = _answered && i == _current.correctIndex;
@@ -378,7 +372,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     });
   }
 
-  // ── keep reading button ────────────────────
+  //keep reading button
   Widget _buildKeepReadingButton() {
     return ElevatedButton(
       onPressed: _advance,
@@ -405,7 +399,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // ── error / empty states ───────────────────
+  //error / empty states
   Widget _buildError() {
     return Center(
       child: Column(
