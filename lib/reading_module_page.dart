@@ -62,7 +62,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt', 'epub'],
-      allowMultiple: false,
+      allowMultiple: true,
     );
 
     if (result == null || result.files.isEmpty) return;
@@ -82,7 +82,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
         'EPUB import is not wired into this screen yet. For now, import a .txt file.',
       );
       return;
-    }
+    } // it would stuck in a loading state if I try to load an unsupported file type aka epub, so I added this check to prevent that
 
     await _loadBookFromFile(filePath, fileName);
   } catch (e) {
@@ -304,7 +304,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             ),
             const SizedBox(height: 10),
             const Text(
-              'For now, use a .txt file so the reader matches your wireframe cleanly.',
+              'missing files, import one to start reading',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -384,22 +384,17 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   }
 
   @override
+    @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: SafeArea(
-        child: Center(
-          child: SizedBox(
-            width: 320,
-            height: 640,
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(child: _buildReaderArea()),
-                _buildFooter(),
-              ],
-            ),
-          ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildReaderArea()),
+            _buildFooter(),
+          ],
         ),
       ),
     );
