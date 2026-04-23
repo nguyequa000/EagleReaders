@@ -1,9 +1,9 @@
-// Basic reading module page, which will be used to display the reading content.
+import 'dart:io';
+import 'dart:typed_data';
 
-import 'dart:async';
+import 'package:epub_view/epub_view.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_read/flutter_read.dart';
 
 class ReadingModulePage extends StatefulWidget {
   const ReadingModulePage({super.key});
@@ -13,102 +13,129 @@ class ReadingModulePage extends StatefulWidget {
 }
 
 class _ReadingModulePageState extends State<ReadingModulePage> {
-  late final ReadController _readController;
-  StreamSubscription<BookProgress>? _progressSubscription;
+  String _bookTitle = 'No book selected';
+  String _chapterLabel = 'Import a .txt or .epub file to begin';
+  bool _isLoadingBook = false;
+  bool _isBookLoaded = false;
 
+  String _bookType = ''; // 'txt' or 'epub'
+
+  // TXT reader state
+  String _bookContent = '';
+  List<String> _pages = [];
   int _currentPage = 1;
   int _totalPages = 1;
   double _sliderValue = 0.0;
 
-  String _bookTitle = 'No book selected';
-  String _chapterLabel = 'Import a book to begin';
-
-  bool _isBookLoaded = false;
-  bool _isLoadingBook = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _readController = ReadController.create(
-      loadingWidget: const Center(
-        child: CircularProgressIndicator(),
-      ),
-      enableVerticalDrag: true,
-      enableTapPage: true,
-    );
-
-    _progressSubscription = _readController.onPageIndexChanged.listen((progress) {
-      if (!mounted) return;
-
-      setState(() {
-        _currentPage = progress.pageIndex + 1;
-        _totalPages = progress.pageTotal <= 0 ? 1 : progress.pageTotal;
-        _sliderValue = _totalPages <= 1
-            ? 0.0
-            : (progress.pageIndex / (_totalPages - 1)).clamp(0.0, 1.0);
-
-        if (progress.chapterTitle.trim().isNotEmpty) {
-          _chapterLabel = progress.chapterTitle;
-        } else {
-          _chapterLabel = 'Page $_currentPage / $_totalPages';
-        }
-      });
-    });
-  }
+  // EPUB reader state
+  EpubController? _epubController;
 
   Future<void> _pickAndLoadFile() async {
-  try {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['txt', 'epub'],
-      allowMultiple: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-
-    final file = result.files.single;
-    final filePath = file.path;
-    final fileName = file.name;
-    final extension = file.extension?.toLowerCase() ?? '';
-
-    if (filePath == null || filePath.isEmpty) {
-      _showErrorDialog('Could not access the selected file path.');
-      return;
-    }
-
-    if (extension == 'epub') {
-      _showErrorDialog(
-        'EPUB import is not wired into this screen yet. For now, import a .txt file.',
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt', 'epub'],
+        allowMultiple: false,
+        withData: true,
       );
-      return;
-    } // it would stuck in a loading state if I try to load an unsupported file type aka epub, so I added this check to prevent that
 
-    await _loadBookFromFile(filePath, fileName);
-  } catch (e) {
-    _showErrorDialog('Error picking file: $e');
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.single;
+      final fileName = file.name;
+      final ext = file.extension?.toLowerCase() ?? '';
+
+      if (ext == 'txt') {
+        final bytes = file.bytes;
+        if (bytes == null || bytes.isEmpty) {
+          _showMessage('Could not read .txt file bytes.');
+          return;
+        }
+        await _loadTxtFromBytes(bytes, fileName);
+        return;
+      }
+
+      if (ext == 'epub') {
+        final path = file.path;
+        if (path == null || path.isEmpty) {
+          _showMessage('Could not access the selected EPUB file path.');
+          return;
+        }
+        await _loadEpubFromPath(path, fileName);
+        return;
+      }
+
+      _showMessage('Unsupported file type.');
+    } catch (e) {
+      _showMessage('Error picking file: $e');
+    }
   }
-}
 
-  Future<void> _loadBookFromFile(String filePath, String fileName) async {
+  Future<void> _loadTxtFromBytes(Uint8List bytes, String fileName) async {
     try {
       setState(() {
         _isLoadingBook = true;
+        _isBookLoaded = false;
+        _bookType = '';
       });
 
-      final source = FileSource(
-        filePath,
-        fileName,
-        isSplit: true,
-      );
+      _epubController?.dispose();
+      _epubController = null;
 
-      await _readController.startReadBook(source);
+      final content = String.fromCharCodes(bytes).trim();
 
-      if (!mounted) return;
+      if (content.isEmpty) {
+        setState(() {
+          _isLoadingBook = false;
+        });
+        _showMessage('The selected .txt file is empty.');
+        return;
+      }
+
+      final pages = _splitIntoPages(content);
 
       setState(() {
+        _bookType = 'txt';
         _bookTitle = fileName;
-        _chapterLabel = 'Page 1 / 1';
+        _bookContent = content;
+        _pages = pages;
+        _currentPage = 1;
+        _totalPages = pages.isEmpty ? 1 : pages.length;
+        _sliderValue = 0.0;
+        _chapterLabel = 'Page $_currentPage / $_totalPages';
+        _isBookLoaded = true;
+        _isLoadingBook = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingBook = false;
+        _isBookLoaded = false;
+      });
+      _showMessage('Error loading .txt file: $e');
+    }
+  }
+
+  Future<void> _loadEpubFromPath(String path, String fileName) async {
+    try {
+      setState(() {
+        _isLoadingBook = true;
+        _isBookLoaded = false;
+        _bookType = '';
+      });
+
+      _epubController?.dispose();
+
+      final controller = EpubController(
+        document: EpubDocument.openFile(File(path)),
+      );
+
+      setState(() {
+        _epubController = controller;
+        _bookType = 'epub';
+        _bookTitle = fileName;
+        _chapterLabel = 'Opening EPUB...';
+        _bookContent = '';
+        _pages = [];
         _currentPage = 1;
         _totalPages = 1;
         _sliderValue = 0.0;
@@ -116,109 +143,167 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
         _isLoadingBook = false;
       });
     } catch (e) {
-      if (!mounted) return;
-
       setState(() {
         _isLoadingBook = false;
+        _isBookLoaded = false;
       });
-
-      _showErrorDialog('Error loading book: $e');
+      _showMessage('Error loading EPUB: $e');
     }
   }
 
+  List<String> _splitIntoPages(String text) {
+    const int targetCharsPerPage = 1200;
+
+    final normalized = text.replaceAll('\r\n', '\n');
+    final paragraphs = normalized
+        .split('\n\n')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (paragraphs.isEmpty) return [normalized];
+
+    final List<String> pages = [];
+    final StringBuffer buffer = StringBuffer();
+
+    for (final paragraph in paragraphs) {
+      final candidate =
+          buffer.isEmpty ? paragraph : '${buffer.toString()}\n\n$paragraph';
+
+      if (candidate.length <= targetCharsPerPage) {
+        buffer
+          ..clear()
+          ..write(candidate);
+      } else {
+        if (buffer.isNotEmpty) {
+          pages.add(buffer.toString());
+          buffer.clear();
+        }
+
+        if (paragraph.length <= targetCharsPerPage) {
+          buffer.write(paragraph);
+        } else {
+          int start = 0;
+          while (start < paragraph.length) {
+            int end = start + targetCharsPerPage;
+            if (end >= paragraph.length) {
+              pages.add(paragraph.substring(start).trim());
+              break;
+            }
+
+            int splitAt = paragraph.lastIndexOf(' ', end);
+            if (splitAt <= start) splitAt = end;
+
+            pages.add(paragraph.substring(start, splitAt).trim());
+            start = splitAt;
+          }
+        }
+      }
+    }
+
+    if (buffer.isNotEmpty) {
+      pages.add(buffer.toString());
+    }
+
+    return pages.isEmpty ? [text] : pages;
+  }
+
   void _previousPage() {
-    if (!_isBookLoaded) return;
-    _readController.previousPage();
+    if (_bookType == 'txt') {
+      if (!_isBookLoaded || _currentPage <= 1) return;
+      setState(() {
+        _currentPage--;
+        _updateTxtProgress();
+      });
+    }
   }
 
   void _nextPage() {
-    if (!_isBookLoaded) return;
-    _readController.nextPage();
+    if (_bookType == 'txt') {
+      if (!_isBookLoaded || _currentPage >= _totalPages) return;
+      setState(() {
+        _currentPage++;
+        _updateTxtProgress();
+      });
+    }
   }
 
-  void _showSettingsSheet() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Wrap(
-              children: [
-                const ListTile(
-                  title: Text(
-                    'Reading Settings',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.upload_file),
-                  title: const Text('Import Book'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickAndLoadFile();
-                  },
-                ),
-                const ListTile(
-                  leading: Icon(Icons.text_fields),
-                  title: Text('Font controls can be added later'),
-                ),
-                const ListTile(
-                  leading: Icon(Icons.palette_outlined),
-                  title: Text('Theme controls can be added later'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  void _jumpToPage(double value) {
+    if (_bookType != 'txt' || !_isBookLoaded || _totalPages <= 1) return;
+
+    final targetPage = ((value * (_totalPages - 1)).round()) + 1;
+
+    setState(() {
+      _currentPage = targetPage.clamp(1, _totalPages);
+      _updateTxtProgress();
+    });
+  }
+
+  void _updateTxtProgress() {
+    _sliderValue =
+        _totalPages <= 1 ? 0.0 : (_currentPage - 1) / (_totalPages - 1);
+    _chapterLabel = 'Page $_currentPage / $_totalPages';
   }
 
   void _showReaderMenu() {
     showModalBottomSheet(
       context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Wrap(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.upload_file),
-                  title: const Text('Import Book'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickAndLoadFile();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.arrow_back),
-                  title: const Text('Previous Page'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _previousPage();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.arrow_forward),
-                  title: const Text('Next Page'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _nextPage();
-                  },
-                ),
-              ],
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.upload_file),
+              title: const Text('Import Book'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndLoadFile();
+              },
             ),
-          ),
-        );
-      },
+            if (_bookType == 'txt') ...[
+              ListTile(
+                leading: const Icon(Icons.arrow_back),
+                title: const Text('Previous Page'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _previousPage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.arrow_forward),
+                title: const Text('Next Page'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _nextPage();
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
-  void _showErrorDialog(String message) {
-    if (!mounted) return;
+  void _showSettings() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => const SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: Icon(Icons.text_fields),
+              title: Text('Font settings can be added later'),
+            ),
+            ListTile(
+              leading: Icon(Icons.palette_outlined),
+              title: Text('Theme settings can be added later'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  void _showMessage(String message) {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -226,7 +311,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.pop(context),
             child: const Text('OK'),
           ),
         ],
@@ -236,6 +321,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
 
   Widget _buildHeader() {
     return Container(
+      width: double.infinity,
       color: Colors.grey.shade600,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Column(
@@ -256,7 +342,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
                 icon: const Icon(Icons.menu, color: Colors.white),
               ),
               IconButton(
-                onPressed: _showSettingsSheet,
+                onPressed: _showSettings,
                 icon: const Icon(Icons.settings, color: Colors.white),
               ),
             ],
@@ -294,7 +380,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Import a book to start reading',
+              'Import a .txt or .epub file to start reading',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
@@ -304,7 +390,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             ),
             const SizedBox(height: 10),
             const Text(
-              'missing files, import one to start reading',
+              'TXT uses the custom reader. EPUB opens in the embedded EPUB view.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -324,41 +410,106 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     );
   }
 
-  Widget _buildReaderArea() {
+  Widget _buildTxtReaderArea() {
     return Container(
       width: double.infinity,
       color: const Color(0xFFF7F5F0),
-      child: _isLoadingBook
-          ? const Center(child: CircularProgressIndicator())
-          : !_isBookLoaded
-              ? _buildEmptyState()
-              : ReadView(
-                  readController: _readController,
-                  onMenu: _showReaderMenu,
-                  onScroll: () {},
-                ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          _pages[_currentPage - 1],
+          style: const TextStyle(
+            fontSize: 20,
+            height: 1.6,
+            color: Color(0xFF2E2E2E),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildEpubReaderArea() {
+    if (_epubController == null) {
+      return const Center(child: Text('EPUB controller not ready.'));
+    }
+
     return Container(
+      width: double.infinity,
+      color: const Color(0xFFF7F5F0),
+      child: EpubView(
+        controller: _epubController!,
+        onDocumentLoaded: (document) {
+          if (!mounted) return;
+          setState(() {
+            _chapterLabel = 'EPUB loaded';
+            _sliderValue = 0.0;
+          });
+        },
+        onChapterChanged: (chapter) {
+          if (!mounted) return;
+          final title = chapter?.chapter?.Title?.trim() ?? '';
+          if (title.isNotEmpty) {
+            setState(() {
+              _chapterLabel = title;
+            });
+          }
+        },
+        onDocumentError: (error) {
+          _showMessage('EPUB error: $error');
+        },
+      ),
+    );
+  }
+
+  Widget _buildReaderArea() {
+    if (_isLoadingBook) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!_isBookLoaded) {
+      return _buildEmptyState();
+    }
+
+    if (_bookType == 'txt' && _pages.isNotEmpty) {
+      return _buildTxtReaderArea();
+    }
+
+    if (_bookType == 'epub') {
+      return _buildEpubReaderArea();
+    }
+
+    return _buildEmptyState();
+  }
+
+  Widget _buildFooter() {
+    final progressText = !_isBookLoaded
+        ? 'No progress yet'
+        : _bookType == 'txt'
+            ? '$_currentPage of $_totalPages'
+            : 'EPUB reading mode';
+
+    return Container(
+      width: double.infinity,
       color: Colors.grey.shade600,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
       child: Column(
         children: [
           Text(
-            _isBookLoaded ? '$_currentPage of $_totalPages' : 'No progress yet',
+            progressText,
             style: const TextStyle(color: Colors.white),
           ),
           Slider(
             value: _sliderValue.clamp(0.0, 1.0),
-            onChanged: null,
+            onChanged:
+                (_bookType == 'txt' && _isBookLoaded) ? _jumpToPage : null,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               ElevatedButton(
-                onPressed: _isBookLoaded ? _previousPage : null,
+                onPressed: (_bookType == 'txt' && _isBookLoaded)
+                    ? _previousPage
+                    : null,
                 child: const Text('Prev'),
               ),
               ElevatedButton.icon(
@@ -367,7 +518,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
                 label: const Text('Import'),
               ),
               ElevatedButton(
-                onPressed: _isBookLoaded ? _nextPage : null,
+                onPressed:
+                    (_bookType == 'txt' && _isBookLoaded) ? _nextPage : null,
                 child: const Text('Next'),
               ),
             ],
@@ -379,12 +531,11 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
 
   @override
   void dispose() {
-    _progressSubscription?.cancel();
+    _epubController?.dispose();
     super.dispose();
   }
 
   @override
-    @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
@@ -400,5 +551,3 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     );
   }
 }
-
-
