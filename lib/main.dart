@@ -2,7 +2,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+<<<<<<< HEAD
 import 'reading_module_page.dart'; 
+=======
+import 'reading_module_page.dart'; // will be used later, just to make sure it is included in the project, test on an emulator tomorrow - Quan
+>>>>>>> 34d79ab3b5f980f2325ae30861da25620faaf155
 
 const bool showReadingModule = true; // FOR TESTING PURPOSES ONLY, SET TO FALSE TO SHOW THE AUTH SCREEN INSTEAD
 
