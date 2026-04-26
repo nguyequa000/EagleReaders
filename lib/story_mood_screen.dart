@@ -1,42 +1,25 @@
 import 'package:flutter/material.dart';
+import 'story_character_screen.dart';
 
-// Carries the user's story choices across all 4 steps
-class StoryConfig {
-  final String? character;
-  final String? mood;
-  final String? setting;
-
-  const StoryConfig({this.character, this.mood, this.setting});
-
-  StoryConfig copyWith({String? character, String? mood, String? setting}) {
-    return StoryConfig(
-      character: character ?? this.character,
-      mood: mood ?? this.mood,
-      setting: setting ?? this.setting,
-    );
-  }
-}
-
-class _CharacterOption {
+class _MoodOption {
   final String label;
   final String emoji;
 
-  const _CharacterOption(this.label, this.emoji);
+  const _MoodOption(this.label, this.emoji);
 }
 
-// Step 1 of 4 in the AI story creation flow — character selection
-class StoryCharacterScreen extends StatefulWidget {
+class StoryMoodScreen extends StatefulWidget {
+  final StoryConfig config;
   final VoidCallback? onBack;
   final void Function(StoryConfig config)? onNext;
 
-  const StoryCharacterScreen({super.key, this.onBack, this.onNext});
+  const StoryMoodScreen({super.key, required this.config, this.onBack, this.onNext});
 
   @override
-  State<StoryCharacterScreen> createState() => _StoryCharacterScreenState();
+  State<StoryMoodScreen> createState() => _StoryMoodScreenState();
 }
 
-class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
-  // Theme colors 
+class _StoryMoodScreenState extends State<StoryMoodScreen> {
   static const Color _forestGreen = Color(0xFF3D6B1A);
   static const Color _buttonGreen = Color(0xFF4A7C20);
   static const Color _cream = Color(0xFFF5F0DC);
@@ -44,20 +27,18 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
   static const Color _sectionLabel = Color(0xFF5C7A2A);
   static const Color _selectedBg = Color(0xFFE8F5D0);
 
-  // Placeholder characters — replace with real data later
-  static const List<_CharacterOption> _characters = [
-    _CharacterOption('Brave Knight', '⚔️'),
-    _CharacterOption('Friendly Dragon', '🐉'),
-    _CharacterOption('Clever Fox', '🦊'),
-    _CharacterOption('Magic Fairy', '🧚'),
+  static const List<_MoodOption> _moods = [
+    _MoodOption('Funny', '😄'),
+    _MoodOption('Adventurous', '🏕️'),
+    _MoodOption('Spooky', '👻'),
+    _MoodOption('Calm', '😌'),
   ];
 
   String? _selected;
 
-  // Passes the chosen character to the next step
   void _handleNext() {
     if (_selected == null) return;
-    widget.onNext?.call(StoryConfig(character: _selected));
+    widget.onNext?.call(widget.config.copyWith(mood: _selected));
   }
 
   @override
@@ -75,12 +56,10 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
                 children: [
                   _buildSproutBubble(),
                   const SizedBox(height: 16),
-                  _buildSectionLabel('CHOOSE YOUR CHARACTER'),
+                  _buildSectionLabel('CHOOSE A MOOD'),
                   const SizedBox(height: 12),
-                  // Grid expands to fill remaining space so nothing scrolls
-                  Expanded(child: _buildCharacterGrid()),
+                  Expanded(child: _buildMoodGrid()),
                   const SizedBox(height: 12),
-                  // Next button only appears once a character is selected
                   if (_selected != null) _buildNextButton(),
                   if (_selected != null) const SizedBox(height: 4),
                 ],
@@ -96,7 +75,6 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
   Widget _buildHeader(BuildContext context) {
     return Container(
       color: _forestGreen,
-      // Top padding accounts for the device status bar
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
         bottom: 14,
@@ -121,14 +99,12 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
               ),
             ),
           ),
-          // Spacer keeps the title visually centered under the back button
           const SizedBox(width: 48),
         ],
       ),
     );
   }
 
-  // Reusable uppercase section heading used across story steps
   Widget _buildSectionLabel(String text) {
     return Text(
       text,
@@ -142,7 +118,6 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
     );
   }
 
-  // Sprout mascot speech bubble prompting the child to pick a character
   Widget _buildSproutBubble() {
     return Container(
       decoration: BoxDecoration(
@@ -160,7 +135,6 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sprout avatar
           Container(
             width: 48,
             height: 48,
@@ -176,7 +150,7 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              "Hi! I'm Sprout! I'll help you write your story. First — who is your story about?",
+              "Great choice! Now, what kind of mood should your story have?",
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
@@ -190,7 +164,7 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
     );
   }
 
-  Widget _buildCharacterGrid() {
+  Widget _buildMoodGrid() {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: false,
@@ -198,16 +172,15 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       childAspectRatio: 0.85,
-      children: _characters.map((c) => _buildCharacterTile(c)).toList(),
+      children: _moods.map((m) => _buildMoodTile(m)).toList(),
     );
   }
 
-  // Individual selectable character card
-  Widget _buildCharacterTile(_CharacterOption character) {
-    final isSelected = _selected == character.label;
+  Widget _buildMoodTile(_MoodOption mood) {
+    final isSelected = _selected == mood.label;
 
     return GestureDetector(
-      onTap: () => setState(() => _selected = character.label),
+      onTap: () => setState(() => _selected = mood.label),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -238,14 +211,14 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
               ),
               child: Center(
                 child: Text(
-                  character.emoji,
+                  mood.emoji,
                   style: const TextStyle(fontSize: 28),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              character.label,
+              mood.label,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -282,7 +255,6 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
     );
   }
 
-  // Shows which step of 4 the user is on
   Widget _buildProgressBar() {
     return Container(
       color: _forestGreen,
@@ -290,7 +262,7 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
       child: Column(
         children: [
           const Text(
-            '1 of 4',
+            '2 of 4',
             style: TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -305,7 +277,7 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
                   height: 5,
                   margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
                   decoration: BoxDecoration(
-                    color: i == 0
+                    color: i == 1
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(3),
