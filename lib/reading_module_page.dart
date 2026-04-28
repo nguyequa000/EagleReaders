@@ -20,15 +20,43 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
 
   String _bookType = ''; // 'txt' or 'epub'
 
-  // TXT reader state
+  // TXT state
   String _bookContent = '';
   List<String> _pages = [];
   int _currentPage = 1;
   int _totalPages = 1;
   double _sliderValue = 0.0;
 
-  // EPUB reader state
+  // Reader settings
+  double _fontSize = 20;
+  double _lineHeight = 1.6;
+  String _readerTheme = 'paper'; // paper, white, dark
+
+  // EPUB state
   EpubController? _epubController;
+
+  Color get _readerBackgroundColor {
+    switch (_readerTheme) {
+      case 'white':
+        return Colors.white;
+      case 'dark':
+        return const Color(0xFF1E1E1E);
+      case 'paper':
+      default:
+        return const Color(0xFFF7F5F0);
+    }
+  }
+
+  Color get _readerTextColor {
+    switch (_readerTheme) {
+      case 'dark':
+        return Colors.white;
+      case 'white':
+      case 'paper':
+      default:
+        return const Color(0xFF2E2E2E);
+    }
+  }
 
   Future<void> _pickAndLoadFile() async {
     try {
@@ -85,9 +113,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       final content = String.fromCharCodes(bytes).trim();
 
       if (content.isEmpty) {
-        setState(() {
-          _isLoadingBook = false;
-        });
+        setState(() => _isLoadingBook = false);
         _showMessage('The selected .txt file is empty.');
         return;
       }
@@ -201,31 +227,29 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       }
     }
 
-    if (buffer.isNotEmpty) {
-      pages.add(buffer.toString());
-    }
+    if (buffer.isNotEmpty) pages.add(buffer.toString());
 
     return pages.isEmpty ? [text] : pages;
   }
 
   void _previousPage() {
-    if (_bookType == 'txt') {
-      if (!_isBookLoaded || _currentPage <= 1) return;
-      setState(() {
-        _currentPage--;
-        _updateTxtProgress();
-      });
-    }
+    if (_bookType != 'txt' || !_isBookLoaded || _currentPage <= 1) return;
+
+    setState(() {
+      _currentPage--;
+      _updateTxtProgress();
+    });
   }
 
   void _nextPage() {
-    if (_bookType == 'txt') {
-      if (!_isBookLoaded || _currentPage >= _totalPages) return;
-      setState(() {
-        _currentPage++;
-        _updateTxtProgress();
-      });
+    if (_bookType != 'txt' || !_isBookLoaded || _currentPage >= _totalPages) {
+      return;
     }
+
+    setState(() {
+      _currentPage++;
+      _updateTxtProgress();
+    });
   }
 
   void _jumpToPage(double value) {
@@ -286,20 +310,88 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   void _showSettings() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => const SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: Icon(Icons.text_fields),
-              title: Text('Font settings can be added later'),
-            ),
-            ListTile(
-              leading: Icon(Icons.palette_outlined),
-              title: Text('Theme settings can be added later'),
-            ),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  children: [
+                    const ListTile(
+                      title: Text(
+                        'Reading Settings',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      title: Text('Font Size: ${_fontSize.round()}'),
+                      subtitle: Slider(
+                        min: 14,
+                        max: 32,
+                        value: _fontSize,
+                        onChanged: (value) {
+                          setSheetState(() => _fontSize = value);
+                          setState(() => _fontSize = value);
+                        },
+                      ),
+                    ),
+                    ListTile(
+                      title: Text(
+                        'Line Spacing: ${_lineHeight.toStringAsFixed(1)}',
+                      ),
+                      subtitle: Slider(
+                        min: 1.2,
+                        max: 2.2,
+                        value: _lineHeight,
+                        onChanged: (value) {
+                          setSheetState(() => _lineHeight = value);
+                          setState(() => _lineHeight = value);
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    RadioListTile<String>(
+                      title: const Text('Paper Theme'),
+                      value: 'paper',
+                      groupValue: _readerTheme,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => _readerTheme = value);
+                        setState(() => _readerTheme = value);
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('White Theme'),
+                      value: 'white',
+                      groupValue: _readerTheme,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => _readerTheme = value);
+                        setState(() => _readerTheme = value);
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Dark Theme'),
+                      value: 'dark',
+                      groupValue: _readerTheme,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => _readerTheme = value);
+                        setState(() => _readerTheme = value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -413,15 +505,24 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   Widget _buildTxtReaderArea() {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFF7F5F0),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          _pages[_currentPage - 1],
-          style: const TextStyle(
-            fontSize: 20,
-            height: 1.6,
-            color: Color(0xFF2E2E2E),
+      color: _readerBackgroundColor,
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.noScaling,
+        ),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: SelectableText(
+              _pages[_currentPage - 1],
+              style: TextStyle(
+                fontSize: _fontSize,
+                height: _lineHeight,
+                color: _readerTextColor,
+              ),
+            ),
           ),
         ),
       ),
@@ -435,7 +536,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
 
     return Container(
       width: double.infinity,
-      color: const Color(0xFFF7F5F0),
+      color: _readerBackgroundColor,
       child: EpubView(
         controller: _epubController!,
         onDocumentLoaded: (document) {
@@ -466,9 +567,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (!_isBookLoaded) {
-      return _buildEmptyState();
-    }
+    if (!_isBookLoaded) return _buildEmptyState();
 
     if (_bookType == 'txt' && _pages.isNotEmpty) {
       return _buildTxtReaderArea();
