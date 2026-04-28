@@ -2,8 +2,32 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+import 'comprehension_screen.dart';
+import 'login_screen.dart';
 
-void main() {
+
+
+
+
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(
+    MaterialApp(
+      title: 'Story Sprout',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+      ),
+      home: const LoginScreen(),
+    ),
+  );
+}
+
+/* void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     MaterialApp(
@@ -12,7 +36,32 @@ void main() {
       home: const MyHomePage(),
     ),
   );
-}
+} */
+
+/* void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    MaterialApp(
+      title: 'Story Sprout',
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.green)),
+      home: ComprehensionScreen(
+        chapterNumber: 1,
+        questions: [
+          ComprehensionQuestion(
+            question: 'What did the little seed need to grow?',
+            answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
+            correctIndex: 0,
+          ),
+          ComprehensionQuestion(
+            question: 'Where did the story take place?',
+            answers: ['In a city', 'In a garden', 'In the ocean'],
+            correctIndex: 1,
+          ),
+        ],
+      ),
+    ),
+  );
+} */
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -52,7 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         builder: (context, snapshot) {
           switch (snapshot.connectionState) {
-            case ConnectionState.none:
+            case ConnectionState.done:
               return Column(
                 children: [
                   TextField(
