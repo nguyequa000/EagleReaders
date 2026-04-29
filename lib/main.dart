@@ -2,9 +2,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+<<<<<<< HEAD
 //import 'comprehension_screen.dart';
 import 'login_screen.dart';
 //mport 'reading_module_page.dart';
+=======
+import 'story_character_screen.dart';
+>>>>>>> origin/feature/story-module
 
 
 
