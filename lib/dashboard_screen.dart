@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'reading_module_page.dart';
+import 'story_flow_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -42,7 +43,9 @@ class DashboardScreen extends StatelessWidget {
               subtitle: 'Write your own adventure',
               color: Colors.amber,
               onTap: () {
-                // TODO: navigate to story creation screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const StoryFlowScreen()),
+                );
               },
             ),
           ],
