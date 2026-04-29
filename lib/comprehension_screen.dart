@@ -1,4 +1,4 @@
-import 'dart:convert';
+//import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -121,7 +121,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     _fadeController.forward();
     return;
     
-      if (widget.questions != null) {
+      /* if (widget.questions != null) {
         loaded = widget.questions!;
       } else {
         // Load from bundled JSON asset
@@ -137,7 +137,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         _questions = loaded;
         _loading = false;
       });
-      _fadeController.forward();
+      _fadeController.forward(); */
     } catch (e) {
       setState(() {
         _error = 'Could not load questions.';

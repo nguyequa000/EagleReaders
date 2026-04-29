@@ -21,6 +21,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   String _bookType = ''; // 'txt' or 'epub'
 
   // TXT state
+  // ignore: unused_field
   String _bookContent = '';
   List<String> _pages = [];
   int _currentPage = 1;
