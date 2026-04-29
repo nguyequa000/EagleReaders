@@ -2,8 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
+<<<<<<< HEAD
 import 'comprehension_screen.dart';
 import 'login_screen.dart';
+=======
+import 'reading_module_page.dart'; 
+
+const bool showReadingModule = true; // FOR TESTING PURPOSES ONLY, SET TO FALSE TO SHOW THE AUTH SCREEN INSTEAD
+>>>>>>> origin/feature/reading-module
 
 
 
@@ -33,7 +39,9 @@ void main() async {
     MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
-      home: const MyHomePage(),
+      home: showReadingModule
+          ? const ReadingModulePage()
+          : const MyHomePage()
     ),
   );
 } */
