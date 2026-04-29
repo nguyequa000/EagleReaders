@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'reading_module_page.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -29,7 +30,9 @@ class DashboardScreen extends StatelessWidget {
               subtitle: 'Pick a book and start reading',
               color: Colors.green,
               onTap: () {
-                // TODO: navigate to book selection screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ReadingModulePage()),
+                );
               },
             ),
             const SizedBox(height: 16),
@@ -85,11 +88,14 @@ class _DashboardCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(subtitle,
-                      style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(subtitle, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
               const Spacer(),

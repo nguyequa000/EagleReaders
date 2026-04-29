@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-
+import 'comprehension_screen.dart';
 import 'package:epub_view/epub_view.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -141,7 +141,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     }
   }
 
-  Future<void> _loadEpubFromPath(String path, String fileName) async {
+  /* Future<void> _loadEpubFromPath(String path, String fileName) async {
     try {
       setState(() {
         _isLoadingBook = true;
@@ -175,7 +175,67 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       });
       _showMessage('Error loading EPUB: $e');
     }
+  } */
+
+ Future<void> _loadEpubFromPath(String path, String fileName) async {
+  try {
+    setState(() {
+      _isLoadingBook = true;
+      _isBookLoaded = false;
+      _bookType = '';
+    });
+
+    _epubController?.dispose();
+    _epubController = null;
+
+    // Extract text from all EPUB chapters
+    final epubBook = await EpubDocument.openFile(File(path));
+    final StringBuffer buffer = StringBuffer();
+
+    for (final chapter in epubBook.Chapters ?? []) {
+      if (chapter.Title != null) {
+        buffer.writeln('\n\n${chapter.Title}\n');
+      }
+      buffer.writeln(chapter.HtmlContent ?? '');
+
+      for (final sub in chapter.SubChapters ?? []) {
+        if (sub.Title != null) {
+          buffer.writeln('\n\n${sub.Title}\n');
+        }
+        buffer.writeln(sub.HtmlContent ?? '');
+      }
+    }
+
+    // Strip HTML tags
+    final rawText = buffer
+        .toString()
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll(RegExp(r'\s{2,}'), '\n\n')
+        .trim();
+
+    final pages = _splitIntoPages(rawText);
+
+    setState(() {
+      _bookType = 'txt'; // treat as txt now that it's paged
+      _bookTitle = fileName;
+      _bookContent = rawText;
+      _pages = pages;
+      _currentPage = 1;
+      _totalPages = pages.isEmpty ? 1 : pages.length;
+      _sliderValue = 0.0;
+      _chapterLabel = 'Page 1 / ${pages.length}';
+      _isBookLoaded = true;
+      _isLoadingBook = false;
+    });
+    //_fadeController.forward();
+  } catch (e) {
+    setState(() {
+      _isLoadingBook = false;
+      _isBookLoaded = false;
+    });
+    _showMessage('Error loading EPUB: $e');
   }
+}
 
   List<String> _splitIntoPages(String text) {
     const int targetCharsPerPage = 1200;
@@ -193,8 +253,9 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     final StringBuffer buffer = StringBuffer();
 
     for (final paragraph in paragraphs) {
-      final candidate =
-          buffer.isEmpty ? paragraph : '${buffer.toString()}\n\n$paragraph';
+      final candidate = buffer.isEmpty
+          ? paragraph
+          : '${buffer.toString()}\n\n$paragraph';
 
       if (candidate.length <= targetCharsPerPage) {
         buffer
@@ -241,16 +302,60 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     });
   }
 
-  void _nextPage() {
-    if (_bookType != 'txt' || !_isBookLoaded || _currentPage >= _totalPages) {
-      return;
-    }
+/* void _nextPage() {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ComprehensionScreen(
+        chapterNumber: 1,
+        onKeepReading: () => Navigator.of(context).pop(),
+      ),
+    ),
+  );
+} */
 
-    setState(() {
-      _currentPage++;
-      _updateTxtProgress();
-    });
+void _nextPage() {
+  if (_bookType != 'txt' || !_isBookLoaded) return;
+
+  if (_currentPage >= 20) {
+    // Last page — go to comprehension screen
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ComprehensionScreen(
+          chapterNumber: 1,
+          onKeepReading: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+    return;
   }
+
+  setState(() {
+    _currentPage++;
+    _updateTxtProgress();
+  });
+}
+
+void _nextChapter() {
+  final toc = _epubController?.tableOfContents();
+  if (toc == null || toc.isEmpty) return;
+
+  final current = _epubController?.currentValue?.chapter;
+  final currentIndex = toc.indexWhere((c) => c.title == current?.Title);
+
+  final targetIndex = (currentIndex + 1).clamp(0, toc.length - 1);
+  _epubController?.jumpTo(index: toc[targetIndex].startIndex);
+}
+
+void _previousChapter() {
+  final toc = _epubController?.tableOfContents();
+  if (toc == null || toc.isEmpty) return;
+
+  final current = _epubController?.currentValue?.chapter;
+  final currentIndex = toc.indexWhere((c) => c.title == current?.Title);
+
+  final targetIndex = (currentIndex - 1).clamp(0, toc.length - 1);
+  _epubController?.jumpTo(index: toc[targetIndex].startIndex);
+}
 
   void _jumpToPage(double value) {
     if (_bookType != 'txt' || !_isBookLoaded || _totalPages <= 1) return;
@@ -264,8 +369,9 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   }
 
   void _updateTxtProgress() {
-    _sliderValue =
-        _totalPages <= 1 ? 0.0 : (_currentPage - 1) / (_totalPages - 1);
+    _sliderValue = _totalPages <= 1
+        ? 0.0
+        : (_currentPage - 1) / (_totalPages - 1);
     _chapterLabel = 'Page $_currentPage / $_totalPages';
   }
 
@@ -507,9 +613,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       width: double.infinity,
       color: _readerBackgroundColor,
       child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.noScaling,
-        ),
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
         child: Scrollbar(
           thumbVisibility: true,
           child: SingleChildScrollView(
@@ -517,6 +621,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             padding: const EdgeInsets.all(20),
             child: SelectableText(
               _pages[_currentPage - 1],
+              textAlign: TextAlign.left,
               style: TextStyle(
                 fontSize: _fontSize,
                 height: _lineHeight,
@@ -580,12 +685,25 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     return _buildEmptyState();
   }
 
-  Widget _buildFooter() {
+/*   Widget _buildFooter() {
+    ElevatedButton(
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ComprehensionScreen(
+              chapterNumber: 1,
+              onKeepReading: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
+      },
+      child: const Text('End Chapter →'),
+    );
     final progressText = !_isBookLoaded
         ? 'No progress yet'
         : _bookType == 'txt'
-            ? '$_currentPage of $_totalPages'
-            : 'EPUB reading mode';
+        ? '$_currentPage of $_totalPages'
+        : 'EPUB reading mode';
 
     return Container(
       width: double.infinity,
@@ -593,14 +711,12 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
       child: Column(
         children: [
-          Text(
-            progressText,
-            style: const TextStyle(color: Colors.white),
-          ),
+          Text(progressText, style: const TextStyle(color: Colors.white)),
           Slider(
             value: _sliderValue.clamp(0.0, 1.0),
-            onChanged:
-                (_bookType == 'txt' && _isBookLoaded) ? _jumpToPage : null,
+            onChanged: (_bookType == 'txt' && _isBookLoaded)
+                ? _jumpToPage
+                : null,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -617,9 +733,44 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
                 label: const Text('Import'),
               ),
               ElevatedButton(
-                onPressed:
-                    (_bookType == 'txt' && _isBookLoaded) ? _nextPage : null,
-                child: const Text('Next'),
+                onPressed: _nextPage,
+                child: const Text('next'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  } */
+
+ Widget _buildFooter() {
+  if (_bookType == 'epub') {
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade600,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Column(
+        children: [
+          Text(
+            _chapterLabel,
+            style: const TextStyle(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton(
+                onPressed: _previousChapter,
+                child: const Text('Prev Chapter'),
+              ),
+              ElevatedButton.icon(
+                onPressed: _pickAndLoadFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Import'),
+              ),
+              ElevatedButton(
+                onPressed: _nextChapter,
+                child: const Text('Next chapter'),
               ),
             ],
           ),
@@ -627,6 +778,44 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       ),
     );
   }
+
+  // TXT footer
+  return Container(
+    width: double.infinity,
+    color: Colors.grey.shade600,
+    padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+    child: Column(
+      children: [
+        Text(
+          '$_currentPage of $_totalPages',
+          style: const TextStyle(color: Colors.white),
+        ),
+        Slider(
+          value: _sliderValue.clamp(0.0, 1.0),
+          onChanged: (_bookType == 'txt' && _isBookLoaded) ? _jumpToPage : null,
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ElevatedButton(
+              onPressed: _previousPage,
+              child: const Text('Prev'),
+            ),
+            ElevatedButton.icon(
+              onPressed: _pickAndLoadFile,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Import'),
+            ),
+            ElevatedButton(
+              onPressed: _nextPage,
+              child: const Text('Next'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   void dispose() {

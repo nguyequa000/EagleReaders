@@ -2,6 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+
+
+
+
+
+
 // Data model
 class ComprehensionQuestion {
   final String question;
@@ -59,6 +65,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
+  static const List<ComprehensionQuestion> _demoQuestions = [
+  ComprehensionQuestion(
+    question: 'What did the little seed need to grow?',
+    answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
+    correctIndex: 0,
+  ),
+  ComprehensionQuestion(
+    question: 'Where did the story take place?',
+    answers: ['In a city', 'In a garden', 'In the ocean'],
+    correctIndex: 1,
+  ),
+];
+
   // Story Sprout brand colours 
   static const Color _darkBg = Color(0xFF1A1F1A);
   static const Color _cardBg = Color(0xFF252B25);
@@ -95,6 +114,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     try {
       List<ComprehensionQuestion> loaded;
 
+
+    
+    loaded = _demoQuestions;
+    setState(() { _questions = loaded; _loading = false; });
+    _fadeController.forward();
+    return;
+    
       if (widget.questions != null) {
         loaded = widget.questions!;
       } else {
