@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dashboard_screen.dart';
+import 'parent_dashboard_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -77,7 +77,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   print(userCredential);
                   if (context.mounted) {
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                      MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
                     );
                   }
                 },
