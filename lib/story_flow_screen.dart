@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ai_story_screen.dart';
 import 'story_character_screen.dart';
 import 'story_mood_screen.dart';
 import 'story_setting_screen.dart';
@@ -48,7 +49,14 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
         return StorySummaryScreen(
           config: _config,
           onBack: () => _goToStep(3, _config),
-          onStartReading: widget.onComplete,
+          onStartReading: (config) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StoryReaderScreen(config: config),
+              ),
+            );
+            widget.onComplete?.call(config);
+          },
         );
       default:
         return StoryCharacterScreen(
