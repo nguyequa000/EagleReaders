@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart';
 import 'registration_screen.dart';
+import 'parent_or_child_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // TODO: replace with real Firebase Auth later
     // For now, any credentials go straight to dashboard
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      MaterialPageRoute(builder: (_) => const ParentOrChildScreen()),
     );
   }
 
