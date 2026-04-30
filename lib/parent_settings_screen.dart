@@ -180,7 +180,7 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Colors.green,
+            activeThumbColor: Colors.green,
           ),
         ],
       ),
