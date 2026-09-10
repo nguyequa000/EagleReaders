@@ -1,8 +1,27 @@
 import 'package:flutter/material.dart';
+import 'child_profiles.dart';
 import 'parent_settings_screen.dart';
 
-class ParentDashboardScreen extends StatelessWidget {
+class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
+
+  @override
+  State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
+}
+
+class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+  List<ChildProfile>? _children;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final children = await ChildProfileStore.load();
+    if (mounted) setState(() => _children = children);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,24 +43,28 @@ class ParentDashboardScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Reading Stats
-            const Text('Reading Stats',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Reading Stats',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             _buildReadingStats(),
             const SizedBox(height: 20),
 
             // Child Profiles
-            const Text('Child Profiles',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Child Profiles',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            _buildChildProfile('Alex'),
-            const SizedBox(height: 8),
-            _buildChildProfile('Sam'),
+            ..._buildChildProfiles(),
             const SizedBox(height: 20),
 
             // Recent Activity
-            const Text('Family\'s Recent Activity',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Family\'s Recent Activity',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             _buildActivityItem('Alex read "The Tiny Seed"'),
             const SizedBox(height: 8),
@@ -75,10 +98,14 @@ class ParentDashboardScreen extends StatelessWidget {
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hello, User',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('Parent Account',
-                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text(
+                'Hello, User',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Parent Account',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
             ],
           ),
           const Spacer(),
@@ -105,7 +132,37 @@ class ParentDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChildProfile(String name) {
+  /// The "Child Profiles" rows: real profiles from the local store once loaded,
+  /// an empty-state row if there are none, nothing while still loading.
+  List<Widget> _buildChildProfiles() {
+    final children = _children;
+    if (children == null) return const [];
+    if (children.isEmpty) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+          child: const Text(
+            'No child profiles yet.',
+            style: TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+        ),
+      ];
+    }
+    final rows = <Widget>[];
+    for (final child in children) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
+      rows.add(_buildChildProfile(child));
+    }
+    return rows;
+  }
+
+  Widget _buildChildProfile(ChildProfile child) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -118,22 +175,23 @@ class ParentDashboardScreen extends StatelessWidget {
           CircleAvatar(
             radius: 22,
             backgroundColor: Colors.amber.withOpacity(0.2),
-            child: const Text('🧒', style: TextStyle(fontSize: 20)),
+            child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 12),
-          Text(name,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(
+            child.name,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
           const Spacer(),
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('View'),
           ),
@@ -174,15 +232,20 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green)),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
           ],
         ),
       ),

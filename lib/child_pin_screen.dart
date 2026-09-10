@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import 'child_dashboard_screen.dart';
+import 'child_profiles.dart';
 
 class ChildPinScreen extends StatefulWidget {
-  final String childName;
+  final ChildProfile child;
 
-  const ChildPinScreen({super.key, required this.childName});
+  const ChildPinScreen({super.key, required this.child});
 
   @override
   State<ChildPinScreen> createState() => _ChildPinScreenState();
@@ -14,14 +16,11 @@ class _ChildPinScreenState extends State<ChildPinScreen> {
   final TextEditingController _pin = TextEditingController();
   String? _error;
 
-  // DEMO: hardcoded pin for testing
-  static const String _demoPin = '1234';
-
   void _submit() {
-    if (_pin.text == _demoPin) {
+    if (_pin.text == widget.child.pin) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ChildDashboardScreen(childName: widget.childName),
+          builder: (_) => ChildDashboardScreen(childName: widget.child.name),
         ),
       );
     } else {
@@ -39,7 +38,7 @@ class _ChildPinScreenState extends State<ChildPinScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hi ${widget.childName}!'),
+        title: Text('Hi ${widget.child.name}!'),
         backgroundColor: Colors.amber,
         foregroundColor: Colors.white,
       ),
@@ -51,7 +50,7 @@ class _ChildPinScreenState extends State<ChildPinScreen> {
             const Text('🔑', style: TextStyle(fontSize: 64)),
             const SizedBox(height: 16),
             Text(
-              'Enter your PIN, ${widget.childName}!',
+              'Enter your PIN, ${widget.child.name}!',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 32),
@@ -80,8 +79,10 @@ class _ChildPinScreenState extends State<ChildPinScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Let\'s Go! 🚀',
-                    style: TextStyle(fontSize: 16)),
+                child: const Text(
+                  'Let\'s Go! 🚀',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ],
