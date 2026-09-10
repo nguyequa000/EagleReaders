@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'child_dashboard_screen.dart';
-import 'child_profiles.dart';
+import '../services/child_profiles.dart';
 
 class ChildPinScreen extends StatefulWidget {
   final ChildProfile child;

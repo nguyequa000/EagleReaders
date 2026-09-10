@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:storysprout/child_setup_screen.dart';
-import 'package:storysprout/registration_screen.dart';
+import 'package:storysprout/screens/child_setup_screen.dart';
+import 'package:storysprout/screens/registration_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -3,8 +3,8 @@ import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
-import 'package:storysprout/login_screen.dart';
-import 'package:storysprout/parent_or_child_screen.dart';
+import 'package:storysprout/screens/login_screen.dart';
+import 'package:storysprout/screens/parent_or_child_screen.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);

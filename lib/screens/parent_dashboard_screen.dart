@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'child_profiles.dart';
+import '../services/child_profiles.dart';
 import 'parent_settings_screen.dart';
 
 class ParentDashboardScreen extends StatefulWidget {

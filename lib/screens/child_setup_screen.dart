@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'child_profiles.dart';
+import '../services/child_profiles.dart';
 import 'parent_dashboard_screen.dart';
 
 /// Shown once, right after a parent creates their account: how many children,

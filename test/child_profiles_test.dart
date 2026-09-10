@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:storysprout/child_profiles.dart';
+import 'package:storysprout/services/child_profiles.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

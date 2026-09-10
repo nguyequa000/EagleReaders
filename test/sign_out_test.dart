@@ -1,8 +1,8 @@
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:storysprout/login_screen.dart';
-import 'package:storysprout/parent_settings_screen.dart';
+import 'package:storysprout/screens/login_screen.dart';
+import 'package:storysprout/screens/parent_settings_screen.dart';
 
 void main() {
   testWidgets('Sign Out clears the session and returns to the login screen '

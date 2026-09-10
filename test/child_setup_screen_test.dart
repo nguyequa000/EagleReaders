@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:storysprout/child_profiles.dart';
-import 'package:storysprout/child_setup_screen.dart';
-import 'package:storysprout/parent_dashboard_screen.dart';
+import 'package:storysprout/services/child_profiles.dart';
+import 'package:storysprout/screens/child_setup_screen.dart';
+import 'package:storysprout/screens/parent_dashboard_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

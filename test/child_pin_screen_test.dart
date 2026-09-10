@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:storysprout/child_dashboard_screen.dart';
-import 'package:storysprout/child_pin_screen.dart';
-import 'package:storysprout/child_profiles.dart';
+import 'package:storysprout/screens/child_dashboard_screen.dart';
+import 'package:storysprout/screens/child_pin_screen.dart';
+import 'package:storysprout/services/child_profiles.dart';
 
 void main() {
   const child = ChildProfile(id: '1', name: 'Alex', pin: '4321');

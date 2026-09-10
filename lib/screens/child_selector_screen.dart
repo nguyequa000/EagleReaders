@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'child_pin_screen.dart';
-import 'child_profiles.dart';
+import '../services/child_profiles.dart';
 
 class ChildSelectorScreen extends StatefulWidget {
   const ChildSelectorScreen({super.key});
