@@ -48,3 +48,8 @@ flutter test
 ## Contributions
 
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md) for a breakdown of what each team member worked on.
+
+## Asset Attribution
+
+Bundled illustrations and fonts are third-party open-source assets. See
+[ATTRIBUTION.md](./ATTRIBUTION.md) for sources and licenses.
