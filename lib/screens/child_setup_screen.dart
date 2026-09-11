@@ -4,9 +4,12 @@ import '../services/child_profiles.dart';
 import 'parent_dashboard_screen.dart';
 
 /// Shown once, right after a parent creates their account: how many children,
-/// and a name + 4-digit PIN for each. Saved locally via [ChildProfileStore].
+/// and a name + 4-digit PIN for each. Saved to Firestore via [ChildProfileStore].
 class ChildSetupScreen extends StatefulWidget {
-  const ChildSetupScreen({super.key});
+  const ChildSetupScreen({super.key, this.store});
+
+  /// Injectable for tests; defaults to the shared Firebase singletons.
+  final ChildProfileStore? store;
 
   static const int maxChildren = 6;
 
@@ -15,6 +18,7 @@ class ChildSetupScreen extends StatefulWidget {
 }
 
 class _ChildSetupScreenState extends State<ChildSetupScreen> {
+  late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   final List<TextEditingController> _nameCtrls = [];
   final List<TextEditingController> _pinCtrls = [];
   int _count = 1;
@@ -68,17 +72,33 @@ class _ChildSetupScreenState extends State<ChildSetupScreen> {
     final now = DateTime.now().microsecondsSinceEpoch;
     final profiles = [
       for (var i = 0; i < names.length; i++)
-        ChildProfile(id: '${now}_$i', name: names[i], pin: pins[i]),
+        ChildProfile.withPin(id: '${now}_$i', name: names[i], pin: pins[i]),
     ];
 
     setState(() {
       _saving = true;
       _error = null;
     });
-    await ChildProfileStore.save(profiles);
+
+    try {
+      await _store.save(profiles);
+    } catch (_) {
+      // Leave the form filled in so the parent can simply press Done again.
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Could not save. Check your connection and try again.';
+        });
+      }
+      return;
+    }
+
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+      MaterialPageRoute(
+        // Forward the store so an injected one keeps flowing through.
+        builder: (_) => ParentDashboardScreen(store: widget.store),
+      ),
     );
   }
 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/screens/child_setup_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+
+import 'test_helpers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +16,8 @@ void main() {
   testWidgets('defaults to one child; count dropdown adds rows', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(const ChildSetupScreen()));
+    final ctx = signedIn();
+    await tester.pumpWidget(wrap(ChildSetupScreen(store: ctx.store)));
 
     // 1 name + 1 PIN field.
     expect(find.byType(TextField), findsNWidgets(2));
@@ -31,7 +33,8 @@ void main() {
   testWidgets('valid entries are saved and navigate to the dashboard', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(const ChildSetupScreen()));
+    final ctx = signedIn();
+    await tester.pumpWidget(wrap(ChildSetupScreen(store: ctx.store)));
 
     await tester.tap(find.byType(DropdownButton<int>));
     await tester.pumpAndSettle();
@@ -52,13 +55,15 @@ void main() {
 
     expect(find.byType(ParentDashboardScreen), findsOneWidget);
 
-    final saved = await ChildProfileStore.load();
+    final saved = await ctx.store.load();
     expect(saved.map((c) => c.name), ['Emma', 'Noah']);
-    expect(saved.map((c) => c.pin), ['1111', '2222']);
+    expect(saved[0].verifyPin('1111'), isTrue);
+    expect(saved[1].verifyPin('2222'), isTrue);
   });
 
   testWidgets('a blank name or short PIN blocks saving', (tester) async {
-    await tester.pumpWidget(wrap(const ChildSetupScreen()));
+    final ctx = signedIn();
+    await tester.pumpWidget(wrap(ChildSetupScreen(store: ctx.store)));
 
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'Emma');
@@ -71,6 +76,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(ParentDashboardScreen), findsNothing);
-    expect(await ChildProfileStore.load(), isEmpty);
+    expect(await ctx.store.load(), isEmpty);
   });
 }

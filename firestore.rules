@@ -3,13 +3,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // A signed-in parent can read and write only their own profile document.
+    // A signed-in parent can read and write only their own profile document,
+    // and everything nested under it: children, and each child's reading
+    // progress and sessions.
+    //
+    // Children have no Firebase identity of their own — they are profiles under
+    // the parent's account, gated client-side by a PIN — so the parent stays
+    // the signed-in user while a child reads, and the same uid check covers
+    // reading activity writes.
     match /parents/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Everything else is denied until its access model is designed
-    // (child profiles, reading activity, stories — see PROJECT_CONTEXT.md).
+    // (stories — see PROJECT_CONTEXT.md).
     match /{document=**} {
       allow read, write: if false;
     }

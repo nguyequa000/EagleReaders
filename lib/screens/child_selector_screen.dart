@@ -4,13 +4,17 @@ import 'child_pin_screen.dart';
 import '../services/child_profiles.dart';
 
 class ChildSelectorScreen extends StatefulWidget {
-  const ChildSelectorScreen({super.key});
+  const ChildSelectorScreen({super.key, this.store});
+
+  /// Injectable for tests; defaults to the shared Firebase singletons.
+  final ChildProfileStore? store;
 
   @override
   State<ChildSelectorScreen> createState() => _ChildSelectorScreenState();
 }
 
 class _ChildSelectorScreenState extends State<ChildSelectorScreen> {
+  late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   List<ChildProfile>? _children;
 
   @override
@@ -20,7 +24,14 @@ class _ChildSelectorScreenState extends State<ChildSelectorScreen> {
   }
 
   Future<void> _load() async {
-    final children = await ChildProfileStore.load();
+    List<ChildProfile> children;
+    try {
+      children = await _store.load();
+    } catch (_) {
+      // Offline or rules-denied: fall back to the empty state rather than
+      // leaving the spinner up forever.
+      children = [];
+    }
     if (mounted) setState(() => _children = children);
   }
 

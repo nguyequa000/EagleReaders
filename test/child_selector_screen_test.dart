@@ -5,21 +5,25 @@ import 'package:storysprout/screens/child_pin_screen.dart';
 import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/screens/child_selector_screen.dart';
 
+import 'test_helpers.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   Widget wrap(Widget child) => MaterialApp(home: child);
 
   testWidgets('renders a button per stored child and opens its PIN screen', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
-    await ChildProfileStore.save([
-      const ChildProfile(id: 'a', name: 'Emma', pin: '1111'),
-      const ChildProfile(id: 'b', name: 'Noah', pin: '2222'),
+    final ctx = signedIn();
+    await ctx.store.save([
+      ChildProfile.withPin(id: 'a', name: 'Emma', pin: '1111'),
+      ChildProfile.withPin(id: 'b', name: 'Noah', pin: '2222'),
     ]);
 
-    await tester.pumpWidget(wrap(const ChildSelectorScreen()));
+    await tester.pumpWidget(wrap(ChildSelectorScreen(store: ctx.store)));
     await tester.pumpAndSettle();
 
     expect(find.text('Emma'), findsOneWidget);
@@ -35,9 +39,9 @@ void main() {
   testWidgets('shows an empty state when no children are stored', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    final ctx = signedIn();
 
-    await tester.pumpWidget(wrap(const ChildSelectorScreen()));
+    await tester.pumpWidget(wrap(ChildSelectorScreen(store: ctx.store)));
     await tester.pumpAndSettle();
 
     expect(find.text('No child profiles yet.'), findsOneWidget);

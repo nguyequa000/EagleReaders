@@ -3,13 +3,17 @@ import '../services/child_profiles.dart';
 import 'parent_settings_screen.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+  const ParentDashboardScreen({super.key, this.store});
+
+  /// Injectable for tests; defaults to the shared Firebase singletons.
+  final ChildProfileStore? store;
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+  late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   List<ChildProfile>? _children;
 
   @override
@@ -19,7 +23,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Future<void> _load() async {
-    final children = await ChildProfileStore.load();
+    List<ChildProfile> children;
+    try {
+      children = await _store.load();
+    } catch (_) {
+      children = [];
+    }
     if (mounted) setState(() => _children = children);
   }
 
