@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'story_character_screen.dart';
+import 'story/story_config.dart';
 
 class StoryReaderScreen extends StatelessWidget {
   final StoryConfig config;

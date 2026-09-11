@@ -1,21 +1,8 @@
 import 'package:flutter/material.dart';
 
-// Carries the user's story choices across all 4 steps
-class StoryConfig {
-  final String? character;
-  final String? mood;
-  final String? setting;
+import 'story/story_config.dart';
 
-  const StoryConfig({this.character, this.mood, this.setting});
-
-  StoryConfig copyWith({String? character, String? mood, String? setting}) {
-    return StoryConfig(
-      character: character ?? this.character,
-      mood: mood ?? this.mood,
-      setting: setting ?? this.setting,
-    );
-  }
-}
+export 'story/story_config.dart';
 
 class _CharacterOption {
   final String label;

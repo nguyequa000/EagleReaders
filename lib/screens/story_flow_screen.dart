@@ -4,6 +4,7 @@ import 'story_character_screen.dart';
 import 'story_mood_screen.dart';
 import 'story_setting_screen.dart';
 import 'story_summary_screen.dart';
+import 'story/story_config.dart';
 
 class StoryFlowScreen extends StatefulWidget {
   final void Function(StoryConfig config)? onComplete;
