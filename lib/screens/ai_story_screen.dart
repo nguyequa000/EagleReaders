@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'story/story_config.dart';
+import 'story/story_theme.dart';
 
 class StoryReaderScreen extends StatelessWidget {
   final StoryConfig config;
@@ -36,27 +38,28 @@ And when the sun began to set, $character knew that every day could be as magica
     final storyText = _buildStoryText();
 
     return Scaffold(
+      backgroundColor: StoryTheme.ground,
       appBar: AppBar(
-        title: const Text('Your Story'),
-        backgroundColor: const Color(0xFF3D6B1A),
+        title: Text(
+          'Your Story',
+          style: StoryTheme.display(size: 19, color: Colors.white, weight: 600),
+        ),
+        backgroundColor: StoryTheme.brand,
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: Container(
-        color: const Color(0xFFF5F0DC),
+      body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+          children: <Widget>[
             _buildDetailBanner(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
                   storyText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    height: 1.6,
-                    color: Color(0xFF2E2E2E),
-                  ),
+                  style: StoryTheme.body(size: 17, height: 1.7),
                 ),
               ),
             ),
@@ -68,33 +71,47 @@ And when the sun began to set, $character knew that every day could be as magica
 
   Widget _buildDetailBanner() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: StoryTheme.card,
+        borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+        border: Border.all(color: StoryTheme.shadow),
+        boxShadow: StoryTheme.hardShadow(),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Story Preview',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3D6B1A),
+        children: <Widget>[
+          Text(
+            'STORY PREVIEW',
+            style: StoryTheme.display(
+              size: 12,
+              color: StoryTheme.inkMuted,
+              weight: 600,
+              tracking: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
-          Text('Character: ${config.character ?? 'unknown'}'),
-          Text('Mood: ${config.mood ?? 'unknown'}'),
-          Text('Setting: ${config.setting ?? 'unknown'}'),
+          const SizedBox(height: 10),
+          _bannerLine('Character', config.character, StoryTheme.accentCharacter),
+          _bannerLine('Mood', config.mood, StoryTheme.accentMood),
+          _bannerLine('Setting', config.setting, StoryTheme.accentSetting),
+        ],
+      ),
+    );
+  }
+
+  Widget _bannerLine(String caption, String? value, Color accent) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: <Widget>[
+          Text(
+            '$caption: ',
+            style: StoryTheme.body(size: 14, color: StoryTheme.inkMuted),
+          ),
+          Text(
+            value ?? 'unknown',
+            style: StoryTheme.display(size: 14, color: accent, weight: 600),
+          ),
         ],
       ),
     );
