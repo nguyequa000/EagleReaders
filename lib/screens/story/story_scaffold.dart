@@ -37,36 +37,55 @@ class StoryScaffold extends StatelessWidget {
       body: Column(
         children: <Widget>[
           _buildHeader(context),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  StorySproutBubble(message: prompt, accent: _accent),
-                  const SizedBox(height: 18),
-                  Text(
-                    sectionLabel,
-                    textAlign: TextAlign.center,
-                    style: StoryTheme.display(
-                      size: 12,
-                      color: StoryTheme.inkMuted,
-                      weight: 600,
-                      tracking: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(child: child),
-                  if (footer != null) ...<Widget>[
-                    const SizedBox(height: 12),
-                    footer!,
-                  ],
-                ],
-              ),
+          Expanded(child: _buildScrollingContent()),
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: footer,
             ),
-          ),
           _buildProgress(),
         ],
+      ),
+    );
+  }
+
+  /// The prompt-plus-content region between the header and the footer.
+  ///
+  /// This scrolls rather than clips. A clipping body is not merely ugly here:
+  /// [StoryOptionGrid] builds lazily, so on a 375x667 or 360x640 phone with a
+  /// real status-bar inset the second row of tiles was never built at all —
+  /// unreachable by touch *and* by any accessibility action, with no scroll
+  /// affordance to hint that anything was missing.
+  ///
+  /// The footer sits outside this region, pinned above the progress bar, so the
+  /// primary action never scrolls out of a child's reach. Note that the obvious
+  /// `ConstrainedBox(minHeight:) + IntrinsicHeight` idiom cannot be used here:
+  /// intrinsic queries throw on any viewport descendant, and the option grid is
+  /// one.
+  Widget _buildScrollingContent() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            StorySproutBubble(message: prompt, accent: _accent),
+            const SizedBox(height: 18),
+            Text(
+              sectionLabel,
+              textAlign: TextAlign.center,
+              style: StoryTheme.display(
+                size: 12,
+                color: StoryTheme.inkMuted,
+                weight: 600,
+                tracking: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }
