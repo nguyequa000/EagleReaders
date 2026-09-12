@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_option.dart';
@@ -161,10 +160,10 @@ void main() {
 
     final node = tester.getSemantics(find.bySemanticsLabel('Brave Knight'));
     expect(node.label, 'Brave Knight');
-    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
-    expect(node.hasFlag(SemanticsFlag.isSelected), isTrue);
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(node.flagsCollection.isSelected.toBoolOrNull(), isTrue);
     // The SvgPicture used to leak this onto the tile node. A tile is a button.
-    expect(node.hasFlag(SemanticsFlag.isImage), isFalse);
+    expect(node.flagsCollection.isImage, isFalse);
 
     handle.dispose();
   });

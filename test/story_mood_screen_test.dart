@@ -35,16 +35,23 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('selecting a mood shows Next button', (tester) async {
+  testWidgets('selecting a mood enables the Next button', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(home: StoryMoodScreen(config: config)),
     );
+    final before = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(before.onPressed, isNull);
+
     await tester.tap(find.text('Funny'));
     await tester.pump();
-    expect(find.text('Next'), findsOneWidget);
+
+    // The button is always present post-redesign, so its mere existence proves
+    // nothing. What changes on selection is that it becomes pressable.
+    final after = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(after.onPressed, isNotNull);
   });
 
   testWidgets('tapping Next passes character and mood in StoryConfig', (tester) async {

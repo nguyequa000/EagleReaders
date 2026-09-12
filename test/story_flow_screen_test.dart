@@ -4,10 +4,6 @@ import 'package:storysprout/screens/story_flow_screen.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 
 void main() {
-  setUp(() {
-    // Use a tall viewport so all grid tiles are visible
-  });
-
   Future<void> pumpFlow(WidgetTester tester, {void Function(StoryConfig)? onComplete}) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;

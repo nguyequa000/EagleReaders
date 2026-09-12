@@ -7,8 +7,6 @@ import 'package:storysprout/screens/story/story_theme.dart';
 import 'package:storysprout/screens/story_character_screen.dart';
 
 void main() {
-  setUp(() {});
-
   testWidgets('shows all 4 character options', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -37,16 +35,23 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('selecting a character shows Next button', (tester) async {
+  testWidgets('selecting a character enables the Next button', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       const MaterialApp(home: StoryCharacterScreen()),
     );
+    final before = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(before.onPressed, isNull);
+
     await tester.tap(find.text('Brave Knight'));
     await tester.pump();
-    expect(find.text('Next'), findsOneWidget);
+
+    // The button is always present post-redesign, so its mere existence proves
+    // nothing. What changes on selection is that it becomes pressable.
+    final after = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(after.onPressed, isNotNull);
   });
 
   testWidgets('tapping Next calls onNext with selected character', (tester) async {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
@@ -114,8 +113,8 @@ void main() {
 
     final node = tester.getSemantics(find.bySemanticsLabel('Next'));
     expect(node.label, 'Next');
-    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
-    expect(node.hasFlag(SemanticsFlag.isEnabled), isTrue);
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(node.flagsCollection.isEnabled.toBoolOrNull(), isTrue);
 
     handle.dispose();
   });
@@ -131,7 +130,7 @@ void main() {
     expect(find.bySemanticsLabel('Next'), findsOneWidget);
     final node = tester.getSemantics(find.bySemanticsLabel('Next'));
     expect(node.label, 'Next');
-    expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
+    expect(node.flagsCollection.isEnabled.toBoolOrNull(), isFalse);
 
     handle.dispose();
   });
