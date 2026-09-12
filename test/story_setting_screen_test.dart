@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story_setting_screen.dart';
 import 'package:storysprout/screens/story_character_screen.dart';
+import 'package:storysprout/screens/story/story_button.dart';
+import 'package:storysprout/screens/story/story_option_grid.dart';
+import 'package:storysprout/screens/story/story_theme.dart';
 
 void main() {
   const config = StoryConfig(character: 'Brave Knight', mood: 'Funny');
@@ -19,14 +22,17 @@ void main() {
     expect(find.text('Outer Space'), findsOneWidget);
   });
 
-  testWidgets('Next button hidden before selection', (tester) async {
+  testWidgets('Next button is present but disabled before selection', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(home: StorySettingScreen(config: config)),
     );
-    expect(find.text('Next →'), findsNothing);
+    expect(find.text('Next'), findsOneWidget);
+
+    final button = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(button.onPressed, isNull);
   });
 
   testWidgets('selecting a setting shows Next button', (tester) async {
@@ -38,7 +44,7 @@ void main() {
     );
     await tester.tap(find.text('Forest'));
     await tester.pump();
-    expect(find.text('Next →'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
   });
 
   testWidgets('tapping Next passes full StoryConfig with setting', (tester) async {
@@ -56,10 +62,25 @@ void main() {
     );
     await tester.tap(find.text('Outer Space'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pump();
     expect(result?.character, 'Brave Knight');
     expect(result?.mood, 'Funny');
     expect(result?.setting, 'Outer Space');
+  });
+
+  testWidgets('step 3 uses the teal setting accent on both button and grid', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: StorySettingScreen(config: config)),
+    );
+
+    final button = tester.widget<StoryButton>(find.byType(StoryButton));
+    final grid = tester.widget<StoryOptionGrid>(find.byType(StoryOptionGrid));
+    expect(button.accent, StoryTheme.accentForStep(3));
+    expect(grid.accent, StoryTheme.accentForStep(3));
+    expect(StoryTheme.accentForStep(3), isNot(StoryTheme.accentForStep(2)));
   });
 }
