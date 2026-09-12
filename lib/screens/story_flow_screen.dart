@@ -60,9 +60,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
           },
         );
       default:
-        return StoryCharacterScreen(
-          onNext: (config) => _goToStep(2, config),
-        );
+        throw StateError('story flow has no step $_step');
     }
   }
 }
