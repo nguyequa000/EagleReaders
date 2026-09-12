@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story_flow_screen.dart';
-import 'package:storysprout/screens/story_character_screen.dart';
+import 'package:storysprout/screens/story/story_config.dart';
 
 void main() {
   setUp(() {

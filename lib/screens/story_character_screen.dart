@@ -7,8 +7,6 @@ import 'story/story_option_grid.dart';
 import 'story/story_scaffold.dart';
 import 'story/story_theme.dart';
 
-export 'story/story_config.dart';
-
 /// Step 1 of 4 — character selection.
 class StoryCharacterScreen extends StatefulWidget {
   final VoidCallback? onBack;

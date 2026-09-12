@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/story/story_option_grid.dart';
+import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 import 'package:storysprout/screens/story_character_screen.dart';
 

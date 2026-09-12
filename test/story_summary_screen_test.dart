@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:storysprout/screens/story_summary_screen.dart';
-import 'package:storysprout/screens/story_character_screen.dart';
+import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 
 void main() {
