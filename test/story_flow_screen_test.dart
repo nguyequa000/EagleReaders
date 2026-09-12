@@ -20,24 +20,24 @@ void main() {
   testWidgets('starts on step 1 — character selection', (tester) async {
     await pumpFlow(tester);
     expect(find.text('CHOOSE YOUR CHARACTER'), findsOneWidget);
-    expect(find.text('1 of 4'), findsOneWidget);
+    expect(find.text('STEP 1 OF 4'), findsOneWidget);
   });
 
   testWidgets('selecting a character and tapping Next advances to step 2', (tester) async {
     await pumpFlow(tester);
     await tester.tap(find.text('Brave Knight'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('CHOOSE A MOOD'), findsOneWidget);
-    expect(find.text('2 of 4'), findsOneWidget);
+    expect(find.text('STEP 2 OF 4'), findsOneWidget);
   });
 
   testWidgets('back on step 2 returns to step 1', (tester) async {
     await pumpFlow(tester);
     await tester.tap(find.text('Brave Knight'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
@@ -51,19 +51,19 @@ void main() {
     // Step 1
     await tester.tap(find.text('Clever Fox'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 2
     await tester.tap(find.text('Spooky'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 3
     await tester.tap(find.text('Ocean'));
     await tester.pump();
-    await tester.tap(find.text('Next →'));
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 4
