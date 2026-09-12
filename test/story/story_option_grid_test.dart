@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_option.dart';
@@ -143,5 +144,45 @@ void main() {
         )
         .decoration! as BoxDecoration;
     expect(unselected.border!.top.color, StoryTheme.shadow);
+  });
+
+  testWidgets('announces a tile label once, not twice', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpGrid(tester, selected: 'Brave Knight');
+
+    // The tile wraps its own Text in a Semantics node. Without
+    // excludeSemantics the two merge and a screen reader says
+    // "Brave Knight, Brave Knight, selected, button".
+    expect(
+      find.bySemanticsLabel('Brave Knight'),
+      findsOneWidget,
+      reason: 'the tile must contribute exactly one labelled node',
+    );
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Brave Knight'));
+    expect(node.label, 'Brave Knight');
+    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(node.hasFlag(SemanticsFlag.isSelected), isTrue);
+    // The SvgPicture used to leak this onto the tile node. A tile is a button.
+    expect(node.hasFlag(SemanticsFlag.isImage), isFalse);
+
+    handle.dispose();
+  });
+
+  testWidgets('every tile contributes exactly one semantics node', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpGrid(tester);
+
+    for (final option in StoryOptions.characters) {
+      expect(
+        find.bySemanticsLabel(option.label),
+        findsOneWidget,
+        reason: '"${option.label}" must not be announced twice',
+      );
+    }
+
+    handle.dispose();
   });
 }

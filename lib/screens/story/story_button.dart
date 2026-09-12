@@ -44,6 +44,9 @@ class _StoryButtonState extends State<StoryButton> {
       button: true,
       enabled: _enabled,
       label: widget.label,
+      // Without this the child Text merges into this node and the label is
+      // announced twice: "Next, Next, button".
+      excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: _enabled ? (_) => _setHeld(true) : null,

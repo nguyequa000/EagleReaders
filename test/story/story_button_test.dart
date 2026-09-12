@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
@@ -96,6 +97,45 @@ void main() {
 
     expect(find.byIcon(Icons.arrow_forward), findsNothing);
   });
+
+  testWidgets('announces its label once, not twice', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(wrap(
+      StoryButton(
+        label: 'Next',
+        accent: StoryTheme.accentCharacter,
+        onPressed: () {},
+      ),
+    ));
+
+    // The button wraps its own Text in a Semantics node. Without
+    // excludeSemantics the two merge and a screen reader says "Next, Next".
+    expect(find.bySemanticsLabel('Next'), findsOneWidget);
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Next'));
+    expect(node.label, 'Next');
+    expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(node.hasFlag(SemanticsFlag.isEnabled), isTrue);
+
+    handle.dispose();
+  });
+
+  testWidgets('a disabled button still announces its label once', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(wrap(
+      const StoryButton(label: 'Next', accent: StoryTheme.accentCharacter),
+    ));
+
+    expect(find.bySemanticsLabel('Next'), findsOneWidget);
+    final node = tester.getSemantics(find.bySemanticsLabel('Next'));
+    expect(node.label, 'Next');
+    expect(node.hasFlag(SemanticsFlag.isEnabled), isFalse);
+
+    handle.dispose();
+  });
+
 }
 
 BoxDecoration _decorationOf(WidgetTester tester) {
