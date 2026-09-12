@@ -17,6 +17,13 @@ This file summarizes what each team member worked on, drafted from commit histor
 ## Zachary Riggle
 - AI story customization flow: `lib/story_character_screen.dart`, `lib/story_mood_screen.dart`, `lib/story_setting_screen.dart`, `lib/story_summary_screen.dart`
 - Story flow navigation: `lib/story_flow_screen.dart`
+- Story module design system: `lib/screens/story/` — a seven-file shared package
+  (`story_theme.dart`, `story_config.dart`, `story_option.dart`,
+  `story_button.dart`, `story_sprout_bubble.dart`, `story_option_grid.dart`,
+  `story_scaffold.dart`) extracted from the duplicated step-screen chrome, with
+  the four step screens rebuilt on top of it
+- Bundled illustration and font assets with provenance: `assets/story/`,
+  `assets/fonts/`, `ATTRIBUTION.md`
 
 ## Dustin Dowell
 - AI story generation screen: `lib/ai_story_screen.dart`
