@@ -83,4 +83,56 @@ void main() {
     expect(grid.accent, StoryTheme.accentForStep(3));
     expect(StoryTheme.accentForStep(3), isNot(StoryTheme.accentForStep(2)));
   });
+
+  testWidgets('an incoming setting is highlighted and enables Next', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StorySettingScreen(
+          config: StoryConfig(
+            character: 'Brave Knight',
+            mood: 'Funny',
+            setting: 'Ocean',
+          ),
+        ),
+      ),
+    );
+
+    // Stepping Back into this screen must not discard the child's choice.
+    final button = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(button.onPressed, isNotNull);
+
+    final grid = tester.widget<StoryOptionGrid>(find.byType(StoryOptionGrid));
+    expect(grid.selectedLabel, 'Ocean');
+  });
+
+  testWidgets('a seeded setting carries through Next untouched', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    StoryConfig? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StorySettingScreen(
+          config: const StoryConfig(
+            character: 'Brave Knight',
+            mood: 'Funny',
+            setting: 'City',
+          ),
+          onNext: (c) => result = c,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Next'));
+    await tester.pump();
+
+    expect(result?.setting, 'City');
+  });
 }

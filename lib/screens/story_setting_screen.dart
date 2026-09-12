@@ -27,7 +27,9 @@ class StorySettingScreen extends StatefulWidget {
 class _StorySettingScreenState extends State<StorySettingScreen> {
   static const int _step = 3;
 
-  String? _selected;
+  /// Seeded from the incoming config so stepping Back re-enters the screen
+  /// with the child's existing choice still highlighted and Next still live.
+  late String? _selected = widget.config.setting;
 
   void _handleNext() {
     final selected = _selected;

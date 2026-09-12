@@ -82,4 +82,46 @@ void main() {
     expect(grid.accent, StoryTheme.accentForStep(2));
     expect(StoryTheme.accentForStep(2), isNot(StoryTheme.accentForStep(3)));
   });
+
+  testWidgets('an incoming mood is highlighted and enables Next', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: StoryMoodScreen(
+          config: StoryConfig(character: 'Brave Knight', mood: 'Spooky'),
+        ),
+      ),
+    );
+
+    // Stepping Back into this screen must not discard the child's choice.
+    final button = tester.widget<StoryButton>(find.byType(StoryButton));
+    expect(button.onPressed, isNotNull);
+
+    final grid = tester.widget<StoryOptionGrid>(find.byType(StoryOptionGrid));
+    expect(grid.selectedLabel, 'Spooky');
+  });
+
+  testWidgets('a seeded mood carries through Next untouched', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    StoryConfig? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryMoodScreen(
+          config: const StoryConfig(character: 'Brave Knight', mood: 'Calm'),
+          onNext: (c) => result = c,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Next'));
+    await tester.pump();
+
+    expect(result?.mood, 'Calm');
+  });
 }

@@ -74,4 +74,66 @@ void main() {
     expect(result?.mood, 'Spooky');
     expect(result?.setting, 'Ocean');
   });
+
+  testWidgets('stepping back to step 2 keeps the chosen mood live', (
+    tester,
+  ) async {
+    await pumpFlow(tester);
+
+    await tester.tap(find.text('Brave Knight'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Spooky'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
+
+    // The mood is still chosen, so Next must work without re-picking it.
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
+  });
+
+  testWidgets('stepping back to step 3 keeps the chosen setting live', (
+    tester,
+  ) async {
+    StoryConfig? result;
+    await pumpFlow(tester, onComplete: (c) => result = c);
+
+    await tester.tap(find.text('Clever Fox'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Calm'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ocean'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    // Back to step 3, then straight on without re-picking.
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
+
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start Reading!'));
+    await tester.pump();
+
+    expect(result?.character, 'Clever Fox');
+    expect(result?.mood, 'Calm');
+    expect(result?.setting, 'Ocean');
+  });
 }
