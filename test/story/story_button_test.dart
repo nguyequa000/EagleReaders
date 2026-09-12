@@ -56,16 +56,45 @@ void main() {
     ));
 
     expect(_decorationOf(tester).boxShadow, isNotEmpty);
+    expect(_translateOffsetOf(tester), Offset.zero);
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(StoryButton)),
     );
     await tester.pump();
     expect(_decorationOf(tester).boxShadow, isEmpty);
+    expect(_translateOffsetOf(tester), const Offset(0, StoryTheme.depth));
 
     await gesture.up();
     await tester.pump();
     expect(_decorationOf(tester).boxShadow, isNotEmpty);
+    expect(_translateOffsetOf(tester), Offset.zero);
+  });
+
+  testWidgets('shows the forward arrow by default', (tester) async {
+    await tester.pumpWidget(wrap(
+      StoryButton(
+        label: 'Next',
+        accent: StoryTheme.accentCharacter,
+        onPressed: () {},
+      ),
+    ));
+
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+  });
+
+  testWidgets('hides the forward arrow when showArrow is false',
+      (tester) async {
+    await tester.pumpWidget(wrap(
+      StoryButton(
+        label: 'Start Reading!',
+        accent: StoryTheme.accentCharacter,
+        onPressed: () {},
+        showArrow: false,
+      ),
+    ));
+
+    expect(find.byIcon(Icons.arrow_forward), findsNothing);
   });
 }
 
@@ -80,3 +109,13 @@ BoxDecoration _decorationOf(WidgetTester tester) {
 }
 
 Color _fillOf(WidgetTester tester) => _decorationOf(tester).color!;
+
+Offset _translateOffsetOf(WidgetTester tester) {
+  final transform = tester.widget<Transform>(
+    find.descendant(
+      of: find.byType(StoryButton),
+      matching: find.byType(Transform),
+    ).first,
+  );
+  return MatrixUtils.getAsTranslation(transform.transform) ?? Offset.zero;
+}
