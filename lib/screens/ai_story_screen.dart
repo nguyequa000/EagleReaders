@@ -6,7 +6,18 @@ import 'story/story_theme.dart';
 class StoryReaderScreen extends StatelessWidget {
   final StoryConfig config;
 
-  const StoryReaderScreen({super.key, required this.config});
+  /// Turn the last page — opens the screen that asks what to do next.
+  ///
+  /// Optional: when null the screen renders with no page-turn control and keeps
+  /// ordinary back behaviour, which is how it behaves for any caller that
+  /// predates the story flow wiring it up.
+  final VoidCallback? onNextPage;
+
+  const StoryReaderScreen({
+    super.key,
+    required this.config,
+    this.onNextPage,
+  });
 
   String _buildStoryText() {
     final character = config.character ?? 'a curious friend';
@@ -37,33 +48,50 @@ And when the sun began to set, $character knew that every day could be as magica
   Widget build(BuildContext context) {
     final storyText = _buildStoryText();
 
-    return Scaffold(
-      backgroundColor: StoryTheme.ground,
-      appBar: AppBar(
-        title: Text(
-          'Your Story',
-          style: StoryTheme.display(size: 19, color: Colors.white, weight: 600),
+    // The reader replaces the 4-step flow rather than stacking on it, so there
+    // is nothing meaningful behind this screen to go back to. Blocking pop
+    // keeps the hardware back gesture from dropping a child onto a half-built
+    // story; the page-turn arrow is the way forward.
+    return PopScope(
+      canPop: onNextPage == null,
+      child: Scaffold(
+        backgroundColor: StoryTheme.ground,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: Text(
+            'Your Story',
+            style:
+                StoryTheme.display(size: 19, color: Colors.white, weight: 600),
+          ),
+          backgroundColor: StoryTheme.brand,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          actions: <Widget>[
+            if (onNextPage != null)
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                tooltip: 'Next page',
+                onPressed: onNextPage,
+              ),
+          ],
         ),
-        backgroundColor: StoryTheme.brand,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _buildDetailBanner(),
-            const SizedBox(height: 18),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  storyText,
-                  style: StoryTheme.body(size: 17, height: 1.7),
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildDetailBanner(),
+              const SizedBox(height: 18),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    storyText,
+                    style: StoryTheme.body(size: 17, height: 1.7),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
