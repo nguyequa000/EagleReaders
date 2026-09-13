@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
@@ -135,6 +136,44 @@ void main() {
     handle.dispose();
   });
 
+  // excludeSemantics discards the child GestureDetector's tap action, so the
+  // Semantics node has to declare its own. Reading the button is useless if a
+  // screen reader cannot also activate it — assert the action fires, not just
+  // that the flag is set.
+  testWidgets('a screen reader can actually activate the button', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await tester.pumpWidget(wrap(
+      StoryButton(
+        label: 'Next',
+        accent: StoryTheme.accentCharacter,
+        onPressed: () => taps++,
+      ),
+    ));
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Next'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+    tester.semantics.tap(find.semantics.byLabel('Next'));
+    await tester.pump();
+
+    expect(taps, 1);
+    handle.dispose();
+  });
+
+  testWidgets('a disabled button advertises no tap action', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(wrap(
+      const StoryButton(label: 'Next', accent: StoryTheme.accentCharacter),
+    ));
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Next'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
+
+    handle.dispose();
+  });
 }
 
 BoxDecoration _decorationOf(WidgetTester tester) {

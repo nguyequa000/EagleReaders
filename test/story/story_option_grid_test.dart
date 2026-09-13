@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_option.dart';
@@ -182,6 +183,25 @@ void main() {
       );
     }
 
+    handle.dispose();
+  });
+
+  // excludeSemantics discards the child GestureDetector's tap action, so the
+  // Semantics node has to declare its own. A child using a screen reader must
+  // be able to pick an option, not merely hear it read out — so assert the
+  // action actually selects, rather than only that the flag is present.
+  testWidgets('a screen reader can actually select a tile', (tester) async {
+    final handle = tester.ensureSemantics();
+    String? picked;
+    await pumpGrid(tester, onSelect: (label) => picked = label);
+
+    final node = tester.getSemantics(find.bySemanticsLabel('Clever Fox'));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+    tester.semantics.tap(find.semantics.byLabel('Clever Fox'));
+    await tester.pump();
+
+    expect(picked, 'Clever Fox');
     handle.dispose();
   });
 }

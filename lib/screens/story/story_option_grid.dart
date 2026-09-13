@@ -77,6 +77,10 @@ class _StoryOptionTileState extends State<_StoryOptionTile> {
       // announced twice ("Brave Knight, Brave Knight, selected, button"), and
       // the SvgPicture contributes a stray isImage flag. The tile is a button.
       excludeSemantics: true,
+      // excludeSemantics also drops the GestureDetector's tap action, so the
+      // action has to be declared here or a screen reader can read the tile
+      // but never select it.
+      onTap: widget.onTap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (_) => _setHeld(true),

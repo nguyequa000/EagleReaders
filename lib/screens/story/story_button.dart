@@ -47,6 +47,11 @@ class _StoryButtonState extends State<StoryButton> {
       // Without this the child Text merges into this node and the label is
       // announced twice: "Next, Next, button".
       excludeSemantics: true,
+      // excludeSemantics also drops the GestureDetector's tap action, so the
+      // action has to be declared here or a screen reader can read the button
+      // but never activate it. Null when disabled, so assistive tech does not
+      // advertise a tap that would do nothing.
+      onTap: widget.onPressed,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: _enabled ? (_) => _setHeld(true) : null,
