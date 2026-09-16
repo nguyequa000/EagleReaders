@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:storysprout/screens/story/hero_preview.dart';
 import 'package:storysprout/screens/story_summary_screen.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 
 void main() {
   const config = StoryConfig(
-    character: 'Brave Knight',
     mood: 'Funny',
     setting: 'Forest',
   );
@@ -19,7 +19,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: StorySummaryScreen(config: config)),
     );
-    expect(find.text('Brave Knight'), findsOneWidget);
+    
     expect(find.text('Funny'), findsOneWidget);
     expect(find.text('Forest'), findsOneWidget);
   });
@@ -49,7 +49,7 @@ void main() {
     );
     await tester.tap(find.text('Start Reading!'));
     await tester.pump();
-    expect(result?.character, 'Brave Knight');
+    expect(result?.hero, isNotNull);
     expect(result?.mood, 'Funny');
     expect(result?.setting, 'Forest');
   });
@@ -63,7 +63,6 @@ void main() {
     await tester.pumpWidget(const MaterialApp(
       home: StorySummaryScreen(
         config: StoryConfig(
-          character: 'Clever Fox',
           mood: 'Spooky',
           setting: 'Ocean',
         ),
@@ -71,17 +70,19 @@ void main() {
     ));
     await tester.pump();
 
+    // The hero is an SvgPicture too, but string-loaded rather than
+    // asset-loaded, so only the bundled illustrations are collected here.
     final assets = tester
         .widgetList<SvgPicture>(find.byType(SvgPicture))
-        .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
+        .map((picture) => picture.bytesLoader)
+        .whereType<SvgAssetLoader>()
+        .map((loader) => loader.assetName)
         .toList();
 
-    expect(assets, contains('assets/story/characters/fox.svg'));
     expect(assets, contains('assets/story/moods/spooky.svg'));
     expect(assets, contains('assets/story/settings/ocean.svg'));
 
-    // The bug this covers: these were previously hardcoded to knight/funny/forest.
-    expect(assets, isNot(contains('assets/story/characters/knight.svg')));
+    // The bug this covers: these were previously hardcoded to funny/forest.
     expect(assets, isNot(contains('assets/story/moods/funny.svg')));
     expect(assets, isNot(contains('assets/story/settings/forest.svg')));
   });
@@ -95,22 +96,23 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(
       home: StorySummaryScreen(
-        config: StoryConfig(character: 'Magic Fairy'),
+        config: StoryConfig(),
       ),
     ));
     await tester.pump();
 
     // Mood and Setting were never chosen — no crash, and each renders '—'.
-    expect(find.text('Magic Fairy'), findsOneWidget);
     expect(find.text('—'), findsNWidgets(2));
 
-    // Only the one made choice gets an illustration.
+    // Neither unmade choice gets an illustration. The hero still renders,
+    // because it is generated rather than chosen.
     final assets = tester
         .widgetList<SvgPicture>(find.byType(SvgPicture))
-        .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
+        .map((picture) => picture.bytesLoader)
+        .whereType<SvgAssetLoader>()
         .toList();
-    expect(assets, hasLength(1));
-    expect(assets, contains('assets/story/characters/fairy.svg'));
+    expect(assets, isEmpty);
+    expect(find.byType(HeroPreview), findsOneWidget);
   });
 
   testWidgets('each row is bordered in its own step accent, not copy-pasted',
@@ -139,7 +141,8 @@ void main() {
       return border.top.color;
     }
 
-    expect(borderColorFor('Character'), StoryTheme.accentCharacter);
+    // The Character row became the hero preview, so only the two chosen
+    // options carry a captioned accent border now.
     expect(borderColorFor('Mood'), StoryTheme.accentMood);
     expect(borderColorFor('Setting'), StoryTheme.accentSetting);
   });

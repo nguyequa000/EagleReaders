@@ -129,6 +129,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.12"
+  dicebear_core:
+    dependency: "direct main"
+    description:
+      name: dicebear_core
+      sha256: f90d71dcee69c70433e9e1a472b6ece0facc10e302e7f8406363904a767ae4a1
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.7.0"
+  dicebear_schema:
+    dependency: transitive
+    description:
+      name: dicebear_schema
+      sha256: "50661490fc75251d5fac4960cda307ddd4ab5f43b104dfab2faf85aaa6d12a90"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.1"
+  dicebear_styles:
+    dependency: "direct main"
+    description:
+      name: dicebear_styles
+      sha256: "88a40f2690c43e6572a30b19518cb45da65a70f5460cabda38b0e9bd0a94ee61"
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.6.0"
   epub_view:
     dependency: "direct main"
     description:
@@ -416,6 +440,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.11.0"
+  json_schema:
+    dependency: transitive
+    description:
+      name: json_schema
+      sha256: f37d9c3fdfe8c9aae55fdfd5af815d24ce63c3a0f6a2c1f0982c30f43643fa1a
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.2"
   leak_tracker:
     dependency: transitive
     description:
@@ -456,6 +488,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
+  logging:
+    dependency: transitive
+    description:
+      name: logging
+      sha256: c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   matcher:
     dependency: transitive
     description:
@@ -520,6 +560,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.2"
+  rfc_6901:
+    dependency: transitive
+    description:
+      name: rfc_6901
+      sha256: "6a43b1858dca2febaf93e15639aa6b0c49ccdfd7647775f15a499f872b018154"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   scrollable_positioned_list:
     dependency: transitive
     description:
@@ -602,6 +650,14 @@ packages:
     description:
       name: universal_file
       sha256: d1a957fccaad2a32023b62fe435b273ee47aaf2eb804709795e4bf4afff50960
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
+  uri:
+    dependency: transitive
+    description:
+      name: uri
+      sha256: "889eea21e953187c6099802b7b4cf5219ba8f3518f604a1033064d45b1b8268a"
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"

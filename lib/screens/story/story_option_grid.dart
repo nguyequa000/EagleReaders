@@ -74,7 +74,7 @@ class _StoryOptionTileState extends State<_StoryOptionTile> {
       selected: selected,
       label: widget.option.label,
       // Without this the child Text merges into this node and the label is
-      // announced twice ("Brave Knight, Brave Knight, selected, button"), and
+      // announced twice ("Funny, Funny, selected, button"), and
       // the SvgPicture contributes a stray isImage flag. The tile is a button.
       excludeSemantics: true,
       // excludeSemantics also drops the GestureDetector's tap action, so the

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'story/story_button.dart';
+import 'story/hero_preview.dart';
 import 'story/story_config.dart';
 import 'story/story_option.dart';
 import 'story/story_scaffold.dart';
@@ -38,14 +39,7 @@ class StorySummaryScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _SummaryRow(
-            caption: 'Character',
-            option: StoryOptions.byLabel(
-              StoryOptions.characters,
-              config.character,
-            ),
-            accent: StoryTheme.accentCharacter,
-          ),
+          HeroPreview(hero: config.hero, height: 200, mood: config.mood),
           const SizedBox(height: 12),
           _SummaryRow(
             caption: 'Mood',

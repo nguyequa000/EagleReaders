@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/ai_story_screen.dart';
+import 'package:storysprout/screens/story/hero_config.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 
@@ -18,7 +19,7 @@ void main() {
       home: StoryReaderScreen(
         config: config ??
             const StoryConfig(
-              character: 'Clever Fox',
+              hero: HeroConfig(name: 'Fox'),
               mood: 'Spooky',
               setting: 'Ocean',
             ),
@@ -36,7 +37,7 @@ void main() {
 
   testWidgets('names the three choices in the preview banner', (tester) async {
     await pumpReader(tester);
-    expect(find.textContaining('Clever Fox'), findsWidgets);
+    expect(find.textContaining('Fox'), findsWidgets);
     expect(find.textContaining('Spooky'), findsWidgets);
     expect(find.textContaining('Ocean'), findsWidgets);
   });
@@ -50,7 +51,7 @@ void main() {
   testWidgets('banner lines use their own distinct accents', (tester) async {
     await pumpReader(tester);
 
-    final characterValue = tester.widget<Text>(find.text('Clever Fox'));
+    final characterValue = tester.widget<Text>(find.text('Fox'));
     final moodValue = tester.widget<Text>(find.text('Spooky'));
     final settingValue = tester.widget<Text>(find.text('Ocean'));
 
@@ -74,7 +75,10 @@ void main() {
     await pumpReader(tester, config: const StoryConfig());
 
     expect(tester.takeException(), isNull);
-    expect(find.text('unknown'), findsNWidgets(3));
+    // Mood and Setting fall back; the hero does not, because an unnamed hero
+    // is still a hero rather than a missing choice.
+    expect(find.text('unknown'), findsNWidgets(2));
+    expect(find.text('Your hero'), findsOneWidget);
   });
 
   // The reader is the end of the story flow. It replaces the 4-step flow in the

@@ -7,7 +7,7 @@ import 'package:storysprout/screens/story/story_option_grid.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 
 void main() {
-  const config = StoryConfig(character: 'Brave Knight', mood: 'Funny');
+  const config = StoryConfig(mood: 'Funny');
 
   testWidgets('shows all 4 setting options', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
@@ -71,7 +71,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pump();
-    expect(result?.character, 'Brave Knight');
+    expect(result?.hero, isNotNull);
     expect(result?.mood, 'Funny');
     expect(result?.setting, 'Outer Space');
   });
@@ -101,7 +101,6 @@ void main() {
       const MaterialApp(
         home: StorySettingScreen(
           config: StoryConfig(
-            character: 'Brave Knight',
             mood: 'Funny',
             setting: 'Ocean',
           ),
@@ -128,7 +127,6 @@ void main() {
       MaterialApp(
         home: StorySettingScreen(
           config: const StoryConfig(
-            character: 'Brave Knight',
             mood: 'Funny',
             setting: 'City',
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story_flow_screen.dart';
-import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 
 void main() {
@@ -14,31 +13,42 @@ void main() {
     );
   }
 
-  testWidgets('starts on step 1 — character selection', (tester) async {
+  /// Taps a label after scrolling it into view.
+  ///
+  /// The steps are taller than the viewport once a preview box sits above the
+  /// options, so targets low on the screen start off-screen, where a plain tap
+  /// silently misses instead of failing.
+  Future<void> tapLabel(WidgetTester tester, String label) async {
+    final target = find.text(label);
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pump();
+  }
+
+  testWidgets('starts on step 1 — the hero builder', (tester) async {
     await pumpFlow(tester);
-    expect(find.text('CHOOSE YOUR CHARACTER'), findsOneWidget);
+    expect(find.text('Build your hero!'), findsOneWidget);
     expect(find.text('STEP 1 OF 4'), findsOneWidget);
   });
 
-  testWidgets('selecting a character and tapping Next advances to step 2', (tester) async {
+  testWidgets('tapping Next advances to step 2', (tester) async {
     await pumpFlow(tester);
-    await tester.tap(find.text('Brave Knight'));
-    await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('CHOOSE A MOOD'), findsOneWidget);
     expect(find.text('STEP 2 OF 4'), findsOneWidget);
   });
 
-  testWidgets('back on step 2 returns to step 1', (tester) async {
+  testWidgets('back on step 2 returns to the hero builder', (tester) async {
     await pumpFlow(tester);
-    await tester.tap(find.text('Brave Knight'));
-    await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
+
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    expect(find.text('CHOOSE YOUR CHARACTER'), findsOneWidget);
+    expect(find.text('Build your hero!'), findsOneWidget);
   });
 
   testWidgets('completing all steps calls onComplete with full config', (tester) async {
@@ -46,28 +56,23 @@ void main() {
     await pumpFlow(tester, onComplete: (c) => result = c);
 
     // Step 1
-    await tester.tap(find.text('Clever Fox'));
-    await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 2
-    await tester.tap(find.text('Spooky'));
-    await tester.pump();
+    await tapLabel(tester, 'Spooky');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 3
-    await tester.tap(find.text('Ocean'));
-    await tester.pump();
+    await tapLabel(tester, 'Ocean');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Step 4
-    await tester.tap(find.text('Start Reading!'));
-    await tester.pump();
+    await tapLabel(tester, 'Start Reading!');
 
-    expect(result?.character, 'Clever Fox');
+    expect(result?.hero, isNotNull);
     expect(result?.mood, 'Spooky');
     expect(result?.setting, 'Ocean');
   });
@@ -77,13 +82,10 @@ void main() {
   ) async {
     await pumpFlow(tester);
 
-    await tester.tap(find.text('Brave Knight'));
-    await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Spooky'));
-    await tester.pump();
+    await tapLabel(tester, 'Spooky');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     expect(find.text('CHOOSE A SETTING'), findsOneWidget);
@@ -104,18 +106,14 @@ void main() {
     StoryConfig? result;
     await pumpFlow(tester, onComplete: (c) => result = c);
 
-    await tester.tap(find.text('Clever Fox'));
-    await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Calm'));
-    await tester.pump();
+    await tapLabel(tester, 'Calm');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Ocean'));
-    await tester.pump();
+    await tapLabel(tester, 'Ocean');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
@@ -126,10 +124,9 @@ void main() {
 
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Start Reading!'));
-    await tester.pump();
+    await tapLabel(tester, 'Start Reading!');
 
-    expect(result?.character, 'Clever Fox');
+    expect(result?.hero, isNotNull);
     expect(result?.mood, 'Calm');
     expect(result?.setting, 'Ocean');
   });
@@ -161,9 +158,12 @@ void main() {
     }
 
     Future<void> buildAStory(WidgetTester tester) async {
-      for (final choice in ['Clever Fox', 'Spooky', 'Ocean']) {
-        await tester.tap(find.text(choice));
-        await tester.pump();
+      // Step 1 needs no choice at all — a seeded hero is already whole — so
+      // it contributes only its Next tap.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      for (final choice in ['Spooky', 'Ocean']) {
+        await tapLabel(tester, choice);
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();
       }
@@ -201,7 +201,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('DASHBOARD'), findsOneWidget);
-      expect(find.text('CHOOSE YOUR CHARACTER'), findsNothing);
+      expect(find.text('Build your hero!'), findsNothing);
       expect(find.text('Your Story'), findsNothing);
     });
 
@@ -215,12 +215,8 @@ void main() {
       await tester.tap(find.text('Create Another Story'));
       await tester.pumpAndSettle();
 
-      expect(find.text('CHOOSE YOUR CHARACTER'), findsOneWidget);
+      expect(find.text('Build your hero!'), findsOneWidget);
       expect(find.text('STEP 1 OF 4'), findsOneWidget);
-
-      // A fresh config: Next is disabled until something is picked again.
-      final button = tester.widget<StoryButton>(find.byType(StoryButton));
-      expect(button.onPressed, isNull);
     });
 
     testWidgets(
@@ -232,7 +228,7 @@ void main() {
 
         await tester.tap(find.text('Create Another Story'));
         await tester.pumpAndSettle();
-        expect(find.text('CHOOSE YOUR CHARACTER'), findsOneWidget);
+        expect(find.text('Build your hero!'), findsOneWidget);
 
         await tester.tap(find.byIcon(Icons.arrow_back));
         await tester.pumpAndSettle();

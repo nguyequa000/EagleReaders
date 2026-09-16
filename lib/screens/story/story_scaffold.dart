@@ -10,8 +10,19 @@ class StoryScaffold extends StatelessWidget {
   final int step;
   final int totalSteps;
   final String title;
-  final String prompt;
-  final String sectionLabel;
+  /// Sprout's line above the content, or null to omit the bubble entirely.
+  ///
+  /// The hero builder and the steps that follow it put a preview box in this
+  /// space instead — on a small phone there is not room for both, and the
+  /// preview is the thing the child is actually reacting to.
+  final String? prompt;
+  /// Small caps label above the content, or null when the screen supplies its
+  /// own headings.
+  ///
+  /// The hero builder has three stacked control rows with different labels, so
+  /// a single label owned by the scaffold would necessarily sit in the wrong
+  /// place — above the preview box rather than above the options it names.
+  final String? sectionLabel;
   final Widget child;
   final Widget? footer;
   final VoidCallback? onBack;
@@ -19,8 +30,8 @@ class StoryScaffold extends StatelessWidget {
   const StoryScaffold({
     super.key,
     required this.step,
-    required this.prompt,
-    required this.sectionLabel,
+    this.prompt,
+    this.sectionLabel,
     required this.child,
     this.footer,
     this.onBack,
@@ -70,19 +81,23 @@ class StoryScaffold extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            StorySproutBubble(message: prompt, accent: _accent),
-            const SizedBox(height: 18),
-            Text(
-              sectionLabel,
-              textAlign: TextAlign.center,
-              style: StoryTheme.display(
-                size: 12,
-                color: StoryTheme.inkMuted,
-                weight: 600,
-                tracking: 1.4,
+            if (prompt != null) ...<Widget>[
+              StorySproutBubble(message: prompt!, accent: _accent),
+              const SizedBox(height: 18),
+            ],
+            if (sectionLabel != null) ...<Widget>[
+              Text(
+                sectionLabel!,
+                textAlign: TextAlign.center,
+                style: StoryTheme.display(
+                  size: 12,
+                  color: StoryTheme.inkMuted,
+                  weight: 600,
+                  tracking: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
             child,
           ],
         ),

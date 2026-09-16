@@ -19,7 +19,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: StoryOptionGrid(
-          options: StoryOptions.characters,
+          options: StoryOptions.moods,
           selectedLabel: selected,
           accent: StoryTheme.accentCharacter,
           onSelect: onSelect ?? (_) {},
@@ -31,7 +31,7 @@ void main() {
 
   testWidgets('renders a tile for every option', (tester) async {
     await pumpGrid(tester);
-    for (final option in StoryOptions.characters) {
+    for (final option in StoryOptions.moods) {
       expect(find.text(option.label), findsOneWidget);
     }
   });
@@ -40,14 +40,14 @@ void main() {
     String? picked;
     await pumpGrid(tester, onSelect: (label) => picked = label);
 
-    await tester.tap(find.text('Clever Fox'));
+    await tester.tap(find.text('Spooky'));
     await tester.pump();
 
-    expect(picked, 'Clever Fox');
+    expect(picked, 'Spooky');
   });
 
   testWidgets('shows a check badge only on the selected tile', (tester) async {
-    await pumpGrid(tester, selected: 'Magic Fairy');
+    await pumpGrid(tester, selected: 'Calm');
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
@@ -62,13 +62,13 @@ void main() {
     final pictures = tester
         .widgetList<SvgPicture>(find.byType(SvgPicture))
         .toList();
-    expect(pictures.length, StoryOptions.characters.length);
+    expect(pictures.length, StoryOptions.moods.length);
 
     final renderedAssets = pictures
         .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
         .toSet();
     final expectedAssets =
-        StoryOptions.characters.map((option) => option.asset).toSet();
+        StoryOptions.moods.map((option) => option.asset).toSet();
 
     expect(renderedAssets, expectedAssets);
   });
@@ -92,33 +92,33 @@ void main() {
           .decoration! as BoxDecoration;
     }
 
-    expect(decorationFor('Clever Fox').boxShadow, isNotEmpty);
-    expect(decorationFor('Brave Knight').boxShadow, isNotEmpty);
+    expect(decorationFor('Spooky').boxShadow, isNotEmpty);
+    expect(decorationFor('Funny').boxShadow, isNotEmpty);
 
     final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Clever Fox')),
+      tester.getCenter(find.text('Spooky')),
     );
     await tester.pump();
 
-    expect(decorationFor('Clever Fox').boxShadow, isEmpty);
+    expect(decorationFor('Spooky').boxShadow, isEmpty);
     // A sibling tile's press state is untouched.
-    expect(decorationFor('Brave Knight').boxShadow, isNotEmpty);
+    expect(decorationFor('Funny').boxShadow, isNotEmpty);
 
     await gesture.up();
     await tester.pump();
 
-    expect(decorationFor('Clever Fox').boxShadow, isNotEmpty);
+    expect(decorationFor('Spooky').boxShadow, isNotEmpty);
   });
 
   testWidgets('the selected tile\'s ring uses the given accent', (tester) async {
-    await pumpGrid(tester, selected: 'Magic Fairy');
+    await pumpGrid(tester, selected: 'Calm');
 
     final decoration = tester
         .widget<Container>(
           find
               .descendant(
                 of: find.ancestor(
-                  of: find.text('Magic Fairy'),
+                  of: find.text('Calm'),
                   matching: find.byType(GestureDetector),
                 ),
                 matching: find.byType(Container),
@@ -135,7 +135,7 @@ void main() {
           find
               .descendant(
                 of: find.ancestor(
-                  of: find.text('Brave Knight'),
+                  of: find.text('Funny'),
                   matching: find.byType(GestureDetector),
                 ),
                 matching: find.byType(Container),
@@ -148,19 +148,19 @@ void main() {
 
   testWidgets('announces a tile label once, not twice', (tester) async {
     final handle = tester.ensureSemantics();
-    await pumpGrid(tester, selected: 'Brave Knight');
+    await pumpGrid(tester, selected: 'Funny');
 
     // The tile wraps its own Text in a Semantics node. Without
     // excludeSemantics the two merge and a screen reader says
-    // "Brave Knight, Brave Knight, selected, button".
+    // "Funny, Funny, selected, button".
     expect(
-      find.bySemanticsLabel('Brave Knight'),
+      find.bySemanticsLabel('Funny'),
       findsOneWidget,
       reason: 'the tile must contribute exactly one labelled node',
     );
 
-    final node = tester.getSemantics(find.bySemanticsLabel('Brave Knight'));
-    expect(node.label, 'Brave Knight');
+    final node = tester.getSemantics(find.bySemanticsLabel('Funny'));
+    expect(node.label, 'Funny');
     expect(node.flagsCollection.isButton, isTrue);
     expect(node.flagsCollection.isSelected.toBoolOrNull(), isTrue);
     // The SvgPicture used to leak this onto the tile node. A tile is a button.
@@ -175,7 +175,7 @@ void main() {
     final handle = tester.ensureSemantics();
     await pumpGrid(tester);
 
-    for (final option in StoryOptions.characters) {
+    for (final option in StoryOptions.moods) {
       expect(
         find.bySemanticsLabel(option.label),
         findsOneWidget,
@@ -195,13 +195,13 @@ void main() {
     String? picked;
     await pumpGrid(tester, onSelect: (label) => picked = label);
 
-    final node = tester.getSemantics(find.bySemanticsLabel('Clever Fox'));
+    final node = tester.getSemantics(find.bySemanticsLabel('Spooky'));
     expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
 
-    tester.semantics.tap(find.semantics.byLabel('Clever Fox'));
+    tester.semantics.tap(find.semantics.byLabel('Spooky'));
     await tester.pump();
 
-    expect(picked, 'Clever Fox');
+    expect(picked, 'Spooky');
     handle.dispose();
   });
 }

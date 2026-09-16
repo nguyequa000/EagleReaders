@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/story_config.dart';
-import 'package:storysprout/screens/story_character_screen.dart';
+import 'package:storysprout/screens/story_hero_screen.dart';
 import 'package:storysprout/screens/story_mood_screen.dart';
 import 'package:storysprout/screens/story_setting_screen.dart';
 
@@ -44,23 +44,25 @@ void main() {
   }
 
   group('iPhone SE — 375x667 with a 44px status bar', () {
-    testWidgets('step 1 builds all 4 character options', (tester) async {
+    testWidgets('step 1 fits its preview and all three control rows', (
+      tester,
+    ) async {
       useIPhoneSe(tester);
-      await tester.pumpWidget(const MaterialApp(home: StoryCharacterScreen()));
+      await tester.pumpWidget(const MaterialApp(home: StoryHeroScreen()));
+      await tester.pump();
 
-      expectAllPresent(const <String>[
-        'Brave Knight',
-        'Friendly Dragon',
-        'Clever Fox',
-        'Magic Fairy',
-      ]);
+      // Every feature row button has to be reachable on the smallest phone —
+      // five circles across a 375pt width is the tightest row in the app.
+      expectAllPresent(const <String>['Avatar', 'Hair', 'Hat', 'Outfit', 'Pet']);
+      expect(find.text('Surprise me!'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
     });
 
     testWidgets('step 2 builds all 4 mood options', (tester) async {
       useIPhoneSe(tester);
       await tester.pumpWidget(
         const MaterialApp(
-          home: StoryMoodScreen(config: StoryConfig(character: 'Brave Knight')),
+          home: StoryMoodScreen(config: StoryConfig()),
         ),
       );
 
@@ -72,7 +74,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: StorySettingScreen(
-            config: StoryConfig(character: 'Brave Knight', mood: 'Funny'),
+            config: StoryConfig(mood: 'Funny'),
           ),
         ),
       );
@@ -87,18 +89,11 @@ void main() {
   });
 
   group('common Android — 360x640 with a 24px status bar', () {
-    testWidgets('step 1 builds the second row of characters', (tester) async {
-      usePhone(tester, size: const Size(360, 640), statusBar: 24);
-      await tester.pumpWidget(const MaterialApp(home: StoryCharacterScreen()));
-
-      expectAllPresent(const <String>['Clever Fox', 'Magic Fairy']);
-    });
-
     testWidgets('step 2 builds the second row of moods', (tester) async {
       usePhone(tester, size: const Size(360, 640), statusBar: 24);
       await tester.pumpWidget(
         const MaterialApp(
-          home: StoryMoodScreen(config: StoryConfig(character: 'Brave Knight')),
+          home: StoryMoodScreen(config: StoryConfig()),
         ),
       );
 
@@ -106,37 +101,11 @@ void main() {
     });
   });
 
-  testWidgets('a second-row option is selectable and drives Next on an SE', (
-    tester,
-  ) async {
-    useIPhoneSe(tester);
-    StoryConfig? result;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StoryCharacterScreen(onNext: (config) => result = config),
-      ),
-    );
-
-    final fox = find.text('Clever Fox');
-    await tester.ensureVisible(fox);
-    await tester.pumpAndSettle();
-    await tester.tap(fox);
-    await tester.pump();
-
-    final next = find.text('Next');
-    await tester.ensureVisible(next);
-    await tester.pumpAndSettle();
-    await tester.tap(next);
-    await tester.pump();
-
-    expect(result?.character, 'Clever Fox');
-  });
-
   testWidgets('the body scroll view scrolls rather than clipping on an SE', (
     tester,
   ) async {
     useIPhoneSe(tester);
-    await tester.pumpWidget(const MaterialApp(home: StoryCharacterScreen()));
+    await tester.pumpWidget(const MaterialApp(home: StoryHeroScreen()));
 
     final position = tester
         .state<ScrollableState>(
@@ -157,7 +126,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: StoryCharacterScreen()));
+    await tester.pumpWidget(const MaterialApp(home: StoryHeroScreen()));
 
     final position = tester
         .state<ScrollableState>(

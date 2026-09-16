@@ -20,7 +20,9 @@ class StoryReaderScreen extends StatelessWidget {
   });
 
   String _buildStoryText() {
-    final character = config.character ?? 'a curious friend';
+    // A named hero carries the prose; an unnamed one falls back to a phrase
+    // that still reads as a sentence.
+    final character = config.hero.name ?? 'a brave hero';
     final mood = config.mood ?? 'wonderful';
     final setting = config.setting ?? 'a magical place';
 
@@ -119,7 +121,8 @@ And when the sun began to set, $character knew that every day could be as magica
             ),
           ),
           const SizedBox(height: 10),
-          _bannerLine('Character', config.character, StoryTheme.accentCharacter),
+          _bannerLine('Hero', config.hero.name ?? 'Your hero',
+              StoryTheme.accentCharacter),
           _bannerLine('Mood', config.mood, StoryTheme.accentMood),
           _bannerLine('Setting', config.setting, StoryTheme.accentSetting),
         ],

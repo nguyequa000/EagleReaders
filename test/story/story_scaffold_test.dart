@@ -69,7 +69,7 @@ void main() {
       tester,
       step: 1,
       child: StoryOptionGrid(
-        options: StoryOptions.characters,
+        options: StoryOptions.moods,
         selectedLabel: null,
         accent: StoryTheme.accentForStep(1),
         onSelect: (_) {},

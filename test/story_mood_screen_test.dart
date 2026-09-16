@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storysprout/screens/story/hero_catalog.dart';
+import 'package:storysprout/screens/story/hero_preview.dart';
 import 'package:storysprout/screens/story_mood_screen.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_button.dart';
@@ -7,7 +9,7 @@ import 'package:storysprout/screens/story/story_option_grid.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
 
 void main() {
-  const config = StoryConfig(character: 'Brave Knight');
+  const config = StoryConfig();
 
   testWidgets('shows all 4 mood options', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
@@ -71,7 +73,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Next'));
     await tester.pump();
-    expect(result?.character, 'Brave Knight');
+    expect(result?.hero, isNotNull);
     expect(result?.mood, 'Spooky');
   });
 
@@ -99,7 +101,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: StoryMoodScreen(
-          config: StoryConfig(character: 'Brave Knight', mood: 'Spooky'),
+          config: StoryConfig(mood: 'Spooky'),
         ),
       ),
     );
@@ -120,7 +122,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: StoryMoodScreen(
-          config: const StoryConfig(character: 'Brave Knight', mood: 'Calm'),
+          config: const StoryConfig(mood: 'Calm'),
           onNext: (c) => result = c,
         ),
       ),
@@ -130,5 +132,34 @@ void main() {
     await tester.pump();
 
     expect(result?.mood, 'Calm');
+  });
+
+  testWidgets('the hero is shown wearing the face the mood calls for', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: StoryMoodScreen(config: StoryConfig())),
+    );
+    await tester.pump();
+
+    String? moodOf() =>
+        tester.widget<HeroPreview>(find.byType(HeroPreview)).mood;
+
+    expect(find.byType(HeroPreview), findsOneWidget);
+    expect(moodOf(), isNull, reason: 'nothing chosen yet');
+
+    await tester.tap(find.text('Spooky'));
+    await tester.pump();
+
+    // The whole point of moving expressions here: the choice shows its own
+    // consequence on the hero instead of being a label taken on trust.
+    expect(moodOf(), 'Spooky');
+    expect(
+      HeroCatalog.expressionForMood('Spooky').id,
+      isNot(HeroCatalog.expressionForMood('Calm').id),
+    );
   });
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'ai_story_screen.dart';
-import 'story_character_screen.dart';
+import 'story_hero_screen.dart';
 import 'story_mood_screen.dart';
 import 'story_setting_screen.dart';
 import 'story_summary_screen.dart';
@@ -68,9 +68,10 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
   Widget build(BuildContext context) {
     switch (_step) {
       case 1:
-        return StoryCharacterScreen(
+        return StoryHeroScreen(
+          hero: _config.hero,
           onBack: () => Navigator.of(context).maybePop(),
-          onNext: (config) => _goToStep(2, config),
+          onNext: (hero) => _goToStep(2, _config.copyWith(hero: hero)),
         );
       case 2:
         return StoryMoodScreen(

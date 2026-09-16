@@ -13,16 +13,12 @@ class StoryOption {
   const StoryOption({required this.label, required this.asset});
 }
 
-/// The three fixed option catalogs.
+/// The fixed option catalogs for moods and settings.
+///
+/// The hero is not here: it is generated rather than picked from a list, and
+/// lives in [HeroConfig].
 class StoryOptions {
   const StoryOptions._();
-
-  static const List<StoryOption> characters = <StoryOption>[
-    StoryOption(label: 'Brave Knight', asset: 'assets/story/characters/knight.svg'),
-    StoryOption(label: 'Friendly Dragon', asset: 'assets/story/characters/dragon.svg'),
-    StoryOption(label: 'Clever Fox', asset: 'assets/story/characters/fox.svg'),
-    StoryOption(label: 'Magic Fairy', asset: 'assets/story/characters/fairy.svg'),
-  ];
 
   static const List<StoryOption> moods = <StoryOption>[
     StoryOption(label: 'Funny', asset: 'assets/story/moods/funny.svg'),
