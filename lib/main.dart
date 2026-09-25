@@ -4,17 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firebase_options.dart';
 import 'screens/login_screen.dart';
 
-
-
-
-
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(
     MaterialApp(
       title: 'Story Sprout',
@@ -25,44 +17,6 @@ void main() async {
     ),
   );
 }
-
-/* void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
-      home: showReadingModule
-          ? const ReadingModulePage()
-          : const MyHomePage()
-    ),
-  );
-} */
-
-/* void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    MaterialApp(
-      title: 'Story Sprout',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.green)),
-      home: ComprehensionScreen(
-        chapterNumber: 1,
-        questions: [
-          ComprehensionQuestion(
-            question: 'What did the little seed need to grow?',
-            answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
-            correctIndex: 0,
-          ),
-          ComprehensionQuestion(
-            question: 'Where did the story take place?',
-            answers: ['In a city', 'In a garden', 'In the ocean'],
-            correctIndex: 1,
-          ),
-        ],
-      ),
-    ),
-  );
-} */
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});

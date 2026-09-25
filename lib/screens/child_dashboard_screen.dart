@@ -37,20 +37,11 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         title: Text('Hi ${widget.childName}! 🌱'),
         backgroundColor: Colors.amber,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.search), onPressed: () {})],
       ),
       body: IndexedStack(
         index: _selectedTab,
-        children: [
-          _buildHomeTab(),
-          _buildReadTab(),
-          _buildMyStoriesTab(),
-        ],
+        children: [_buildHomeTab(), _buildReadTab(), _buildMyStoriesTab()],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedTab,
@@ -58,15 +49,17 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
           if (index == 1) {
             // Navigate directly to reading module
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ReadingModulePage()),
+              MaterialPageRoute(
+                builder: (_) => ReadingModulePage(childName: widget.childName),
+              ),
             );
             return;
           }
           if (index == 2) {
             // Navigate directly to story creation
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const StoryFlowScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const StoryFlowScreen()));
             return;
           }
           setState(() => _selectedTab = index);
@@ -74,10 +67,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         selectedItemColor: Colors.amber,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
             label: 'Read a Story',
@@ -117,9 +107,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(width: 8),
-        const Expanded(
-          child: Divider(thickness: 1.5, color: Colors.black26),
-        ),
+        const Expanded(child: Divider(thickness: 1.5, color: Colors.black26)),
       ],
     );
   }
@@ -140,7 +128,9 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
           title: books[index]['title']!,
           emoji: books[index]['emoji']!,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ReadingModulePage()),
+            MaterialPageRoute(
+              builder: (_) => ReadingModulePage(childName: widget.childName),
+            ),
           ),
         );
       },
@@ -177,7 +167,11 @@ class _BookCard extends StatelessWidget {
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
-                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, 2)),
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
               child: Center(
