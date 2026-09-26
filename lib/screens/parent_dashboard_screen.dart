@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/child_profiles.dart';
 import 'parent_settings_screen.dart';
+import 'rewards_manager_screen.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key, this.store});
@@ -69,6 +70,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             ..._buildChildProfiles(),
             const SizedBox(height: 20),
 
+            // Rewards (CR #2)
+            const Text(
+              'Rewards',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            _buildRewardsEntry(context),
+            const SizedBox(height: 20),
+
             // Recent Activity
             const Text(
               'Family\'s Recent Activity',
@@ -83,6 +93,28 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             const SizedBox(height: 8),
             _buildActivityItem('Sam created "Space Explorer"'),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRewardsEntry(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Icon(Icons.redeem, color: Colors.white),
+        ),
+        title: const Text('Manage Rewards'),
+        subtitle: const Text('Set what your children can spend coins on'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const RewardsManagerScreen()),
         ),
       ),
     );
