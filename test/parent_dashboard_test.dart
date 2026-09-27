@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_profile_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+import 'package:storysprout/services/child_profiles.dart';
+
+import 'test_helpers.dart';
 
 void main() {
   testWidgets('Parent opens the child profile from View and returns', (
@@ -32,7 +35,13 @@ void main() {
       ]),
     });
 
-    await tester.pumpWidget(const MaterialApp(home: ParentDashboardScreen()));
+    final fb = signedIn();
+    await fb.store.save([
+      ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ParentDashboardScreen(store: fb.store)),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'View'));
     await tester.pumpAndSettle();

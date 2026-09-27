@@ -10,7 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
+
+import 'test_helpers.dart';
 
 void main() {
   testWidgets('EPUB resumes, saves settings, and reports activity to parents', (
@@ -186,7 +189,13 @@ void main() {
     // Repeated finishes still count as one distinct book in the parent view.
     events.add(events.firstWhere((event) => event['type'] == 'book_finished'));
     await prefs.setString('activity_log_Alex', jsonEncode(events));
-    await tester.pumpWidget(const MaterialApp(home: ParentDashboardScreen()));
+    final fb = signedIn();
+    await fb.store.save([
+      ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ParentDashboardScreen(store: fb.store)),
+    );
     await tester.pumpAndSettle();
     expect(find.text('1'), findsOneWidget);
     expect(find.text('Alex scored 1/2 on "alice.epub"'), findsOneWidget);

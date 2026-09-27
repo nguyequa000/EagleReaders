@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
 
 class ParentSettingsScreen extends StatefulWidget {
-  const ParentSettingsScreen({super.key});
+  const ParentSettingsScreen({super.key, this.auth});
+
+  /// Injectable for tests; defaults to [FirebaseAuth.instance].
+  final FirebaseAuth? auth;
 
   @override
   State<ParentSettingsScreen> createState() => _ParentSettingsScreenState();
 }
 
 class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
+  late final FirebaseAuth _auth = widget.auth ?? FirebaseAuth.instance;
   bool _aiCoaching = true;
   bool _pronunciationAudio = true;
   bool _reminderNotifications = false;
@@ -49,23 +54,35 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
 
             // App Preferences
             _buildSectionLabel('App Preferences'),
-            _buildToggleItem('AI Coaching Toggle', _aiCoaching,
-                (val) => setState(() => _aiCoaching = val)),
+            _buildToggleItem(
+              'AI Coaching Toggle',
+              _aiCoaching,
+              (val) => setState(() => _aiCoaching = val),
+            ),
             const SizedBox(height: 8),
-            _buildToggleItem('Pronunciation Audio Toggle', _pronunciationAudio,
-                (val) => setState(() => _pronunciationAudio = val)),
+            _buildToggleItem(
+              'Pronunciation Audio Toggle',
+              _pronunciationAudio,
+              (val) => setState(() => _pronunciationAudio = val),
+            ),
             const SizedBox(height: 8),
-            _buildToggleItem('Reminder Notifications Toggle',
-                _reminderNotifications,
-                (val) => setState(() => _reminderNotifications = val)),
+            _buildToggleItem(
+              'Reminder Notifications Toggle',
+              _reminderNotifications,
+              (val) => setState(() => _reminderNotifications = val),
+            ),
             const SizedBox(height: 24),
 
             // Content Settings
             _buildSectionLabel('Content Settings'),
-            _buildTappableItem('Age Restrictions',
-                trailing: const Text('Edit',
-                    style: TextStyle(color: Colors.green)),
-                onTap: () {}),
+            _buildTappableItem(
+              'Age Restrictions',
+              trailing: const Text(
+                'Edit',
+                style: TextStyle(color: Colors.green),
+              ),
+              onTap: () {},
+            ),
             const SizedBox(height: 8),
             _buildDropdownItem(),
             const SizedBox(height: 24),
@@ -74,16 +91,21 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                ),
+                onPressed: () async {
+                  await _auth.signOut();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade400,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text('Sign Out', style: TextStyle(fontSize: 16)),
               ),
@@ -114,18 +136,20 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hello, User',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('Parent Account',
-                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text(
+                'Hello, User',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Parent Account',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
             ],
           ),
           const Spacer(),
           TextButton(
             onPressed: () {},
-            child: const Text('Edit',
-                style: TextStyle(color: Colors.green)),
+            child: const Text('Edit', style: TextStyle(color: Colors.green)),
           ),
         ],
       ),
@@ -135,14 +159,18 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
   Widget _buildSectionLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(label,
-          style: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.bold)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
-  Widget _buildTappableItem(String label,
-      {Widget? trailing, required VoidCallback onTap}) {
+  Widget _buildTappableItem(
+    String label, {
+    Widget? trailing,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -165,7 +193,10 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
   }
 
   Widget _buildToggleItem(
-      String label, bool value, ValueChanged<bool> onChanged) {
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -203,11 +234,12 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
             value: _timeLimit,
             underline: const SizedBox.shrink(),
             items: _timeLimitOptions
-                .map((option) => DropdownMenuItem(
-                      value: option,
-                      child: Text(option,
-                          style: const TextStyle(fontSize: 14)),
-                    ))
+                .map(
+                  (option) => DropdownMenuItem(
+                    value: option,
+                    child: Text(option, style: const TextStyle(fontSize: 14)),
+                  ),
+                )
                 .toList(),
             onChanged: (val) {
               if (val != null) setState(() => _timeLimit = val);

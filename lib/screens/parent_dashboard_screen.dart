@@ -1,27 +1,28 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import '../services/child_profiles.dart';
 import 'child_profile_screen.dart';
 import 'parent_settings_screen.dart';
+import 'rewards_manager_screen.dart';
 
-/// Parent-facing dashboard: reading stats + recent activity feed, backed by
-/// [ActivityService].
+/// Parent-facing dashboard: family reading stats + recent activity feed
+/// ([ActivityService]), real child profiles ([ChildProfileStore]) and rewards.
 ///
-/// KNOWN LIMITATION: child identity is still a bare display-name string
-/// (matches the rest of the app — there is no child-profile-id system yet).
-/// This screen is hardcoded to show "Alex" until real child profile
-/// selection is wired in; see `child_selector_screen.dart` for where that
-/// eventually needs to plug in.
+/// Activity is still keyed by child display name, matching the reader.
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+  const ParentDashboardScreen({super.key, this.store});
+
+  /// Injectable for tests; defaults to the shared Firebase singletons.
+  final ChildProfileStore? store;
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
-  static const String _childName = 'Alex';
-
-  List<ActivityEvent> _activity = [];
+  late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
+  List<ChildProfile>? _children;
+  List<(String, ActivityEvent)> _activity = [];
   ChildActivityStats? _stats;
   bool _loading = true;
 
@@ -32,12 +33,33 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Future<void> _load() async {
-    final events = await ActivityService.instance.getEvents(_childName);
-    final stats = await ActivityService.instance.getStats(_childName);
+    List<ChildProfile> children;
+    try {
+      children = await _store.load();
+    } catch (_) {
+      children = [];
+    }
+    final activity = <(String, ActivityEvent)>[];
+    var books = 0, minutes = 0, stories = 0;
+    for (final child in children) {
+      final events = await ActivityService.instance.getEvents(child.name);
+      final stats = await ActivityService.instance.getStats(child.name);
+      activity.addAll(events.map((e) => (child.name, e)));
+      books += stats.booksFinished;
+      minutes += stats.minutesThisWeek;
+      stories += stats.storiesCreated;
+    }
+    activity.sort((a, b) => a.$2.ts.compareTo(b.$2.ts));
     if (!mounted) return;
     setState(() {
-      _activity = events;
-      _stats = stats;
+      _children = children;
+      _activity = activity;
+      _stats = ChildActivityStats(
+        booksFinished: books,
+        minutesThisWeek: minutes,
+        storiesCreated: stories,
+        lastComprehensionScorePct: null,
+      );
       _loading = false;
     });
   }
@@ -84,11 +106,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _buildChildProfile(_childName),
+                    ..._buildChildProfiles(),
+                    const SizedBox(height: 20),
+
+                    // Rewards (CR #2)
+                    const Text(
+                      'Rewards',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildRewardsEntry(context),
                     const SizedBox(height: 20),
 
                     const Text(
-                      'Recent Activity',
+                      'Family\'s Recent Activity',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -100,14 +134,38 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         'No activity yet — start reading to see it here.',
                       )
                     else
-                      for (final event in _activity.reversed.take(8)) ...[
-                        _buildActivityItem(event.describe(_childName)),
+                      for (final (name, event) in _activity.reversed.take(
+                        8,
+                      )) ...[
+                        _buildActivityItem(event.describe(name)),
                         const SizedBox(height: 8),
                       ],
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildRewardsEntry(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Icon(Icons.redeem, color: Colors.white),
+        ),
+        title: const Text('Manage Rewards'),
+        subtitle: const Text('Set what your children can spend coins on'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const RewardsManagerScreen())),
+      ),
     );
   }
 
@@ -174,7 +232,37 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildChildProfile(String name) {
+  /// The "Child Profiles" rows: real profiles from the local store once loaded,
+  /// an empty-state row if there are none, nothing while still loading.
+  List<Widget> _buildChildProfiles() {
+    final children = _children;
+    if (children == null) return const [];
+    if (children.isEmpty) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+          child: const Text(
+            'No child profiles yet.',
+            style: TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+        ),
+      ];
+    }
+    final rows = <Widget>[];
+    for (final child in children) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
+      rows.add(_buildChildProfile(child));
+    }
+    return rows;
+  }
+
+  Widget _buildChildProfile(ChildProfile child) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -187,18 +275,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           CircleAvatar(
             radius: 22,
             backgroundColor: Colors.amber.withValues(alpha: 0.2),
-            child: const Text('🧒', style: TextStyle(fontSize: 20)),
+            child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 12),
           Text(
-            name,
+            child.name,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const Spacer(),
           ElevatedButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ChildProfileScreen(childName: name),
+                builder: (_) => ChildProfileScreen(childName: child.name),
               ),
             ),
             style: ElevatedButton.styleFrom(
