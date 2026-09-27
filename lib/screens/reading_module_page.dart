@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:epub_view/epub_view.dart';
 // epub_view exposes EpubViewChapter in its API but omits it from the barrel.
@@ -47,7 +48,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       ? const Color(0xFFF0F0F0)
       : const Color(0xFF2E2E2E);
   String get _chapterLabel => _chapters.isEmpty
-      ? 'Import an .epub file to begin'
+      ? 'Import an .epub or .txt file to begin'
       : (_chapters[_chapterIndex].title?.trim().isNotEmpty ?? false)
       ? _chapters[_chapterIndex].title!.trim()
       : 'Chapter ${_chapterIndex + 1}';
@@ -89,7 +90,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   Future<void> _pickAndLoadFile() => _load(() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['epub'],
+      allowedExtensions: ['epub', 'txt'],
       allowMultiple: false,
       withData: true,
     );
