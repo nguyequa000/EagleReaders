@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'child_rewards_screen.dart';
 import 'reading_module_page.dart';
 import 'story_flow_screen.dart';
 
@@ -38,6 +39,16 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         backgroundColor: Colors.amber,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.redeem),
+            tooltip: 'My Rewards',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    ChildRewardsScreen(childName: widget.childName),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {},
