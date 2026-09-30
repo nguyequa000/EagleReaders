@@ -1,7 +1,8 @@
-//import 'dart:convert';
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import '../services/activity_service.dart';
+
 // Data model
 class ComprehensionQuestion {
   final String question;
@@ -25,6 +26,9 @@ class ComprehensionQuestion {
 
 //  Screen widget
 class ComprehensionScreen extends StatefulWidget {
+  final String childName;
+  final String bookTitle;
+
   /// The chapter number that just finished (e.g. 3)
   final int chapterNumber;
 
@@ -37,6 +41,8 @@ class ComprehensionScreen extends StatefulWidget {
 
   const ComprehensionScreen({
     super.key,
+    required this.childName,
+    required this.bookTitle,
     required this.chapterNumber,
     this.questions,
     this.onKeepReading,
@@ -48,9 +54,11 @@ class ComprehensionScreen extends StatefulWidget {
 
 class _ComprehensionScreenState extends State<ComprehensionScreen>
     with SingleTickerProviderStateMixin {
-  // state 
+  // state
   List<ComprehensionQuestion> _questions = [];
   int _currentIndex = 0;
+  int _correctCount = 0;
+  bool _savingResult = false;
   int? _selectedAnswer;
   bool _answered = false;
   bool _loading = true;
@@ -60,19 +68,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   late Animation<double> _fadeAnimation;
 
   static const List<ComprehensionQuestion> _demoQuestions = [
-  ComprehensionQuestion(
-    question: 'What did the little seed need to grow?',
-    answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
-    correctIndex: 0,
-  ),
-  ComprehensionQuestion(
-    question: 'Where did the story take place?',
-    answers: ['In a city', 'In a garden', 'In the ocean'],
-    correctIndex: 1,
-  ),
-];
+    ComprehensionQuestion(
+      question: 'What did the little seed need to grow?',
+      answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
+      correctIndex: 0,
+    ),
+    ComprehensionQuestion(
+      question: 'Where did the story take place?',
+      answers: ['In a city', 'In a garden', 'In the ocean'],
+      correctIndex: 1,
+    ),
+  ];
 
-  // Story Sprout brand colours 
+  // Story Sprout brand colours
   static const Color _darkBg = Color(0xFF1A1F1A);
   static const Color _cardBg = Color(0xFF252B25);
   static const Color _green = Color(0xFF4CAF50);
@@ -82,7 +90,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   static const Color _correctGreen = Color(0xFF66BB6A);
   static const Color _wrongRed = Color(0xFFEF5350);
 
-  // lifecycle 
+  // lifecycle
   @override
   void initState() {
     super.initState();
@@ -103,18 +111,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     super.dispose();
   }
 
-  // data loading 
+  // data loading
   Future<void> _loadQuestions() async {
     try {
       List<ComprehensionQuestion> loaded;
 
+      loaded = _demoQuestions;
+      setState(() {
+        _questions = loaded;
+        _loading = false;
+      });
+      _fadeController.forward();
+      return;
 
-    
-    loaded = _demoQuestions;
-    setState(() { _questions = loaded; _loading = false; });
-    _fadeController.forward();
-    return;
-    
       /* if (widget.questions != null) {
         loaded = widget.questions!;
       } else {
@@ -140,7 +149,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     }
   }
 
-  // helpers 
+  // helpers
   ComprehensionQuestion get _current => _questions[_currentIndex];
 
   bool get _isLastQuestion => _currentIndex == _questions.length - 1;
@@ -150,11 +159,31 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     setState(() {
       _selectedAnswer = index;
       _answered = true;
+      if (index == _current.correctIndex) _correctCount++;
     });
   }
 
-  void _advance() {
+  Future<void> _advance() async {
+    if (!_answered || _savingResult) return;
     if (_isLastQuestion) {
+      _savingResult = true;
+      try {
+        await ActivityService.instance.logEvent(
+          widget.childName,
+          'comprehension_result',
+          {
+            'title': widget.bookTitle,
+            'chapter': widget.chapterNumber,
+            // Kept for backwards-compat with any older readers of this log.
+            'score': '$_correctCount/${_questions.length}',
+            'correct': _correctCount,
+            'total': _questions.length,
+          },
+        );
+      } finally {
+        _savingResult = false;
+      }
+      if (!mounted) return;
       widget.onKeepReading?.call();
       if (widget.onKeepReading == null) Navigator.of(context).pop();
     } else {
@@ -168,7 +197,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     }
   }
 
-  //answer tile colour 
+  //answer tile colour
   Color _tileColor(int index) {
     if (!_answered) return _cardBg;
     if (index == _current.correctIndex) return _correctGreen.withOpacity(0.25);
@@ -185,7 +214,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     return Colors.transparent;
   }
 
-  // build 
+  // build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -194,10 +223,10 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _green))
           : _error != null
-              ? _buildError()
-              : _questions.isEmpty
-                  ? _buildEmpty()
-                  : _buildBody(),
+          ? _buildError()
+          : _questions.isEmpty
+          ? _buildEmpty()
+          : _buildBody(),
     );
   }
 
@@ -221,7 +250,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  //  main body 
+  //  main body
   Widget _buildBody() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -246,7 +275,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  // progress dots 
+  // progress dots
   Widget _buildProgressIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -301,11 +330,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
             ),
             child: Text(
               _current.question,
-              style: const TextStyle(
-                color: _cream,
-                fontSize: 15,
-                height: 1.5,
-              ),
+              style: const TextStyle(color: _cream, fontSize: 15, height: 1.5),
             ),
           ),
         ),
@@ -336,7 +361,9 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
               onTap: _answered ? null : () => _selectAnswer(i),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   children: [
                     // Radio circle
@@ -350,8 +377,8 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
                           color: isCorrect
                               ? _correctGreen
                               : isWrong
-                                  ? _wrongRed
-                                  : _textMuted,
+                              ? _wrongRed
+                              : _textMuted,
                           width: 2,
                         ),
                         color: (isCorrect || isWrong)
@@ -359,12 +386,14 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
                             : Colors.transparent,
                       ),
                       child: isCorrect
-                          ? const Icon(Icons.check,
-                              size: 14, color: _correctGreen)
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: _correctGreen,
+                            )
                           : isWrong
-                              ? const Icon(Icons.close,
-                                  size: 14, color: _wrongRed)
-                              : null,
+                          ? const Icon(Icons.close, size: 14, color: _wrongRed)
+                          : null,
                     ),
                     const SizedBox(width: 12),
                     // Answer text
@@ -375,8 +404,8 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
                           color: isCorrect
                               ? _correctGreen
                               : isWrong
-                                  ? _wrongRed
-                                  : _cream,
+                              ? _wrongRed
+                              : _cream,
                           fontSize: 14,
                           height: 1.4,
                         ),
@@ -427,8 +456,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         children: [
           const Icon(Icons.error_outline, color: _wrongRed, size: 48),
           const SizedBox(height: 12),
-          Text(_error!,
-              style: const TextStyle(color: _cream, fontSize: 16)),
+          Text(_error!, style: const TextStyle(color: _cream, fontSize: 16)),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: _loadQuestions,

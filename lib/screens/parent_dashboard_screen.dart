@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import '../services/activity_service.dart';
 import '../services/child_profiles.dart';
+import 'child_profile_screen.dart';
 import 'parent_settings_screen.dart';
 import 'rewards_manager_screen.dart';
 
+/// Parent-facing dashboard: family reading stats + recent activity feed
+/// ([ActivityService]), real child profiles ([ChildProfileStore]) and rewards.
+///
+/// Activity is still keyed by child display name, matching the reader.
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key, this.store});
 
@@ -16,6 +22,9 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   List<ChildProfile>? _children;
+  List<(String, ActivityEvent)> _activity = [];
+  ChildActivityStats? _stats;
+  bool _loading = true;
 
   @override
   void initState() {
@@ -30,7 +39,29 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     } catch (_) {
       children = [];
     }
-    if (mounted) setState(() => _children = children);
+    final activity = <(String, ActivityEvent)>[];
+    var books = 0, minutes = 0, stories = 0;
+    for (final child in children) {
+      final events = await ActivityService.instance.getEvents(child.name);
+      final stats = await ActivityService.instance.getStats(child.name);
+      activity.addAll(events.map((e) => (child.name, e)));
+      books += stats.booksFinished;
+      minutes += stats.minutesThisWeek;
+      stories += stats.storiesCreated;
+    }
+    activity.sort((a, b) => a.$2.ts.compareTo(b.$2.ts));
+    if (!mounted) return;
+    setState(() {
+      _children = children;
+      _activity = activity;
+      _stats = ChildActivityStats(
+        booksFinished: books,
+        minutesThisWeek: minutes,
+        storiesCreated: stories,
+        lastComprehensionScorePct: null,
+      );
+      _loading = false;
+    });
   }
 
   @override
@@ -43,58 +74,76 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile header
-            _buildProfileHeader(context),
-            const SizedBox(height: 20),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(context),
+                    const SizedBox(height: 20),
 
-            // Reading Stats
-            const Text(
-              'Reading Stats',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            _buildReadingStats(),
-            const SizedBox(height: 20),
+                    const Text(
+                      'Reading Stats',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildReadingStats(),
+                    const SizedBox(height: 20),
 
-            // Child Profiles
-            const Text(
-              'Child Profiles',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ..._buildChildProfiles(),
-            const SizedBox(height: 20),
+                    const Text(
+                      'Child Profiles',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._buildChildProfiles(),
+                    const SizedBox(height: 20),
 
-            // Rewards (CR #2)
-            const Text(
-              'Rewards',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            _buildRewardsEntry(context),
-            const SizedBox(height: 20),
+                    // Rewards (CR #2)
+                    const Text(
+                      'Rewards',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildRewardsEntry(context),
+                    const SizedBox(height: 20),
 
-            // Recent Activity
-            const Text(
-              'Family\'s Recent Activity',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    const Text(
+                      'Family\'s Recent Activity',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_activity.isEmpty)
+                      _buildActivityItem(
+                        'No activity yet — start reading to see it here.',
+                      )
+                    else
+                      for (final (name, event) in _activity.reversed.take(
+                        8,
+                      )) ...[
+                        _buildActivityItem(event.describe(name)),
+                        const SizedBox(height: 8),
+                      ],
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            _buildActivityItem('Alex read "The Tiny Seed"'),
-            const SizedBox(height: 8),
-            _buildActivityItem('Alex created "Dragon Adventure"'),
-            const SizedBox(height: 8),
-            _buildActivityItem('Sam read "A Bear Called Paddington"'),
-            const SizedBox(height: 8),
-            _buildActivityItem('Sam created "Space Explorer"'),
-          ],
-        ),
-      ),
     );
   }
 
@@ -113,9 +162,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         title: const Text('Manage Rewards'),
         subtitle: const Text('Set what your children can spend coins on'),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const RewardsManagerScreen()),
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const RewardsManagerScreen())),
       ),
     );
   }
@@ -162,13 +211,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildReadingStats() {
+    final stats = _stats;
     return Row(
       children: [
-        _StatCard(label: 'Books Read', value: '7'),
+        _StatCard(
+          label: 'Books Read',
+          value: (stats?.booksFinished ?? 0).toString(),
+        ),
         const SizedBox(width: 8),
-        _StatCard(label: 'Minutes Read\nThis Week', value: '142'),
+        _StatCard(
+          label: 'Minutes Read\nThis Week',
+          value: (stats?.minutesThisWeek ?? 0).toString(),
+        ),
         const SizedBox(width: 8),
-        _StatCard(label: 'Stories\nCreated', value: '4'),
+        _StatCard(
+          label: 'Stories\nCreated',
+          value: (stats?.storiesCreated ?? 0).toString(),
+        ),
       ],
     );
   }
@@ -215,7 +274,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: Colors.amber.withOpacity(0.2),
+            backgroundColor: Colors.amber.withValues(alpha: 0.2),
             child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 12),
@@ -225,7 +284,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ),
           const Spacer(),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChildProfileScreen(childName: child.name),
+              ),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
