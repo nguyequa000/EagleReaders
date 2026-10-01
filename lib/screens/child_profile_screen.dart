@@ -3,11 +3,16 @@ import '../services/activity_service.dart';
 
 /// Parent-facing, read-only view of one child's reading profile.
 ///
-/// Child identity is still a display-name string (see [ActivityService]),
-/// so this screen is keyed by [childName].
+/// Activity is keyed by [childId] (see [ActivityService]); [childName] is
+/// only for display.
 class ChildProfileScreen extends StatefulWidget {
-  const ChildProfileScreen({super.key, required this.childName});
+  const ChildProfileScreen({
+    super.key,
+    required this.childId,
+    required this.childName,
+  });
 
+  final String childId;
   final String childName;
 
   @override
@@ -26,8 +31,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   }
 
   Future<void> _load() async {
-    final events = await ActivityService.instance.getEvents(widget.childName);
-    final stats = await ActivityService.instance.getStats(widget.childName);
+    final events = await ActivityService.instance.getEvents(widget.childId);
+    final stats = ActivityService.statsFrom(events);
     if (!mounted) return;
     setState(() {
       _events = events;
@@ -41,10 +46,6 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     final stats = _stats;
     final l10n = MaterialLocalizations.of(context);
     final score = stats?.lastComprehensionScorePct;
-    final lastBook = _events
-        .where((e) => e.type == 'book_opened')
-        .map((e) => e.data['title'] as String?)
-        .lastOrNull;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -95,7 +96,11 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                   'Last quiz score',
                   score == null ? 'No quiz yet' : '${score.round()}%',
                 ),
-                _tile(Icons.bookmark, 'Last opened', lastBook ?? 'Nothing yet'),
+                _tile(
+                  Icons.bookmark,
+                  'Currently reading',
+                  stats?.currentlyReading ?? 'Nothing right now',
+                ),
                 const SizedBox(height: 20),
                 const Text(
                   'All Activity',

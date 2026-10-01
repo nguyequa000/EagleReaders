@@ -8,7 +8,8 @@ import 'rewards_manager_screen.dart';
 /// Parent-facing dashboard: family reading stats + recent activity feed
 /// ([ActivityService]), real child profiles ([ChildProfileStore]) and rewards.
 ///
-/// Activity is still keyed by child display name, matching the reader.
+/// Activity is keyed by child id, so it follows the child across renames and
+/// devices.
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key, this.store});
 
@@ -24,6 +25,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   List<ChildProfile>? _children;
   List<(String, ActivityEvent)> _activity = [];
   ChildActivityStats? _stats;
+  Map<String, ChildActivityStats> _statsByChild = {};
   bool _loading = true;
 
   @override
@@ -40,10 +42,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       children = [];
     }
     final activity = <(String, ActivityEvent)>[];
+    final statsByChild = <String, ChildActivityStats>{};
     var books = 0, minutes = 0, stories = 0;
     for (final child in children) {
-      final events = await ActivityService.instance.getEvents(child.name);
-      final stats = await ActivityService.instance.getStats(child.name);
+      List<ActivityEvent> events;
+      try {
+        events = await ActivityService.instance.getEvents(child.id);
+      } catch (_) {
+        events = [];
+      }
+      final stats = ActivityService.statsFrom(events);
+      statsByChild[child.id] = stats;
       activity.addAll(events.map((e) => (child.name, e)));
       books += stats.booksFinished;
       minutes += stats.minutesThisWeek;
@@ -53,6 +62,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     if (!mounted) return;
     setState(() {
       _children = children;
+      _statsByChild = statsByChild;
       _activity = activity;
       _stats = ChildActivityStats(
         booksFinished: books,
@@ -263,6 +273,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildChildProfile(ChildProfile child) {
+    final reading = _statsByChild[child.id]?.currentlyReading;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -278,15 +289,35 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 12),
-          Text(
-            child.name,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  child.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (reading != null)
+                  Text(
+                    'Reading: $reading',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ChildProfileScreen(childName: child.name),
+                builder: (_) => ChildProfileScreen(
+                  childId: child.id,
+                  childName: child.name,
+                ),
               ),
             ),
             style: ElevatedButton.styleFrom(

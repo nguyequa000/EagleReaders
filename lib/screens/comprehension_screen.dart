@@ -26,6 +26,8 @@ class ComprehensionQuestion {
 
 //  Screen widget
 class ComprehensionScreen extends StatefulWidget {
+  /// Whose activity log the result is recorded against.
+  final String childId;
   final String childName;
   final String bookTitle;
 
@@ -39,13 +41,24 @@ class ComprehensionScreen extends StatefulWidget {
   /// Called when the user taps "Keep Reading →"
   final VoidCallback? onKeepReading;
 
+  /// The chapter's own title (e.g. "CHAPTER I. Down the Rabbit-Hole"), shown
+  /// instead of "End of Chapter N" when the book provides one.
+  final String? chapterTitle;
+
+  /// Shows a Skip button that closes the quiz without recording a score
+  /// (used for the quizzes that pop up at the end of each chapter).
+  final bool skippable;
+
   const ComprehensionScreen({
     super.key,
+    required this.childId,
     required this.childName,
     required this.bookTitle,
     required this.chapterNumber,
     this.questions,
     this.onKeepReading,
+    this.chapterTitle,
+    this.skippable = false,
   });
 
   @override
@@ -116,7 +129,9 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     try {
       List<ComprehensionQuestion> loaded;
 
-      loaded = _demoQuestions;
+      // Chapter-specific questions when the caller has them (see
+      // QuestionBank), otherwise the generic demo pair.
+      loaded = widget.questions ?? _demoQuestions;
       setState(() {
         _questions = loaded;
         _loading = false;
@@ -169,11 +184,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       _savingResult = true;
       try {
         await ActivityService.instance.logEvent(
-          widget.childName,
+          widget.childId,
           'comprehension_result',
           {
             'title': widget.bookTitle,
             'chapter': widget.chapterNumber,
+            if (widget.chapterTitle != null)
+              'chapterTitle': widget.chapterTitle,
             // Kept for backwards-compat with any older readers of this log.
             'score': '$_correctCount/${_questions.length}',
             'correct': _correctCount,
@@ -239,7 +256,9 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: Text(
-        'End of Chapter ${widget.chapterNumber}',
+        widget.chapterTitle ?? 'End of Chapter ${widget.chapterNumber}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: _cream,
           fontWeight: FontWeight.bold,
@@ -247,6 +266,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         ),
       ),
       centerTitle: true,
+      actions: [
+        if (widget.skippable)
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Skip', style: TextStyle(color: _cream)),
+          ),
+      ],
     );
   }
 

@@ -148,7 +148,9 @@ class ChildProfileStore {
 
     final existing = await collection.get();
     for (final doc in existing.docs) {
-      if (!keep.contains(doc.id)) batch.delete(doc.reference);
+      if (keep.contains(doc.id)) continue;
+      await _deleteActivity(doc.reference);
+      batch.delete(doc.reference);
     }
 
     for (var i = 0; i < profiles.length; i++) {
@@ -163,6 +165,23 @@ class ChildProfileStore {
     }
 
     await batch.commit();
+  }
+
+  /// Firestore does not cascade deletes, so a removed child's reading activity
+  /// (see `ActivityService`) has to go explicitly. Chunked because one batch
+  /// is capped at 500 writes and a long-time reader can exceed that.
+  Future<void> _deleteActivity(
+    DocumentReference<Map<String, dynamic>> child,
+  ) async {
+    final events = (await child.collection('activity').get()).docs;
+    const chunk = 450;
+    for (var i = 0; i < events.length; i += chunk) {
+      final batch = _firestore.batch();
+      for (final event in events.skip(i).take(chunk)) {
+        batch.delete(event.reference);
+      }
+      await batch.commit();
+    }
   }
 
   /// One-time lift of profiles created before the Firestore move. Runs only

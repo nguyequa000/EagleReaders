@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:epub_view/epub_view.dart';
@@ -10,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
 
@@ -26,6 +26,9 @@ void main() {
       'reader_theme': 'paper',
     });
     final prefs = await SharedPreferences.getInstance();
+    final fb = signedIn();
+    ActivityService.instance = fb.activity;
+    const childIds = {'Alex': '1', 'Sam': '2'};
     var fileName = 'alice.epub';
     final bytes = File(
       'assets/books/alice_in_wonderland.epub',
@@ -49,7 +52,9 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       await tester.pumpWidget(
-        MaterialApp(home: ReadingModulePage(childName: child)),
+        MaterialApp(
+          home: ReadingModulePage(childId: childIds[child]!, childName: child),
+        ),
       );
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
@@ -144,9 +149,10 @@ void main() {
     expect(find.text('Chapter $total of $total'), findsOneWidget);
     expect(find.text('Last chapter!'), findsOneWidget);
     expect(
-      (jsonDecode(prefs.getString('activity_log_Alex')!) as List).where(
-        (event) => event['type'] == 'book_finished',
-      ),
+      (await activityDocs(
+        fb.firestore,
+        '1',
+      )).where((event) => event['type'] == 'book_finished'),
       isEmpty,
     );
     await tester.runAsync(() async {
@@ -167,7 +173,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(EpubView), findsOneWidget);
 
-    final events = jsonDecode(prefs.getString('activity_log_Alex')!) as List;
+    final events = await activityDocs(fb.firestore, '1');
     expect(events.map((event) => event['type']), [
       'book_opened',
       'book_opened',
@@ -177,7 +183,7 @@ void main() {
     expect(events.last['title'], 'alice.epub');
     expect(events.last['score'], '1/2');
     expect(events.last['ts'], isA<int>());
-    expect(prefs.getString('activity_log_Sam'), isNull);
+    expect(await activityDocs(fb.firestore, '2'), isEmpty);
 
     // Another child or another filename must not inherit Alex's position.
     await openReader(child: 'Sam');
@@ -187,9 +193,13 @@ void main() {
     expect(find.text('Chapter 1 of $total'), findsOneWidget);
 
     // Repeated finishes still count as one distinct book in the parent view.
-    events.add(events.firstWhere((event) => event['type'] == 'book_finished'));
-    await prefs.setString('activity_log_Alex', jsonEncode(events));
-    final fb = signedIn();
+    await fb.firestore
+        .collection('parents')
+        .doc('parent-1')
+        .collection('children')
+        .doc('1')
+        .collection('activity')
+        .add(events.firstWhere((event) => event['type'] == 'book_finished'));
     await fb.store.save([
       ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
     ]);

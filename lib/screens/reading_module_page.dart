@@ -1,21 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:epub_view/epub_view.dart';
 // epub_view exposes EpubViewChapter in its API but omits it from the barrel.
 // ignore: implementation_imports
 import 'package:epub_view/src/data/models/chapter.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/activity_service.dart';
+import '../services/question_bank.dart';
+import 'chapter_quiz.dart';
 import 'comprehension_screen.dart';
+import 'paged_text_view.dart';
+import 'picture_book_view.dart';
 
 class ReadingModulePage extends StatefulWidget {
+  final String childId;
   final String childName;
 
-  const ReadingModulePage({super.key, required this.childName});
+  const ReadingModulePage({
+    super.key,
+    required this.childId,
+    required this.childName,
+  });
 
   @override
   State<ReadingModulePage> createState() => _ReadingModulePageState();
@@ -23,10 +34,32 @@ class ReadingModulePage extends StatefulWidget {
 
 class _ReadingModulePageState extends State<ReadingModulePage> {
   static const _green = Color(0xFF2E7D32);
+
+  /// Larger files are refused up front rather than risking running out of
+  /// memory while the whole book is parsed.
+  static const _maxEpubBytes = 150 * 1024 * 1024;
+
+  /// The paged reader hands the whole book to its web view as one JavaScript
+  /// array, so bigger text books stay in the scrolling reader.
+  static const _maxPagedBytes = 30 * 1024 * 1024;
   SharedPreferences? _prefs;
   EpubController? _controller;
+
+  /// Set instead of [_controller] for picture books (comics etc.), which are
+  /// shown one page image at a time; [_chapterIndex] is then the page index.
+  PictureBook? _pictureBook;
+
+  /// Set instead of [_controller] for text books on phones, which are shown
+  /// page by page (see [PagedTextView]).
+  PagedTextBook? _pagedText;
+  String? _pagedInitialCfi;
+  String? _pagedChapterTitle;
   List<EpubViewChapter> _chapters = [];
   String _bookTitle = 'No book selected';
+
+  /// The title in the EPUB's own metadata, which (unlike [_bookTitle], often
+  /// a file name) identifies the book for [QuestionBank].
+  String? _bookMetaTitle;
   int _chapterIndex = 0;
   bool _busy = false;
   bool _ready = false;
@@ -36,9 +69,21 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   int? _lastSavedPosition;
   DateTime? _sessionStart;
 
+  /// End-of-chapter quizzes for the scrolling reader (the picture and paged
+  /// views run their own and report through [_showChapterQuiz]).
+  ChapterQuizTrigger? _scrollQuiz;
+
+  /// Chapter changes until this time come from a Contents jump, which scrolls
+  /// past chapters on the way and mustn't count as finishing them.
+  DateTime _jumpSettlesAt = DateTime(0);
+
   bool get _canNavigate => _ready && !_busy;
   bool get _isLast => _chapterIndex == _chapters.length - 1;
   String get _positionKey => 'epub_position_${widget.childName}_$_bookTitle';
+
+  /// The paged reader's position is an epub.js CFI string, not a paragraph
+  /// index, so it is saved under its own key.
+  String _cfiKey(String title) => 'epub_cfi_${widget.childName}_$title';
   Color get _background => switch (_readerTheme) {
     'dark' => const Color(0xFF1E1E1E),
     'white' => Colors.white,
@@ -47,7 +92,12 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   Color get _foreground => _readerTheme == 'dark'
       ? const Color(0xFFF0F0F0)
       : const Color(0xFF2E2E2E);
-  String get _chapterLabel => _chapters.isEmpty
+  String get _chapterLabel => _pagedText != null
+      ? _pagedChapterTitle ?? ''
+      : _pictureBook != null
+      ? _pictureBook!.chapterAt(_chapterIndex)?.title ??
+            'Page ${_chapterIndex + 1} of ${_pictureBook!.pages.length}'
+      : _chapters.isEmpty
       ? 'Import an .epub or .txt file to begin'
       : (_chapters[_chapterIndex].title?.trim().isNotEmpty ?? false)
       ? _chapters[_chapterIndex].title!.trim()
@@ -92,28 +142,53 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       type: FileType.custom,
       allowedExtensions: ['epub', 'txt'],
       allowMultiple: false,
-      withData: true,
+      // Only web needs the bytes (it has no file path). Elsewhere, having the
+      // plugin send the bytes over the platform channel copies the whole file
+      // inside the 192 MB Android Java heap, so large image-heavy EPUBs crash
+      // the app with an OutOfMemoryError before Dart can catch anything.
+      withData: kIsWeb,
     );
     if (!mounted || result == null || result.files.isEmpty) return;
     final file = result.files.single;
     if (file.extension?.toLowerCase() != 'epub') {
       return _showMessage('Please choose an .epub file.');
     }
-    final bytes = file.bytes;
+    if (file.size > _maxEpubBytes) {
+      return _showMessage('This book is too large to open.');
+    }
+    final path = file.path;
+    final bytes =
+        file.bytes ?? (path == null ? null : await File(path).readAsBytes());
+    if (!mounted) return;
     if (bytes == null || bytes.isEmpty) {
       return _showMessage('The selected EPUB is empty or could not be read.');
     }
-    await _openBook(EpubDocument.openData(bytes), file.name);
+    await _openBook(
+      EpubDocument.openData(bytes),
+      file.name,
+      paged: path != null && file.size <= _maxPagedBytes
+          ? PagedTextSource.file(path)
+          : null,
+    );
   });
 
   Future<void> _loadSampleBook() => _load(
     () => _openBook(
-      EpubDocument.openAsset('assets/books/alice_in_wonderland.epub'),
+      EpubDocument.openAsset(_sampleBook),
       "Alice's Adventures in Wonderland",
+      paged: const PagedTextSource.asset(_sampleBook),
     ),
   );
 
-  Future<void> _openBook(Future<EpubBook> source, String title) async {
+  static const _sampleBook = 'assets/books/alice_in_wonderland.epub';
+
+  /// [paged] is where the paged text reader can load the same book from; it
+  /// is used for text books when [pagedTextSupported].
+  Future<void> _openBook(
+    Future<EpubBook> source,
+    String title, {
+    PagedTextSource? paged,
+  }) async {
     // Parse before replacing the current book, so failed imports do not lose it.
     final book = await source;
     final prefs = _prefs ??= await SharedPreferences.getInstance();
@@ -122,6 +197,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     // epub_view 3.2.0 miscalculates offsets for anchored TOC entries. Use one
     // section per XHTML file; keep all original HTML, links and embedded images.
     // ponytail: same-file subheadings stay in the text, not separate TOC rows.
+    // Before collect() below, which flattens the contents tree in place.
+    final pictures = readPictureBook(book);
     final sections = <EpubChapter>[];
     final seen = <String>{};
     void collect(List<EpubChapter> chapters) {
@@ -143,10 +220,13 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     }
 
     collect(book.Chapters ?? []);
-    if (sections.isEmpty) {
+    if (sections.isEmpty && pictures == null) {
       throw const FormatException('No readable EPUB sections');
     }
     book.Chapters = sections;
+    final pagedText = pictures == null && paged != null && pagedTextSupported
+        ? PagedTextBook(paged, book)
+        : null;
     _savePosition();
     await _endReadingSession();
     if (!mounted) return;
@@ -156,23 +236,37 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     );
     setState(() {
       _prefs = prefs;
-      _controller = EpubController(document: Future.value(book));
+      _controller = pictures == null && pagedText == null
+          ? EpubController(document: Future.value(book))
+          : null;
+      _pictureBook = pictures;
+      _pagedText = pagedText;
+      _pagedInitialCfi = prefs.getString(_cfiKey(title));
+      _pagedChapterTitle = null;
       _bookTitle = title;
+      _bookMetaTitle = book.Title;
       _chapters = [];
-      _chapterIndex = 0;
+      _chapterIndex = pictures == null
+          ? 0
+          : (savedPosition ?? 0).clamp(0, pictures.pages.length - 1);
       _lastSavedPosition = savedPosition;
-      _ready = false;
+      // Only the scrolling reader needs a layout pass before navigating.
+      _ready = _controller == null;
     });
     // Let the old EpubView detach before disposing its notifiers.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _disposeController(oldController);
     });
+    if (_controller == null) _startReading();
   }
 
   void _onDocumentLoaded(EpubBook book) {
     if (!mounted) return;
     final controller = _controller!;
     setState(() => _chapters = controller.tableOfContents());
+    _scrollQuiz = ChapterQuizTrigger([
+      for (final c in _chapters) (title: c.title?.trim() ?? '', depth: 0),
+    ]);
     // Resume by paragraph index (epub_view CFIs don't round-trip reliably).
     // _ready stays false until then, so early scroll events can't overwrite it.
     final saved = _lastSavedPosition;
@@ -181,18 +275,24 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       if (saved != null) controller.jumpTo(index: saved);
       setState(() => _ready = true);
     });
+    _startReading();
+  }
+
+  void _startReading() {
     _sessionStart = ActivityService.instance.startSession();
     unawaited(
-      ActivityService.instance.logEvent(widget.childName, 'book_opened', {
+      ActivityService.instance.logEvent(widget.childId, 'book_opened', {
         'title': _bookTitle,
       }),
     );
   }
 
   void _savePosition() {
-    if (!_ready || _controller?.currentValue == null) return;
-    final position = _controller!.currentValue!.position.index;
-    if (position == _lastSavedPosition) return;
+    if (!_ready) return;
+    final position = _pictureBook != null
+        ? _chapterIndex
+        : _controller?.currentValue?.position.index;
+    if (position == null || position == _lastSavedPosition) return;
     _lastSavedPosition = position;
     _prefs?.setInt(_positionKey, position);
   }
@@ -207,7 +307,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     setState(() => _busy = true);
     _savePosition();
     await _endReadingSession();
-    await ActivityService.instance.logEvent(widget.childName, 'book_finished', {
+    await ActivityService.instance.logEvent(widget.childId, 'book_finished', {
       'title': _bookTitle,
     });
     if (!mounted) return;
@@ -215,6 +315,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ComprehensionScreen(
+          childId: widget.childId,
           childName: widget.childName,
           bookTitle: _bookTitle,
           chapterNumber: _chapterIndex + 1,
@@ -226,12 +327,48 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     _sessionStart = ActivityService.instance.startSession();
   }
 
+  /// Shows the quiz for a chapter the child just read past. Reading time
+  /// pauses while it is open, and it can be skipped.
+  Future<void> _showChapterQuiz(FinishedChapter chapter) async {
+    // Deliberately not [_busy]: that shows a progress bar above the book,
+    // and the few pixels it takes resize the paged reader's web view, which
+    // makes epub.js jump back to where the book was opened.
+    if (!mounted || _busy || _chapterQuizOpen) return;
+    _chapterQuizOpen = true;
+    _savePosition();
+    await _endReadingSession();
+    final questions = await QuestionBank.instance.chapterQuestions(
+      bookTitle: _bookMetaTitle,
+      chapter: chapter.number,
+    );
+    if (mounted) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ComprehensionScreen(
+            childId: widget.childId,
+            childName: widget.childName,
+            bookTitle: _bookTitle,
+            chapterNumber: chapter.number,
+            chapterTitle: chapter.title,
+            skippable: true,
+            questions: questions,
+          ),
+        ),
+      );
+    }
+    _chapterQuizOpen = false;
+    if (!mounted) return;
+    _sessionStart = ActivityService.instance.startSession();
+  }
+
+  bool _chapterQuizOpen = false;
+
   Future<void> _endReadingSession() async {
     final start = _sessionStart;
     _sessionStart = null; // Clear before awaiting to prevent duplicate flushes.
     if (start == null) return;
     await ActivityService.instance.logReadingSession(
-      widget.childName,
+      widget.childId,
       start: start,
       title: _bookTitle,
       bookType: 'epub',
@@ -251,6 +388,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             selected: index == _chapterIndex,
             onTap: () {
               Navigator.pop(sheetContext);
+              _jumpSettlesAt = DateTime.now().add(const Duration(seconds: 2));
               _goToChapter(index);
             },
           ),
@@ -381,6 +519,41 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     ),
   );
 
+  Widget _buildPictureBook() => PictureBookView(
+    key: ValueKey(_pictureBook),
+    book: _pictureBook!,
+    initialPage: _chapterIndex,
+    enabled: _canNavigate,
+    background: _background,
+    accent: _green,
+    onPageChanged: (page) {
+      setState(() => _chapterIndex = page);
+      _savePosition();
+    },
+    onFinish: _finishBook,
+    onChapterEnd: _showChapterQuiz,
+  );
+
+  Widget _buildPagedText() => PagedTextView(
+    key: ValueKey(_pagedText),
+    book: _pagedText!,
+    initialCfi: _pagedInitialCfi,
+    fontSize: _fontSize,
+    lineHeight: _lineHeight,
+    background: _background,
+    foreground: _foreground,
+    accent: _green,
+    enabled: _canNavigate,
+    onRelocated: (cfi, chapterTitle) {
+      _prefs?.setString(_cfiKey(_bookTitle), cfi);
+      if (chapterTitle != _pagedChapterTitle) {
+        setState(() => _pagedChapterTitle = chapterTitle);
+      }
+    },
+    onFinish: _finishBook,
+    onChapterEnd: _showChapterQuiz,
+  );
+
   Widget _buildReader() => ColoredBox(
     color: _background,
     child: EpubView(
@@ -393,6 +566,11 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
         // Repeated layout callbacks must not cause an endless rebuild loop.
         if (index != _chapterIndex) setState(() => _chapterIndex = index);
         _savePosition();
+        final finished = _scrollQuiz?.moveTo(
+          index,
+          pageTurn: DateTime.now().isAfter(_jumpSettlesAt),
+        );
+        if (finished != null) _showChapterQuiz(finished);
       },
       onDocumentError: (_) {
         if (!mounted) return;
@@ -539,7 +717,13 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
           // Keyed so inserting the tracker above never remounts the EpubView.
           Expanded(
             key: const ValueKey('reader-body'),
-            child: _controller == null ? _buildEmptyState() : _buildReader(),
+            child: _pictureBook != null
+                ? _buildPictureBook()
+                : _pagedText != null
+                ? _buildPagedText()
+                : _controller == null
+                ? _buildEmptyState()
+                : _buildReader(),
           ),
           if (_chapters.isNotEmpty) _buildFooter(),
         ],

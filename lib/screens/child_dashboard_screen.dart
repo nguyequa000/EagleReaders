@@ -4,9 +4,14 @@ import 'reading_module_page.dart';
 import 'story_flow_screen.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
+  final String childId;
   final String childName;
 
-  const ChildDashboardScreen({super.key, required this.childName});
+  const ChildDashboardScreen({
+    super.key,
+    required this.childId,
+    required this.childName,
+  });
 
   @override
   State<ChildDashboardScreen> createState() => _ChildDashboardScreenState();
@@ -66,16 +71,21 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
             // Navigate directly to reading module
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ReadingModulePage(childName: widget.childName),
+                builder: (_) => ReadingModulePage(
+                  childId: widget.childId,
+                  childName: widget.childName,
+                ),
               ),
             );
             return;
           }
           if (index == 2) {
             // Navigate directly to story creation
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const StoryFlowScreen()));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => StoryFlowScreen(childId: widget.childId),
+              ),
+            );
             return;
           }
           setState(() => _selectedTab = index);
@@ -145,7 +155,10 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
           emoji: books[index]['emoji']!,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => ReadingModulePage(childName: widget.childName),
+              builder: (_) => ReadingModulePage(
+                childId: widget.childId,
+                childName: widget.childName,
+              ),
             ),
           ),
         );

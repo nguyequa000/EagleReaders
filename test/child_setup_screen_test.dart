@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_setup_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+import 'package:storysprout/services/activity_service.dart';
 
 import 'test_helpers.dart';
 
@@ -34,6 +35,7 @@ void main() {
     tester,
   ) async {
     final ctx = signedIn();
+    ActivityService.instance = ctx.activity;
     await tester.pumpWidget(wrap(ChildSetupScreen(store: ctx.store)));
 
     await tester.tap(find.byType(DropdownButton<int>));
