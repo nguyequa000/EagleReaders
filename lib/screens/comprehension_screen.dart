@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import '../services/coin_service.dart';
+import 'coins_earned_snack_bar.dart';
 
 // Data model
 class ComprehensionQuestion {
@@ -201,6 +203,8 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         _savingResult = false;
       }
       if (!mounted) return;
+      await _awardCoins();
+      if (!mounted) return;
       widget.onKeepReading?.call();
       if (widget.onKeepReading == null) Navigator.of(context).pop();
     } else {
@@ -212,6 +216,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       });
       _fadeController.forward();
     }
+  }
+
+  /// Coins for finishing the quiz (CR #2). A failed award must never stop the
+  /// child getting back to the book, so errors are swallowed.
+  Future<void> _awardCoins() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final coins = await CoinService.instance.awardQuiz(
+        widget.childId,
+        widget.bookTitle,
+      );
+      if (coins > 0) messenger?.showSnackBar(coinsEarnedSnackBar(coins));
+    } catch (_) {}
   }
 
   //answer tile colour

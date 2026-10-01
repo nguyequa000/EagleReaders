@@ -53,6 +53,16 @@ class ActivityEvent {
       'comprehension_result' =>
         '$childName scored ${data['score'] ?? ''} on "$title"',
       'story_created' => '$childName created a new story: "$title"',
+      // Coin ledger rows, merged into the feed (see CoinTransaction).
+      'coins_earned' => switch (data['reason']) {
+        'story' =>
+          '$childName earned ${data['coins']} coins for creating "$title"',
+        _ => '$childName earned ${data['coins']} coins for a quiz on "$title"',
+      },
+      'reward_redeemed' =>
+        '$childName redeemed "$title" for ${data['coins']} coins',
+      'coins_refunded' =>
+        '$childName got ${data['coins']} coins back for "$title"',
       _ => '$childName: $type — "$title"',
     };
   }

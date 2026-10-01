@@ -149,7 +149,8 @@ class ChildProfileStore {
     final existing = await collection.get();
     for (final doc in existing.docs) {
       if (keep.contains(doc.id)) continue;
-      await _deleteActivity(doc.reference);
+      await _deleteSubcollection(doc.reference, 'activity');
+      await _deleteSubcollection(doc.reference, 'coinLedger');
       batch.delete(doc.reference);
     }
 
@@ -168,12 +169,14 @@ class ChildProfileStore {
   }
 
   /// Firestore does not cascade deletes, so a removed child's reading activity
-  /// (see `ActivityService`) has to go explicitly. Chunked because one batch
-  /// is capped at 500 writes and a long-time reader can exceed that.
-  Future<void> _deleteActivity(
+  /// (see `ActivityService`) and coin ledger (see `CoinService`) have to go
+  /// explicitly. Chunked because one batch is capped at 500 writes and a
+  /// long-time reader can exceed that.
+  Future<void> _deleteSubcollection(
     DocumentReference<Map<String, dynamic>> child,
+    String name,
   ) async {
-    final events = (await child.collection('activity').get()).docs;
+    final events = (await child.collection(name).get()).docs;
     const chunk = 450;
     for (var i = 0; i < events.length; i += chunk) {
       final batch = _firestore.batch();

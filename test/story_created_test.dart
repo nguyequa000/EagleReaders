@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story_flow_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
+import 'package:storysprout/services/coin_service.dart';
 
 import 'test_helpers.dart';
 
@@ -27,6 +28,7 @@ void main() {
   ) async {
     final fb = signedIn();
     ActivityService.instance = fb.activity;
+    CoinService.instance = fb.coins;
 
     await tester.pumpWidget(
       const MaterialApp(home: StoryFlowScreen(childId: '1')),
@@ -39,6 +41,14 @@ void main() {
     expect(docs.single['type'], 'story_created');
     expect(docs.single['title'], 'Friendly Dragon in Forest');
     expect((await fb.activity.getStats('1')).storiesCreated, 1);
+
+    // ...and earns the story coins.
+    await tester.pumpAndSettle();
+    final coins = await ledgerDocs(fb.firestore, '1');
+    expect(coins.single['reason'], 'story');
+    expect(coins.single['amount'], CoinService.coinsPerStory);
+    expect(coins.single['title'], 'Friendly Dragon in Forest');
+    expect(find.text('🪙 +5 coins!'), findsOneWidget);
   });
 
   testWidgets('Without a child id the flow still works and logs nothing', (
@@ -46,6 +56,7 @@ void main() {
   ) async {
     final fb = signedIn();
     ActivityService.instance = fb.activity;
+    CoinService.instance = fb.coins;
 
     await tester.pumpWidget(const MaterialApp(home: StoryFlowScreen()));
     await tester.pumpAndSettle();

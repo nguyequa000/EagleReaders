@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import '../services/coin_service.dart';
 import 'ai_story_screen.dart';
+import 'coins_earned_snack_bar.dart';
 import 'story_character_screen.dart';
 import 'story_mood_screen.dart';
 import 'story_setting_screen.dart';
@@ -40,6 +42,16 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
     return setting == null ? character : '$character in $setting';
   }
 
+  /// Coins for finishing a story (CR #2). Fire-and-forget: the story opens
+  /// straight away and the toast follows once the award lands.
+  Future<void> _awardCoins(String childId, String title) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final coins = await CoinService.instance.awardStory(childId, title);
+      if (coins > 0) messenger?.showSnackBar(coinsEarnedSnackBar(coins));
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (_step) {
@@ -72,6 +84,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
                   'title': _storyTitle(config),
                 }),
               );
+              unawaited(_awardCoins(childId, _storyTitle(config)));
             }
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -82,9 +95,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
           },
         );
       default:
-        return StoryCharacterScreen(
-          onNext: (config) => _goToStep(2, config),
-        );
+        return StoryCharacterScreen(onNext: (config) => _goToStep(2, config));
     }
   }
 }
