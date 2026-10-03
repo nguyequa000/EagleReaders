@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import '../services/coin_service.dart';
 import 'child_rewards_screen.dart';
 import 'reading_module_page.dart';
 import 'story_flow_screen.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
+  final String childId;
   final String childName;
 
-  const ChildDashboardScreen({super.key, required this.childName});
+  const ChildDashboardScreen({
+    super.key,
+    required this.childId,
+    required this.childName,
+  });
 
   @override
   State<ChildDashboardScreen> createState() => _ChildDashboardScreenState();
@@ -14,6 +20,30 @@ class ChildDashboardScreen extends StatefulWidget {
 
 class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
   int _selectedTab = 0;
+  int? _coins;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBalance();
+  }
+
+  /// Re-read after every pushed screen returns: quizzes and stories earn
+  /// coins, and redeeming spends them.
+  Future<void> _loadBalance() async {
+    int coins;
+    try {
+      coins = await CoinService.instance.balance(widget.childId);
+    } catch (_) {
+      return;
+    }
+    if (mounted) setState(() => _coins = coins);
+  }
+
+  Future<void> _push(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    await _loadBalance();
+  }
 
   // DEMO data
   final List<Map<String, String>> _continueReading = [
@@ -39,20 +69,27 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         backgroundColor: Colors.amber,
         foregroundColor: Colors.white,
         actions: [
+          if (_coins != null)
+            _CoinChip(
+              coins: _coins!,
+              onTap: () => _push(
+                ChildRewardsScreen(
+                  childId: widget.childId,
+                  childName: widget.childName,
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.redeem),
             tooltip: 'My Rewards',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    ChildRewardsScreen(childName: widget.childName),
+            onPressed: () => _push(
+              ChildRewardsScreen(
+                childId: widget.childId,
+                childName: widget.childName,
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
         ],
       ),
       body: IndexedStack(
@@ -64,18 +101,17 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         onTap: (index) {
           if (index == 1) {
             // Navigate directly to reading module
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ReadingModulePage(childName: widget.childName),
+            _push(
+              ReadingModulePage(
+                childId: widget.childId,
+                childName: widget.childName,
               ),
             );
             return;
           }
           if (index == 2) {
             // Navigate directly to story creation
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const StoryFlowScreen()));
+            _push(StoryFlowScreen(childId: widget.childId));
             return;
           }
           setState(() => _selectedTab = index);
@@ -143,9 +179,10 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         return _BookCard(
           title: books[index]['title']!,
           emoji: books[index]['emoji']!,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ReadingModulePage(childName: widget.childName),
+          onTap: () => _push(
+            ReadingModulePage(
+              childId: widget.childId,
+              childName: widget.childName,
             ),
           ),
         );
@@ -156,6 +193,43 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
   // Placeholder tabs — bottom nav navigates away for read/create
   Widget _buildReadTab() => const SizedBox.shrink();
   Widget _buildMyStoriesTab() => const SizedBox.shrink();
+}
+
+/// The child's coin balance in the app bar; tapping it opens My Rewards.
+class _CoinChip extends StatelessWidget {
+  final int coins;
+  final VoidCallback onTap;
+
+  const _CoinChip({required this.coins, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(
+                '🪙 $coins',
+                key: const Key('coinBalance'),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _BookCard extends StatelessWidget {

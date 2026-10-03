@@ -1,19 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/child_profiles.dart';
+import '../services/coin_service.dart';
 import 'child_profile_screen.dart';
 import 'parent_settings_screen.dart';
+import 'reward_requests_screen.dart';
 import 'rewards_manager_screen.dart';
 
 /// Parent-facing dashboard: family reading stats + recent activity feed
 /// ([ActivityService]), real child profiles ([ChildProfileStore]) and rewards.
 ///
-/// Activity is still keyed by child display name, matching the reader.
+/// Activity is keyed by child id, so it follows the child across renames and
+/// devices. Coin earnings and redemptions ([CoinService]) are merged into the
+/// same feed, and a live listener on pending redemptions drives the bell's
+/// badge and a banner when a child redeems while this screen is open.
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key, this.store});
+  const ParentDashboardScreen({super.key, this.store, this.coins});
 
   /// Injectable for tests; defaults to the shared Firebase singletons.
   final ChildProfileStore? store;
+
+  /// Injectable for tests; defaults to [CoinService.instance].
+  final CoinService? coins;
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
@@ -21,15 +31,81 @@ class ParentDashboardScreen extends StatefulWidget {
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
+  late final CoinService _coins = widget.coins ?? CoinService.instance;
   List<ChildProfile>? _children;
+  Map<String, int> _balances = {};
+  List<PendingRedemption> _pending = [];
+  StreamSubscription<List<PendingRedemption>>? _pendingSub;
+  List<String> _watchedChildren = [];
+
+  /// Pending redemptions already seen, so only new ones raise a banner.
+  final Set<String> _seenPending = {};
+  bool _pendingPrimed = false;
   List<(String, ActivityEvent)> _activity = [];
   ChildActivityStats? _stats;
+  Map<String, ChildActivityStats> _statsByChild = {};
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _pendingSub?.cancel();
+    super.dispose();
+  }
+
+  /// Subscribes to pending redemptions. The first emission only primes
+  /// [_seenPending]; anything that shows up after it is a fresh redemption
+  /// and gets a banner.
+  void _watchPending(List<ChildProfile> children) {
+    _pendingSub?.cancel();
+    _watchedChildren = [for (final c in children) c.id];
+    final Stream<List<PendingRedemption>> stream;
+    try {
+      stream = _coins.watchPending(children);
+    } catch (_) {
+      return;
+    }
+    _pendingSub = stream.listen((pending) {
+      if (!mounted) return;
+      final fresh = [
+        for (final p in pending)
+          if (!_seenPending.contains(p.transaction.id)) p,
+      ];
+      _seenPending.addAll(fresh.map((p) => p.transaction.id));
+      setState(() => _pending = pending);
+      if (_pendingPrimed && fresh.isNotEmpty) {
+        final p = fresh.last;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${p.childName} redeemed "${p.transaction.title}" '
+              '(${p.transaction.cost} coins)',
+            ),
+            action: SnackBarAction(label: 'View', onPressed: _openRequests),
+          ),
+        );
+        // Their balance just dropped and the feed has a new line.
+        _load();
+      }
+      _pendingPrimed = true;
+    }, onError: (_) {});
+  }
+
+  bool _watching(List<ChildProfile> children) =>
+      _pendingSub != null &&
+      children.length == _watchedChildren.length &&
+      children.every((c) => _watchedChildren.contains(c.id));
+
+  Future<void> _openRequests() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const RewardRequestsScreen()));
+    await _load();
   }
 
   Future<void> _load() async {
@@ -40,11 +116,24 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       children = [];
     }
     final activity = <(String, ActivityEvent)>[];
+    final statsByChild = <String, ChildActivityStats>{};
+    final balances = <String, int>{};
     var books = 0, minutes = 0, stories = 0;
     for (final child in children) {
-      final events = await ActivityService.instance.getEvents(child.name);
-      final stats = await ActivityService.instance.getStats(child.name);
+      List<ActivityEvent> events;
+      try {
+        events = await ActivityService.instance.getEvents(child.id);
+      } catch (_) {
+        events = [];
+      }
+      final stats = ActivityService.statsFrom(events);
+      statsByChild[child.id] = stats;
       activity.addAll(events.map((e) => (child.name, e)));
+      try {
+        balances[child.id] = await _coins.balance(child.id);
+        final ledger = await _coins.ledger(child.id);
+        activity.addAll(ledger.map((t) => (child.name, t.toActivityEvent())));
+      } catch (_) {}
       books += stats.booksFinished;
       minutes += stats.minutesThisWeek;
       stories += stats.storiesCreated;
@@ -53,6 +142,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     if (!mounted) return;
     setState(() {
       _children = children;
+      _statsByChild = statsByChild;
+      _balances = balances;
       _activity = activity;
       _stats = ChildActivityStats(
         booksFinished: books,
@@ -62,6 +153,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       );
       _loading = false;
     });
+    // A pull-to-refresh must not tear down a live listener for nothing.
+    if (!_watching(children)) _watchPending(children);
   }
 
   @override
@@ -73,6 +166,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            tooltip: 'Reward requests',
+            onPressed: _openRequests,
+            icon: Badge(
+              isLabelVisible: _pending.isNotEmpty,
+              label: Text('${_pending.length}'),
+              child: const Icon(Icons.notifications),
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -135,7 +239,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       )
                     else
                       for (final (name, event) in _activity.reversed.take(
-                        8,
+                        12,
                       )) ...[
                         _buildActivityItem(event.describe(name)),
                         const SizedBox(height: 8),
@@ -148,23 +252,43 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildRewardsEntry(BuildContext context) {
+    final pending = _pending.length;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.green,
-          child: Icon(Icons.redeem, color: Colors.white),
-        ),
-        title: const Text('Manage Rewards'),
-        subtitle: const Text('Set what your children can spend coins on'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const RewardsManagerScreen())),
+      child: Column(
+        children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: pending > 0 ? Colors.orange : Colors.green,
+              child: const Icon(Icons.notifications, color: Colors.white),
+            ),
+            title: const Text('Reward Requests'),
+            subtitle: Text(
+              pending == 0
+                  ? 'No requests waiting'
+                  : '$pending waiting for you to hand over',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _openRequests,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.green,
+              child: Icon(Icons.redeem, color: Colors.white),
+            ),
+            title: const Text('Manage Rewards'),
+            subtitle: const Text('Set what your children can spend coins on'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RewardsManagerScreen()),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -263,6 +387,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildChildProfile(ChildProfile child) {
+    final reading = _statsByChild[child.id]?.currentlyReading;
+    final coins = _balances[child.id];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -278,15 +404,44 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
           ),
           const SizedBox(width: 12),
-          Text(
-            child.name,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  child.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (coins != null)
+                  Text(
+                    '🪙 $coins ${coins == 1 ? 'coin' : 'coins'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                if (reading != null)
+                  Text(
+                    'Reading: $reading',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => ChildProfileScreen(childName: child.name),
+                builder: (_) => ChildProfileScreen(
+                  childId: child.id,
+                  childName: child.name,
+                ),
               ),
             ),
             style: ElevatedButton.styleFrom(

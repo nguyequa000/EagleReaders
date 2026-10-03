@@ -77,6 +77,37 @@ void main() {
       expect(loaded.single.name, 'Mia');
     });
 
+    test('dropping a child deletes their reading activity too', () async {
+      final ctx = signedIn();
+      await ctx.store.save([
+        ChildProfile.withPin(id: 'a', name: 'Emma', pin: '1111'),
+        ChildProfile.withPin(id: 'b', name: 'Leo', pin: '2222'),
+      ]);
+      await ctx.activity.logEvent('a', 'book_opened', {'title': 'Alice'});
+      await ctx.activity.logEvent('b', 'book_opened', {'title': 'Heidi'});
+
+      await ctx.store.save([
+        ChildProfile.withPin(id: 'b', name: 'Leo', pin: '2222'),
+      ]);
+
+      expect(await activityDocs(ctx.firestore, 'a'), isEmpty);
+      expect(await activityDocs(ctx.firestore, 'b'), hasLength(1));
+    });
+
+    test('renaming a child keeps their reading activity', () async {
+      final ctx = signedIn();
+      await ctx.store.save([
+        ChildProfile.withPin(id: 'a', name: 'Emma', pin: '1111'),
+      ]);
+      await ctx.activity.logEvent('a', 'book_finished', {'title': 'Alice'});
+
+      await ctx.store.save([
+        ChildProfile.withPin(id: 'a', name: 'Emily', pin: '1111'),
+      ]);
+
+      expect((await ctx.activity.getStats('a')).booksFinished, 1);
+    });
+
     test('profiles are scoped to the signed-in parent', () async {
       final firstParent = signedIn(uid: 'parent-1');
       await firstParent.store.save([
