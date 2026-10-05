@@ -1,10 +1,19 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'story_option.dart';
 import 'story_theme.dart';
 
-/// The 2x2 selectable option grid shared by steps 1-3.
+/// The 2x2 selectable option grid shared by the mood and place steps.
+///
+/// Each tile is a sticker: a saturated fill cut out with the heavy ink line,
+/// sitting on a hard shadow and tipped a degree or two off square. The tilt is
+/// what stops four rounded rectangles reading as a settings screen.
+///
+/// The tint is doing real work besides: now that every action is the one cyan,
+/// the tints are what keep four options distinguishable at a glance.
 class StoryOptionGrid extends StatelessWidget {
   final List<StoryOption> options;
   final String? selectedLabel;
@@ -25,33 +34,49 @@ class StoryOptionGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 14,
-      mainAxisSpacing: 14,
-      childAspectRatio: 0.92,
-      children: options
-          .map((option) => _StoryOptionTile(
-                option: option,
-                selected: option.label == selectedLabel,
-                accent: accent,
-                onTap: () => onSelect(option.label),
-              ))
-          .toList(),
+      crossAxisSpacing: 13,
+      mainAxisSpacing: 13,
+      childAspectRatio: 1.42,
+      children: <Widget>[
+        for (var i = 0; i < options.length; i++)
+          _StoryOptionTile(
+            option: options[i],
+            tintIndex: i,
+            selected: options[i].label == selectedLabel,
+            accent: accent,
+            onTap: () => onSelect(options[i].label),
+          ),
+      ],
     );
   }
 }
 
 class _StoryOptionTile extends StatefulWidget {
   final StoryOption option;
+
+  /// Position in the grid, which picks the tile's tint and its tilt.
+  final int tintIndex;
+
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
 
   const _StoryOptionTile({
     required this.option,
+    required this.tintIndex,
     required this.selected,
     required this.accent,
     required this.onTap,
   });
+
+  /// How far each tile is tipped, in degrees.
+  ///
+  /// A fixed table rather than a random roll: a sticker that re-tilts whenever
+  /// the grid rebuilds would be the animation the SRS rules out, and the
+  /// alternating signs keep the grid from leaning as a whole.
+  static const List<double> _tilts = <double>[-1.6, 1.4, 1.1, -1.2, 0.9];
+
+  double get _tilt => _tilts[tintIndex % _tilts.length] * math.pi / 180;
 
   @override
   State<_StoryOptionTile> createState() => _StoryOptionTileState();
@@ -67,7 +92,9 @@ class _StoryOptionTileState extends State<_StoryOptionTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final selected = widget.selected;
+    final tint = palette.tintForIndex(widget.tintIndex);
 
     return Semantics(
       button: true,
@@ -87,69 +114,97 @@ class _StoryOptionTileState extends State<_StoryOptionTile> {
         onTapUp: (_) => _setHeld(false),
         onTapCancel: () => _setHeld(false),
         onTap: widget.onTap,
-        child: Transform.translate(
-          offset: Offset(0, _held ? StoryTheme.depth : 0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: selected
-                  ? Color.alphaBlend(
-                      widget.accent.withValues(alpha: 0.12),
-                      StoryTheme.card,
-                    )
-                  : StoryTheme.card,
-              borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
-              border: Border.all(
-                color: selected ? widget.accent : StoryTheme.shadow,
-                width: selected ? StoryTheme.ringWidth : 1,
-              ),
-              boxShadow: StoryTheme.hardShadow(pressed: _held),
+        child: Transform.rotate(
+          angle: widget._tilt,
+          child: Transform.translate(
+            offset: Offset(
+              _held ? StoryTheme.depth : 0,
+              _held ? StoryTheme.depth : 0,
             ),
-            child: Stack(
-              children: <Widget>[
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      SvgPicture.asset(
-                        widget.option.asset,
-                        width: 64,
-                        height: 64,
+            // The halo is always laid out, transparent when unselected, so
+            // choosing a tile does not resize it and shuffle the grid.
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(StoryTheme.radiusTile + 5),
+                border: Border.all(
+                  color: selected ? widget.accent : Colors.transparent,
+                  width: StoryTheme.ringWidth,
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: tint,
+                  borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+                  border: Border.all(
+                    color: palette.outline,
+                    width: StoryTheme.outlineWidth,
+                  ),
+                  boxShadow: palette.cardShadow(pressed: _held),
+                ),
+                child: Stack(
+                  children: <Widget>[
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          // The halo and the ink line together take 18px of
+                          // height out of the tile, which is enough to push a
+                          // fixed 62px illustration past the bottom edge on a
+                          // 375x667 phone. The picture gives way first; the
+                          // label is the part a child needs to read.
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: SvgPicture.asset(
+                                widget.option.asset,
+                                width: 62,
+                                height: 62,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              widget.option.label,
+                              textAlign: TextAlign.center,
+                              style: StoryTheme.display(
+                                size: 15.5,
+                                color: palette.ink,
+                                weight: selected ? 700 : 600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text(
-                          widget.option.label,
-                          textAlign: TextAlign.center,
-                          style: StoryTheme.display(
-                            size: 15,
-                            color: selected ? widget.accent : StoryTheme.ink,
-                            weight: selected ? 600 : 500,
+                    ),
+                    if (selected)
+                      Positioned(
+                        top: 7,
+                        right: 7,
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: widget.accent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: palette.outline,
+                              width: StoryTheme.outlineWidthThin,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.check,
+                            size: 13,
+                            color: palette.onAction,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
-                if (selected)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: widget.accent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),

@@ -8,21 +8,23 @@ void main() {
   Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
   testWidgets('renders its label', (tester) async {
-    await tester.pumpWidget(wrap(
-      const StoryButton(label: 'Next', accent: StoryTheme.accentCharacter),
-    ));
+    await tester.pumpWidget(
+      wrap(StoryButton(label: 'Next', accent: StoryPalette.light.action)),
+    );
     expect(find.text('Next'), findsOneWidget);
   });
 
   testWidgets('fires onPressed when enabled', (tester) async {
     var taps = 0;
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () => taps++,
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () => taps++,
+        ),
       ),
-    ));
+    );
 
     await tester.tap(find.byType(StoryButton));
     await tester.pump();
@@ -30,31 +32,36 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('uses the accent when enabled and the disabled tone when not',
-      (tester) async {
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentMood,
-        onPressed: () {},
+  testWidgets('uses the accent when enabled and the disabled tone when not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () {},
+        ),
       ),
-    ));
-    expect(_fillOf(tester), StoryTheme.accentMood);
+    );
+    expect(_fillOf(tester), StoryPalette.light.action);
 
-    await tester.pumpWidget(wrap(
-      const StoryButton(label: 'Next', accent: StoryTheme.accentMood),
-    ));
-    expect(_fillOf(tester), StoryTheme.disabled);
+    await tester.pumpWidget(
+      wrap(StoryButton(label: 'Next', accent: StoryPalette.light.action)),
+    );
+    expect(_fillOf(tester), StoryPalette.light.disabled);
   });
 
   testWidgets('shadow collapses while held down', (tester) async {
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () {},
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () {},
+        ),
       ),
-    ));
+    );
 
     expect(_decorationOf(tester).boxShadow, isNotEmpty);
     expect(_translateOffsetOf(tester), Offset.zero);
@@ -64,7 +71,13 @@ void main() {
     );
     await tester.pump();
     expect(_decorationOf(tester).boxShadow, isEmpty);
-    expect(_translateOffsetOf(tester), const Offset(0, StoryTheme.depth));
+    // Diagonally, not just down: the sticker shadow is offset on both axes,
+    // so pressing has to move the button into exactly that gap or the shadow
+    // appears to vanish rather than close.
+    expect(
+      _translateOffsetOf(tester),
+      const Offset(StoryTheme.depth, StoryTheme.depth),
+    );
 
     await gesture.up();
     await tester.pump();
@@ -73,40 +86,47 @@ void main() {
   });
 
   testWidgets('shows the forward arrow by default', (tester) async {
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () {},
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () {},
+        ),
       ),
-    ));
+    );
 
     expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
   });
 
-  testWidgets('hides the forward arrow when showArrow is false',
-      (tester) async {
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Start Reading!',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () {},
-        showArrow: false,
+  testWidgets('hides the forward arrow when showArrow is false', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Start Reading!',
+          accent: StoryPalette.light.action,
+          onPressed: () {},
+          showArrow: false,
+        ),
       ),
-    ));
+    );
 
     expect(find.byIcon(Icons.arrow_forward), findsNothing);
   });
 
   testWidgets('announces its label once, not twice', (tester) async {
     final handle = tester.ensureSemantics();
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () {},
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () {},
+        ),
       ),
-    ));
+    );
 
     // The button wraps its own Text in a Semantics node. Without
     // excludeSemantics the two merge and a screen reader says "Next, Next".
@@ -124,9 +144,9 @@ void main() {
     tester,
   ) async {
     final handle = tester.ensureSemantics();
-    await tester.pumpWidget(wrap(
-      const StoryButton(label: 'Next', accent: StoryTheme.accentCharacter),
-    ));
+    await tester.pumpWidget(
+      wrap(StoryButton(label: 'Next', accent: StoryPalette.light.action)),
+    );
 
     expect(find.bySemanticsLabel('Next'), findsOneWidget);
     final node = tester.getSemantics(find.bySemanticsLabel('Next'));
@@ -145,13 +165,15 @@ void main() {
   ) async {
     final handle = tester.ensureSemantics();
     var taps = 0;
-    await tester.pumpWidget(wrap(
-      StoryButton(
-        label: 'Next',
-        accent: StoryTheme.accentCharacter,
-        onPressed: () => taps++,
+    await tester.pumpWidget(
+      wrap(
+        StoryButton(
+          label: 'Next',
+          accent: StoryPalette.light.action,
+          onPressed: () => taps++,
+        ),
       ),
-    ));
+    );
 
     final node = tester.getSemantics(find.bySemanticsLabel('Next'));
     expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
@@ -165,9 +187,9 @@ void main() {
 
   testWidgets('a disabled button advertises no tap action', (tester) async {
     final handle = tester.ensureSemantics();
-    await tester.pumpWidget(wrap(
-      const StoryButton(label: 'Next', accent: StoryTheme.accentCharacter),
-    ));
+    await tester.pumpWidget(
+      wrap(StoryButton(label: 'Next', accent: StoryPalette.light.action)),
+    );
 
     final node = tester.getSemantics(find.bySemanticsLabel('Next'));
     expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
@@ -178,10 +200,12 @@ void main() {
 
 BoxDecoration _decorationOf(WidgetTester tester) {
   final container = tester.widget<Container>(
-    find.descendant(
-      of: find.byType(StoryButton),
-      matching: find.byType(Container),
-    ).first,
+    find
+        .descendant(
+          of: find.byType(StoryButton),
+          matching: find.byType(Container),
+        )
+        .first,
   );
   return container.decoration! as BoxDecoration;
 }
@@ -190,10 +214,12 @@ Color _fillOf(WidgetTester tester) => _decorationOf(tester).color!;
 
 Offset _translateOffsetOf(WidgetTester tester) {
   final transform = tester.widget<Transform>(
-    find.descendant(
-      of: find.byType(StoryButton),
-      matching: find.byType(Transform),
-    ).first,
+    find
+        .descendant(
+          of: find.byType(StoryButton),
+          matching: find.byType(Transform),
+        )
+        .first,
   );
   return MatrixUtils.getAsTranslation(transform.transform) ?? Offset.zero;
 }

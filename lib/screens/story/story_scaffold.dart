@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
 
+import 'paper_background.dart';
 import 'story_sprout_bubble.dart';
+import 'story_theme_controller.dart';
 import 'story_theme.dart';
 
-/// Shared chrome for every step of the story flow: brand header, Sprout prompt,
-/// section label, a body slot, an optional footer action, and the step progress
-/// bar tinted with this step's accent.
+/// Shared chrome for every step of the story flow: the header band, an
+/// optional Sprout prompt, a section label, a body slot, an optional footer
+/// action, and the step progress bar.
+///
+/// The header carries the child identity — the same yellow the child dashboard
+/// uses, since building a story is something the child does — and is cut off
+/// from the page with the flow's ink line, so the whole screen reads as one
+/// drawn sheet rather than a coloured bar above an app.
 class StoryScaffold extends StatelessWidget {
   final int step;
   final int totalSteps;
   final String title;
+
   /// Sprout's line above the content, or null to omit the bubble entirely.
   ///
   /// The hero builder and the steps that follow it put a preview box in this
   /// space instead — on a small phone there is not room for both, and the
   /// preview is the thing the child is actually reacting to.
   final String? prompt;
+
   /// Small caps label above the content, or null when the screen supplies its
   /// own headings.
   ///
@@ -39,23 +48,25 @@ class StoryScaffold extends StatelessWidget {
     this.title = "Let's Build Something!",
   });
 
-  Color get _accent => StoryTheme.accentForStep(step);
-
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
     return Scaffold(
-      backgroundColor: StoryTheme.ground,
-      body: Column(
-        children: <Widget>[
-          _buildHeader(context),
-          Expanded(child: _buildScrollingContent()),
-          if (footer != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              child: footer,
-            ),
-          _buildProgress(),
-        ],
+      backgroundColor: palette.ground,
+      body: PaperBackground(
+        child: Column(
+          children: <Widget>[
+            _buildHeader(context, palette),
+            Expanded(child: _buildScrollingContent(palette)),
+            if (footer != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+                child: footer,
+              ),
+            _buildProgress(palette),
+          ],
+        ),
       ),
     );
   }
@@ -73,16 +84,19 @@ class StoryScaffold extends StatelessWidget {
   /// `ConstrainedBox(minHeight:) + IntrinsicHeight` idiom cannot be used here:
   /// intrinsic queries throw on any viewport descendant, and the option grid is
   /// one.
-  Widget _buildScrollingContent() {
+  Widget _buildScrollingContent(StoryPalette palette) {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        // The bottom inset is not cosmetic: every sticker on the page carries
+        // a hard shadow offset down and right, and with no room under the last
+        // row the viewport edge cut straight through it.
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             if (prompt != null) ...<Widget>[
-              StorySproutBubble(message: prompt!, accent: _accent),
+              StorySproutBubble(message: prompt!, accent: palette.action),
               const SizedBox(height: 18),
             ],
             if (sectionLabel != null) ...<Widget>[
@@ -91,9 +105,9 @@ class StoryScaffold extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: StoryTheme.display(
                   size: 12,
-                  color: StoryTheme.inkMuted,
-                  weight: 600,
-                  tracking: 1.4,
+                  color: palette.inkMuted,
+                  weight: 700,
+                  tracking: 1.6,
                 ),
               ),
               const SizedBox(height: 12),
@@ -105,67 +119,86 @@ class StoryScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, StoryPalette palette) {
     return Container(
-      color: StoryTheme.brand,
+      decoration: BoxDecoration(
+        color: palette.header,
+        border: Border(
+          bottom: BorderSide(
+            color: palette.outline,
+            width: StoryTheme.outlineWidth,
+          ),
+        ),
+      ),
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        bottom: 14,
-        left: 4,
+        top: MediaQuery.of(context).padding.top + 10,
+        bottom: 11,
+        left: 14,
         right: 16,
       ),
       child: Row(
         children: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+          _BackSticker(
+            palette: palette,
+            onTap: onBack ?? () => Navigator.of(context).maybePop(),
           ),
           Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: StoryTheme.display(
-                size: 19,
-                color: Colors.white,
-                weight: 600,
-                tracking: 0.3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: StoryTheme.display(
+                  size: 21,
+                  color: palette.headerInk,
+                  weight: 700,
+                  tracking: 0.2,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 48),
+          // Sits where the spacer that balanced the back sticker used to, so
+          // the title stays optically centred.
+          _ThemeSticker(palette: palette),
         ],
       ),
     );
   }
 
-  Widget _buildProgress() {
-    return Container(
-      color: StoryTheme.brand,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+  /// Chunky beads rather than a hairline bar.
+  ///
+  /// Four fat segments say "four things to do" to a child who cannot yet read
+  /// the label above them, and a 6px rule would have been the one un-drawn
+  /// element left on the page.
+  Widget _buildProgress(StoryPalette palette) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 18),
       child: Column(
         children: <Widget>[
           Text(
             'STEP $step OF $totalSteps',
             style: StoryTheme.display(
               size: 12,
-              color: Colors.white,
-              weight: 600,
-              tracking: 1.4,
+              color: palette.inkMuted,
+              weight: 700,
+              tracking: 1.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           Row(
             children: List<Widget>.generate(totalSteps, (i) {
               final done = i < step;
               return Expanded(
                 child: Container(
-                  height: 6,
-                  margin: EdgeInsets.only(right: i < totalSteps - 1 ? 6 : 0),
+                  height: 11,
+                  margin: EdgeInsets.only(right: i < totalSteps - 1 ? 7 : 0),
                   decoration: BoxDecoration(
-                    color: done
-                        ? _accent
-                        : Colors.white.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(3),
+                    color: done ? palette.action : palette.track,
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: palette.outline,
+                      width: StoryTheme.outlineWidthThin,
+                    ),
                   ),
                 ),
               );
@@ -173,6 +206,84 @@ class StoryScaffold extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The back control, drawn as a round sticker so it belongs to the same world
+/// as everything else on the page.
+class _BackSticker extends StatelessWidget {
+  final StoryPalette palette;
+  final VoidCallback onTap;
+
+  const _BackSticker({required this.palette, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onTap,
+      // A 42px sticker inside a 48px target: the drawn circle stays chunky
+      // without dropping the hit area below the 48dp minimum.
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      padding: EdgeInsets.zero,
+      icon: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: palette.surface,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: palette.outline,
+            width: StoryTheme.outlineWidth,
+          ),
+          boxShadow: palette.cardShadow(depth: 3),
+        ),
+        child: Icon(Icons.arrow_back, color: palette.ink, size: 21),
+      ),
+    );
+  }
+}
+
+/// Switches between day, night and following the device.
+///
+/// In the header because that is the one piece of chrome on every step, and
+/// because a child who finds it will use it — the two palettes are a matched
+/// pair, so there is no state this can leave a screen in that is broken.
+class _ThemeSticker extends StatelessWidget {
+  final StoryPalette palette;
+
+  const _ThemeSticker({required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: storyThemeController,
+      builder: (context, mode, _) {
+        return IconButton(
+          onPressed: storyThemeController.next,
+          tooltip: storyThemeController.label,
+          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+          padding: EdgeInsets.zero,
+          icon: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: palette.surface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: palette.outline,
+                width: StoryTheme.outlineWidth,
+              ),
+              boxShadow: palette.cardShadow(depth: 3),
+            ),
+            child: Icon(
+              storyThemeController.icon,
+              color: palette.ink,
+              size: 20,
+            ),
+          ),
+        );
+      },
     );
   }
 }

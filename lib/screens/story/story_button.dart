@@ -4,15 +4,24 @@ import 'story_theme.dart';
 
 /// Primary action button for the story flow.
 ///
-/// Carries a hard offset shadow that collapses on press, so the button appears
-/// to physically depress. A null [onPressed] renders it disabled — the button
-/// stays laid out either way, which keeps the step screens from jumping when a
-/// selection is first made.
+/// Cut out with the same ink line as the option stickers and sitting on the
+/// same hard shadow, so pressing it looks like pressing a sticker flat against
+/// the page: the shadow collapses and the button slides into its own shadow's
+/// place. A null [onPressed] renders it disabled — the button stays laid out
+/// either way, which keeps the step screens from jumping when a selection is
+/// first made.
 class StoryButton extends StatefulWidget {
   final String label;
   final Color accent;
   final VoidCallback? onPressed;
   final bool showArrow;
+
+  /// False renders the quiet variant — paper fill instead of the action
+  /// colour, with the same ink line.
+  ///
+  /// With one action colour for the whole flow, two solid buttons stacked
+  /// together give no clue which one is the main way forward. Rank them.
+  final bool filled;
 
   const StoryButton({
     super.key,
@@ -20,6 +29,7 @@ class StoryButton extends StatefulWidget {
     required this.accent,
     this.onPressed,
     this.showArrow = true,
+    this.filled = true,
   });
 
   @override
@@ -31,6 +41,13 @@ class _StoryButtonState extends State<StoryButton> {
 
   bool get _enabled => widget.onPressed != null;
 
+  Color _labelColor(StoryPalette palette) {
+    if (!_enabled) return palette.inkMuted;
+    // Dark ink on both fills. The old white-on-cyan label measured about
+    // 2.1:1, which failed the 4.5:1 minimum on the flow's primary control.
+    return widget.filled ? palette.onAction : palette.ink;
+  }
+
   void _setHeld(bool value) {
     if (_held == value) return;
     setState(() => _held = value);
@@ -38,7 +55,18 @@ class _StoryButtonState extends State<StoryButton> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final down = _held && _enabled;
+    final labelColor = _labelColor(palette);
+
+    final Color fill;
+    if (!_enabled) {
+      fill = palette.disabled;
+    } else if (widget.filled) {
+      fill = widget.accent;
+    } else {
+      fill = palette.surface;
+    }
 
     return Semantics(
       button: true,
@@ -59,31 +87,47 @@ class _StoryButtonState extends State<StoryButton> {
         onTapCancel: _enabled ? () => _setHeld(false) : null,
         onTap: widget.onPressed,
         child: Transform.translate(
-          offset: Offset(0, down ? StoryTheme.depth : 0),
+          offset: Offset(
+            down ? StoryTheme.depth : 0,
+            down ? StoryTheme.depth : 0,
+          ),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 15),
             decoration: BoxDecoration(
-              color: _enabled ? widget.accent : StoryTheme.disabled,
+              color: fill,
               borderRadius: BorderRadius.circular(StoryTheme.radiusButton),
-              boxShadow: StoryTheme.hardShadow(pressed: down),
+              border: Border.all(
+                color: palette.outline,
+                width: StoryTheme.outlineWidth,
+              ),
+              boxShadow: palette.cardShadow(pressed: down),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  widget.label,
-                  style: StoryTheme.display(
-                    size: 16,
-                    color: Colors.white,
-                    weight: 600,
-                    tracking: 0.5,
-                  ),
+            // Scales the label down rather than letting it overflow. "Create
+            // Another Story" at this weight already outgrows a narrow phone,
+            // and a child's device may be running a large text setting on top
+            // of that — clipping the primary action is not an option.
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      widget.label,
+                      style: StoryTheme.display(
+                        size: 18,
+                        color: labelColor,
+                        weight: 700,
+                        tracking: 0.3,
+                      ),
+                    ),
+                    if (widget.showArrow) ...<Widget>[
+                      const SizedBox(width: 9),
+                      Icon(Icons.arrow_forward, color: labelColor, size: 20),
+                    ],
+                  ],
                 ),
-                if (widget.showArrow) ...<Widget>[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-                ],
-              ],
+              ),
             ),
           ),
         ),

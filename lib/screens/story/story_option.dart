@@ -22,7 +22,10 @@ class StoryOptions {
 
   static const List<StoryOption> moods = <StoryOption>[
     StoryOption(label: 'Funny', asset: 'assets/story/moods/funny.svg'),
-    StoryOption(label: 'Adventurous', asset: 'assets/story/moods/adventurous.svg'),
+    StoryOption(
+      label: 'Adventurous',
+      asset: 'assets/story/moods/adventurous.svg',
+    ),
     StoryOption(label: 'Spooky', asset: 'assets/story/moods/spooky.svg'),
     StoryOption(label: 'Calm', asset: 'assets/story/moods/calm.svg'),
   ];

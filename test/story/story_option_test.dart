@@ -11,24 +11,29 @@ void main() {
   });
 
   test('labels match the strings the flow tests assert on', () {
-    expect(
-      StoryOptions.moods.map((o) => o.label),
-      ['Funny', 'Adventurous', 'Spooky', 'Calm'],
-    );
-    expect(
-      StoryOptions.settings.map((o) => o.label),
-      ['Forest', 'Ocean', 'City', 'Outer Space'],
-    );
+    expect(StoryOptions.moods.map((o) => o.label), [
+      'Funny',
+      'Adventurous',
+      'Spooky',
+      'Calm',
+    ]);
+    expect(StoryOptions.settings.map((o) => o.label), [
+      'Forest',
+      'Ocean',
+      'City',
+      'Outer Space',
+    ]);
   });
 
   test('every referenced asset actually resolves', () async {
-    final all = [
-      ...StoryOptions.moods,
-      ...StoryOptions.settings,
-    ];
+    final all = [...StoryOptions.moods, ...StoryOptions.settings];
     for (final option in all) {
       final data = await rootBundle.loadString(option.asset);
-      expect(data, contains('<svg'), reason: '${option.label} -> ${option.asset}');
+      expect(
+        data,
+        contains('<svg'),
+        reason: '${option.label} -> ${option.asset}',
+      );
     }
   });
 

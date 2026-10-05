@@ -16,18 +16,47 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: StoryOptionGrid(
-          options: StoryOptions.moods,
-          selectedLabel: selected,
-          accent: StoryTheme.accentCharacter,
-          onSelect: onSelect ?? (_) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StoryOptionGrid(
+            options: StoryOptions.moods,
+            selectedLabel: selected,
+            accent: StoryPalette.light.action,
+            onSelect: onSelect ?? (_) {},
+          ),
         ),
       ),
-    ));
+    );
     await tester.pump();
   }
+
+  /// The decorated layers of one tile, outermost first.
+  ///
+  /// A tile is two boxes: the selection halo, which is laid out always and
+  /// only painted when chosen, and the sticker itself, which carries the tint,
+  /// the ink line and the shadow. Tests have to say which one they mean.
+  List<BoxDecoration> layersFor(WidgetTester tester, String label) {
+    return tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.text(label),
+              matching: find.byType(GestureDetector),
+            ),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .toList();
+  }
+
+  BoxDecoration haloFor(WidgetTester tester, String label) =>
+      layersFor(tester, label).first;
+
+  BoxDecoration stickerFor(WidgetTester tester, String label) =>
+      layersFor(tester, label)[1];
 
   testWidgets('renders a tile for every option', (tester) async {
     await pumpGrid(tester);
@@ -51,7 +80,9 @@ void main() {
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
-  testWidgets('shows no check badge before a selection is made', (tester) async {
+  testWidgets('shows no check badge before a selection is made', (
+    tester,
+  ) async {
     await pumpGrid(tester);
     expect(find.byIcon(Icons.check), findsNothing);
   });
@@ -67,8 +98,9 @@ void main() {
     final renderedAssets = pictures
         .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
         .toSet();
-    final expectedAssets =
-        StoryOptions.moods.map((option) => option.asset).toSet();
+    final expectedAssets = StoryOptions.moods
+        .map((option) => option.asset)
+        .toSet();
 
     expect(renderedAssets, expectedAssets);
   });
@@ -76,74 +108,65 @@ void main() {
   testWidgets('shadow collapses on the pressed tile only', (tester) async {
     await pumpGrid(tester);
 
-    BoxDecoration decorationFor(String label) {
-      return tester
-          .widget<Container>(
-            find
-                .descendant(
-                  of: find.ancestor(
-                    of: find.text(label),
-                    matching: find.byType(GestureDetector),
-                  ),
-                  matching: find.byType(Container),
-                )
-                .first,
-          )
-          .decoration! as BoxDecoration;
-    }
-
-    expect(decorationFor('Spooky').boxShadow, isNotEmpty);
-    expect(decorationFor('Funny').boxShadow, isNotEmpty);
+    expect(stickerFor(tester, 'Spooky').boxShadow, isNotEmpty);
+    expect(stickerFor(tester, 'Funny').boxShadow, isNotEmpty);
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.text('Spooky')),
     );
     await tester.pump();
 
-    expect(decorationFor('Spooky').boxShadow, isEmpty);
+    expect(stickerFor(tester, 'Spooky').boxShadow, isEmpty);
     // A sibling tile's press state is untouched.
-    expect(decorationFor('Funny').boxShadow, isNotEmpty);
+    expect(stickerFor(tester, 'Funny').boxShadow, isNotEmpty);
 
     await gesture.up();
     await tester.pump();
 
-    expect(decorationFor('Spooky').boxShadow, isNotEmpty);
+    expect(stickerFor(tester, 'Spooky').boxShadow, isNotEmpty);
   });
 
-  testWidgets('the selected tile\'s ring uses the given accent', (tester) async {
+  testWidgets("the selected tile's ring uses the given accent", (tester) async {
     await pumpGrid(tester, selected: 'Calm');
 
-    final decoration = tester
-        .widget<Container>(
-          find
-              .descendant(
-                of: find.ancestor(
-                  of: find.text('Calm'),
-                  matching: find.byType(GestureDetector),
-                ),
-                matching: find.byType(Container),
-              )
-              .first,
-        )
-        .decoration! as BoxDecoration;
+    // Selection lives on the halo: accent when chosen, invisible otherwise.
+    expect(
+      haloFor(tester, 'Calm').border!.top.color,
+      StoryPalette.light.action,
+    );
+    expect(haloFor(tester, 'Calm').border!.top.width, StoryTheme.ringWidth);
+    expect(haloFor(tester, 'Funny').border!.top.color, Colors.transparent);
 
-    expect(decoration.border!.top.color, StoryTheme.accentCharacter);
-    expect(decoration.border!.top.width, StoryTheme.ringWidth);
+    // The ink line is constant, so an unchosen tile still reads as cut out
+    // rather than as an unfinished version of the chosen one.
+    for (final label in <String>['Calm', 'Funny']) {
+      expect(
+        stickerFor(tester, label).border!.top.color,
+        StoryPalette.light.outline,
+        reason: '$label lost its ink line',
+      );
+    }
+  });
 
-    final unselected = tester
-        .widget<Container>(
-          find
-              .descendant(
-                of: find.ancestor(
-                  of: find.text('Funny'),
-                  matching: find.byType(GestureDetector),
-                ),
-                matching: find.byType(Container),
-              )
-              .first,
-        )
-        .decoration! as BoxDecoration;
-    expect(unselected.border!.top.color, StoryTheme.shadow);
+  testWidgets('choosing a tile does not resize it', (tester) async {
+    // The halo is laid out whether or not it is painted; if it were added
+    // only on selection the grid would shift under the child's finger.
+    await pumpGrid(tester);
+    final before = tester.getSize(
+      find
+          .ancestor(of: find.text('Calm'), matching: find.byType(Container))
+          .first,
+    );
+
+    await pumpGrid(tester, selected: 'Calm');
+    expect(
+      tester.getSize(
+        find
+            .ancestor(of: find.text('Calm'), matching: find.byType(Container))
+            .first,
+      ),
+      before,
+    );
   });
 
   testWidgets('announces a tile label once, not twice', (tester) async {

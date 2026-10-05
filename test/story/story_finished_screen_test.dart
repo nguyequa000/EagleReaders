@@ -14,12 +14,14 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      home: StoryFinishedScreen(
-        onCreateAnother: onCreateAnother ?? () {},
-        onReturnHome: onReturnHome ?? () {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryFinishedScreen(
+          onCreateAnother: onCreateAnother ?? () {},
+          onReturnHome: onReturnHome ?? () {},
+        ),
       ),
-    ));
+    );
     await tester.pump();
   }
 
@@ -65,7 +67,7 @@ void main() {
     await pumpFinished(tester);
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-    expect(scaffold.backgroundColor, StoryTheme.ground);
+    expect(scaffold.backgroundColor, StoryPalette.light.ground);
   });
 
   testWidgets('keeps a back control so the story can be re-read', (

@@ -17,6 +17,8 @@ class StorySproutBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -24,10 +26,13 @@ class StorySproutBubble extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: StoryTheme.card,
+            color: palette.surface,
             shape: BoxShape.circle,
-            border: Border.all(color: accent, width: StoryTheme.ringWidth),
-            boxShadow: StoryTheme.hardShadow(),
+            border: Border.all(
+              color: palette.outline,
+              width: StoryTheme.outlineWidth,
+            ),
+            boxShadow: palette.cardShadow(depth: 3),
           ),
           child: const Center(
             child: Text('🌱', style: TextStyle(fontSize: 24)),
@@ -38,18 +43,22 @@ class StorySproutBubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: StoryTheme.card,
+              color: palette.surface,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 topRight: Radius.circular(StoryTheme.radiusTile),
                 bottomLeft: Radius.circular(StoryTheme.radiusTile),
                 bottomRight: Radius.circular(StoryTheme.radiusTile),
               ),
-              boxShadow: StoryTheme.hardShadow(),
+              boxShadow: palette.cardShadow(depth: 3),
+              border: Border.all(
+                color: palette.outline,
+                width: StoryTheme.outlineWidthThin,
+              ),
             ),
             child: Text(
               message,
-              style: StoryTheme.body(size: 15, weight: 500),
+              style: StoryTheme.body(size: 15, color: palette.ink, weight: 500),
             ),
           ),
         ),
