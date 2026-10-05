@@ -22,7 +22,9 @@ void main() {
     expect(find.text('Outer Space'), findsOneWidget);
   });
 
-  testWidgets('Next button is present but disabled before selection', (tester) async {
+  testWidgets('Next button is present but disabled before selection', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -54,17 +56,16 @@ void main() {
     expect(after.onPressed, isNotNull);
   });
 
-  testWidgets('tapping Next passes full StoryConfig with setting', (tester) async {
+  testWidgets('tapping Next passes full StoryConfig with setting', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     StoryConfig? result;
     await tester.pumpWidget(
       MaterialApp(
-        home: StorySettingScreen(
-          config: config,
-          onNext: (c) => result = c,
-        ),
+        home: StorySettingScreen(config: config, onNext: (c) => result = c),
       ),
     );
     await tester.tap(find.text('Outer Space'));
@@ -76,7 +77,9 @@ void main() {
     expect(result?.setting, 'Outer Space');
   });
 
-  testWidgets('step 3 uses the teal setting accent on both button and grid', (tester) async {
+  testWidgets('step 3 puts the one action colour on button and grid', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -86,9 +89,9 @@ void main() {
 
     final button = tester.widget<StoryButton>(find.byType(StoryButton));
     final grid = tester.widget<StoryOptionGrid>(find.byType(StoryOptionGrid));
-    expect(button.accent, StoryTheme.accentForStep(3));
-    expect(grid.accent, StoryTheme.accentForStep(3));
-    expect(StoryTheme.accentForStep(3), isNot(StoryTheme.accentForStep(2)));
+    // One action colour across the whole flow: the step no longer changes it.
+    expect(button.accent, StoryPalette.light.action);
+    expect(grid.accent, StoryPalette.light.action);
   });
 
   testWidgets('an incoming setting is highlighted and enables Next', (
@@ -100,10 +103,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: StorySettingScreen(
-          config: StoryConfig(
-            mood: 'Funny',
-            setting: 'Ocean',
-          ),
+          config: StoryConfig(mood: 'Funny', setting: 'Ocean'),
         ),
       ),
     );
@@ -126,10 +126,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: StorySettingScreen(
-          config: const StoryConfig(
-            mood: 'Funny',
-            setting: 'City',
-          ),
+          config: const StoryConfig(mood: 'Funny', setting: 'City'),
           onNext: (c) => result = c,
         ),
       ),

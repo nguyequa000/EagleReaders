@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storysprout/screens/story/hero_preview.dart';
 import 'package:storysprout/screens/story_flow_screen.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 
 void main() {
-  Future<void> pumpFlow(WidgetTester tester, {void Function(StoryConfig)? onComplete}) async {
+  Future<void> pumpFlow(
+    WidgetTester tester, {
+    void Function(StoryConfig)? onComplete,
+  }) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -26,6 +30,71 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('every step shows the hero, on the smallest phone', (
+    tester,
+  ) async {
+    // Regression cover: step 3 shipped with no preview at all, and steps 2-4
+    // put the section label above the preview instead of above the options it
+    // names. Both were invisible to the suite because nothing asserted that
+    // the hero is on screen throughout the flow.
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(top: 44);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: StoryFlowScreen()));
+    await tester.pump();
+
+    void expectVisiblePreview(int step) {
+      final found = find.byType(HeroPreview);
+      expect(found, findsOneWidget, reason: 'step $step has no hero preview');
+      final rect = tester.getRect(found.first);
+      expect(
+        rect.top,
+        lessThan(667),
+        reason: 'step $step draws its preview off the bottom',
+      );
+      expect(
+        rect.height,
+        greaterThan(100),
+        reason: 'step $step collapses its preview',
+      );
+    }
+
+    expectVisiblePreview(1);
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    expectVisiblePreview(2);
+    await tapLabel(tester, 'Ocean');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    expectVisiblePreview(3);
+    await tapLabel(tester, 'Spooky');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    expectVisiblePreview(4);
+  });
+
+  testWidgets('each step names itself the way the design does', (tester) async {
+    await pumpFlow(tester);
+    Future<void> advance() async {
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Build your hero!'), findsOneWidget);
+    await advance();
+    expect(find.text('Pick a place!'), findsOneWidget);
+    await tapLabel(tester, 'Ocean');
+    await advance();
+    expect(find.text('Pick a feeling!'), findsOneWidget);
+    await tapLabel(tester, 'Spooky');
+    await advance();
+    expect(find.text('Your story!'), findsOneWidget);
+  });
+
   testWidgets('starts on step 1 — the hero builder', (tester) async {
     await pumpFlow(tester);
     expect(find.text('Build your hero!'), findsOneWidget);
@@ -36,7 +105,7 @@ void main() {
     await pumpFlow(tester);
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
+    expect(find.text('CHOOSE A PLACE'), findsOneWidget);
     expect(find.text('STEP 2 OF 4'), findsOneWidget);
   });
 
@@ -44,14 +113,16 @@ void main() {
     await pumpFlow(tester);
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
+    expect(find.text('CHOOSE A PLACE'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     expect(find.text('Build your hero!'), findsOneWidget);
   });
 
-  testWidgets('completing all steps calls onComplete with full config', (tester) async {
+  testWidgets('completing all steps calls onComplete with full config', (
+    tester,
+  ) async {
     StoryConfig? result;
     await pumpFlow(tester, onComplete: (c) => result = c);
 
@@ -59,13 +130,13 @@ void main() {
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    // Step 2
-    await tapLabel(tester, 'Spooky');
+    // Step 2 — the place, chosen first so later previews have a backdrop
+    await tapLabel(tester, 'Ocean');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    // Step 3
-    await tapLabel(tester, 'Ocean');
+    // Step 3 — the feeling
+    await tapLabel(tester, 'Spooky');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
@@ -77,7 +148,7 @@ void main() {
     expect(result?.setting, 'Ocean');
   });
 
-  testWidgets('stepping back to step 2 keeps the chosen mood live', (
+  testWidgets('stepping back to step 2 keeps the chosen place live', (
     tester,
   ) async {
     await pumpFlow(tester);
@@ -85,22 +156,22 @@ void main() {
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tapLabel(tester, 'Spooky');
+    await tapLabel(tester, 'Ocean');
     await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     expect(find.text('CHOOSE A MOOD'), findsOneWidget);
 
-    // The mood is still chosen, so Next must work without re-picking it.
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('CHOOSE A PLACE'), findsOneWidget);
+
+    // The place is still chosen, so Next must work without re-picking it.
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
-    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
+    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
   });
 
-  testWidgets('stepping back to step 3 keeps the chosen setting live', (
+  testWidgets('stepping back to step 3 keeps the chosen feeling live', (
     tester,
   ) async {
     StoryConfig? result;
@@ -109,18 +180,18 @@ void main() {
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tapLabel(tester, 'Calm');
+    await tapLabel(tester, 'Ocean');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
-    await tapLabel(tester, 'Ocean');
+    await tapLabel(tester, 'Calm');
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
 
     // Back to step 3, then straight on without re-picking.
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    expect(find.text('CHOOSE A SETTING'), findsOneWidget);
+    expect(find.text('CHOOSE A MOOD'), findsOneWidget);
 
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
@@ -141,18 +212,20 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: ElevatedButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const StoryFlowScreen()),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const StoryFlowScreen()),
+                ),
+                child: const Text('DASHBOARD'),
               ),
-              child: const Text('DASHBOARD'),
             ),
           ),
         ),
-      ));
+      );
       await tester.tap(find.text('DASHBOARD'));
       await tester.pumpAndSettle();
     }
@@ -162,7 +235,7 @@ void main() {
       // it contributes only its Next tap.
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      for (final choice in ['Spooky', 'Ocean']) {
+      for (final choice in ['Ocean', 'Spooky']) {
         await tapLabel(tester, choice);
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();

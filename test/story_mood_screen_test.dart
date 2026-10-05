@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:storysprout/screens/story/hero_catalog.dart';
+import 'package:storysprout/screens/story/story_scene.dart';
 import 'package:storysprout/screens/story/hero_preview.dart';
 import 'package:storysprout/screens/story_mood_screen.dart';
 import 'package:storysprout/screens/story/story_config.dart';
@@ -15,22 +15,20 @@ void main() {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(home: StoryMoodScreen(config: config)),
-    );
+    await tester.pumpWidget(MaterialApp(home: StoryMoodScreen(config: config)));
     expect(find.text('Funny'), findsOneWidget);
     expect(find.text('Adventurous'), findsOneWidget);
     expect(find.text('Spooky'), findsOneWidget);
     expect(find.text('Calm'), findsOneWidget);
   });
 
-  testWidgets('Next button is present but disabled before selection', (tester) async {
+  testWidgets('Next button is present but disabled before selection', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(home: StoryMoodScreen(config: config)),
-    );
+    await tester.pumpWidget(MaterialApp(home: StoryMoodScreen(config: config)));
     expect(find.text('Next'), findsOneWidget);
 
     final button = tester.widget<StoryButton>(find.byType(StoryButton));
@@ -41,9 +39,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(home: StoryMoodScreen(config: config)),
-    );
+    await tester.pumpWidget(MaterialApp(home: StoryMoodScreen(config: config)));
     final before = tester.widget<StoryButton>(find.byType(StoryButton));
     expect(before.onPressed, isNull);
 
@@ -56,17 +52,16 @@ void main() {
     expect(after.onPressed, isNotNull);
   });
 
-  testWidgets('tapping Next passes character and mood in StoryConfig', (tester) async {
+  testWidgets('tapping Next passes character and mood in StoryConfig', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     StoryConfig? result;
     await tester.pumpWidget(
       MaterialApp(
-        home: StoryMoodScreen(
-          config: config,
-          onNext: (c) => result = c,
-        ),
+        home: StoryMoodScreen(config: config, onNext: (c) => result = c),
       ),
     );
     await tester.tap(find.text('Spooky'));
@@ -77,19 +72,19 @@ void main() {
     expect(result?.mood, 'Spooky');
   });
 
-  testWidgets('step 2 uses the amber mood accent on both button and grid', (tester) async {
+  testWidgets('step 2 puts the one action colour on button and grid', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(home: StoryMoodScreen(config: config)),
-    );
+    await tester.pumpWidget(MaterialApp(home: StoryMoodScreen(config: config)));
 
     final button = tester.widget<StoryButton>(find.byType(StoryButton));
     final grid = tester.widget<StoryOptionGrid>(find.byType(StoryOptionGrid));
-    expect(button.accent, StoryTheme.accentForStep(2));
-    expect(grid.accent, StoryTheme.accentForStep(2));
-    expect(StoryTheme.accentForStep(2), isNot(StoryTheme.accentForStep(3)));
+    // One action colour across the whole flow: the step no longer changes it.
+    expect(button.accent, StoryPalette.light.action);
+    expect(grid.accent, StoryPalette.light.action);
   });
 
   testWidgets('an incoming mood is highlighted and enables Next', (
@@ -100,9 +95,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       const MaterialApp(
-        home: StoryMoodScreen(
-          config: StoryConfig(mood: 'Spooky'),
-        ),
+        home: StoryMoodScreen(config: StoryConfig(mood: 'Spooky')),
       ),
     );
 
@@ -154,12 +147,13 @@ void main() {
     await tester.tap(find.text('Spooky'));
     await tester.pump();
 
-    // The whole point of moving expressions here: the choice shows its own
-    // consequence on the hero instead of being a label taken on trust.
+    // The choice has to show its own consequence rather than being a label
+    // taken on trust. The hero's pose belongs to the child, so what the mood
+    // changes is the light in the scene behind them.
     expect(moodOf(), 'Spooky');
     expect(
-      HeroCatalog.expressionForMood('Spooky').id,
-      isNot(HeroCatalog.expressionForMood('Calm').id),
+      StoryScene.forest.forMood('Spooky').skyTop,
+      isNot(StoryScene.forest.forMood('Calm').skyTop),
     );
   });
 }

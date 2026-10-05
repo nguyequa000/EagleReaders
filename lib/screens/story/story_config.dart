@@ -12,17 +12,9 @@ class StoryConfig {
   final String? mood;
   final String? setting;
 
-  const StoryConfig({
-    this.hero = const HeroConfig(),
-    this.mood,
-    this.setting,
-  });
+  const StoryConfig({this.hero = const HeroConfig(), this.mood, this.setting});
 
-  StoryConfig copyWith({
-    HeroConfig? hero,
-    String? mood,
-    String? setting,
-  }) {
+  StoryConfig copyWith({HeroConfig? hero, String? mood, String? setting}) {
     return StoryConfig(
       hero: hero ?? this.hero,
       mood: mood ?? this.mood,

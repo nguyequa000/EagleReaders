@@ -6,21 +6,21 @@ import 'package:storysprout/screens/story/story_config.dart';
 void main() {
   test('defaults to a complete hero and no other choices', () {
     const config = StoryConfig();
-    // The hero is never null — a seeded one is already a whole character, so
-    // the later steps never have to render an empty preview box.
+    // The hero is never null — an unbuilt one already draws a whole
+    // character, so the later steps never render an empty preview box.
     expect(config.hero, isNotNull);
-    expect(config.hero.toSvg(), startsWith('<svg'));
+    expect(config.hero.assetPath, startsWith('assets/story/toon/'));
     expect(config.mood, isNull);
     expect(config.setting, isNull);
   });
 
   test('copyWith replaces only the named field', () {
     final config = StoryConfig(
-      hero: const HeroConfig().withOption(HeroFeature.outfit, 'hoodie'),
+      hero: const HeroConfig().withOption(HeroFeature.pose, 'jump'),
     );
     final updated = config.copyWith(mood: 'Spooky');
 
-    expect(updated.hero.outfitVariant, 'hoodie');
+    expect(updated.hero.pose, 'jump');
     expect(updated.mood, 'Spooky');
     expect(updated.setting, isNull);
   });
@@ -41,10 +41,10 @@ void main() {
   test('swapping the hero leaves the story choices alone', () {
     const config = StoryConfig(mood: 'Funny', setting: 'Forest');
     final rebuilt = config.copyWith(
-      hero: const HeroConfig().withOption(HeroFeature.hat, 'turban'),
+      hero: const HeroConfig().withOption(HeroFeature.pose, 'turban'),
     );
 
-    expect(rebuilt.hero.hatVariant, 'turban');
+    expect(rebuilt.hero.pose, 'turban');
     expect(rebuilt.mood, 'Funny', reason: 'editing the hero is not a reset');
     expect(rebuilt.setting, 'Forest');
   });

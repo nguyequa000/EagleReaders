@@ -49,9 +49,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
             navigator.pop();
             navigator.pop();
             navigator.push(
-              MaterialPageRoute<void>(
-                builder: (_) => const StoryFlowScreen(),
-              ),
+              MaterialPageRoute<void>(builder: (_) => const StoryFlowScreen()),
             );
           },
           onReturnHome: () {
@@ -74,13 +72,13 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
           onNext: (hero) => _goToStep(2, _config.copyWith(hero: hero)),
         );
       case 2:
-        return StoryMoodScreen(
+        return StorySettingScreen(
           config: _config,
           onBack: () => _goToStep(1, _config),
           onNext: (config) => _goToStep(3, config),
         );
       case 3:
-        return StorySettingScreen(
+        return StoryMoodScreen(
           config: _config,
           onBack: () => _goToStep(2, _config),
           onNext: (config) => _goToStep(4, config),
@@ -89,6 +87,8 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
         return StorySummaryScreen(
           config: _config,
           onBack: () => _goToStep(3, _config),
+          // Straight back to the builder rather than three taps of Back.
+          onEditHero: () => _goToStep(1, _config),
           onStartReading: (config) {
             // pushReplacement, not push: the reader takes the flow's place in
             // the stack instead of sitting on top of it. Without this, leaving

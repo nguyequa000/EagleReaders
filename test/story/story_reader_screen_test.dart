@@ -15,24 +15,27 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(
-      home: StoryReaderScreen(
-        config: config ??
-            const StoryConfig(
-              hero: HeroConfig(name: 'Fox'),
-              mood: 'Spooky',
-              setting: 'Ocean',
-            ),
-        onNextPage: onNextPage,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StoryReaderScreen(
+          config:
+              config ??
+              const StoryConfig(
+                hero: HeroConfig(name: 'Fox'),
+                mood: 'Spooky',
+                setting: 'Ocean',
+              ),
+          onNextPage: onNextPage,
+        ),
       ),
-    ));
+    );
     await tester.pump();
   }
 
   testWidgets('paints the shared ground colour', (tester) async {
     await pumpReader(tester);
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-    expect(scaffold.backgroundColor, StoryTheme.ground);
+    expect(scaffold.backgroundColor, StoryPalette.light.ground);
   });
 
   testWidgets('names the three choices in the preview banner', (tester) async {
@@ -48,38 +51,39 @@ void main() {
     expect(body.style!.fontFamily, 'Nunito');
   });
 
-  testWidgets('banner lines use their own distinct accents', (tester) async {
+  testWidgets('banner values read as ink, and captions as muted', (
+    tester,
+  ) async {
     await pumpReader(tester);
 
-    final characterValue = tester.widget<Text>(find.text('Fox'));
-    final moodValue = tester.widget<Text>(find.text('Spooky'));
-    final settingValue = tester.widget<Text>(find.text('Ocean'));
-
-    expect(characterValue.style!.color, StoryTheme.accentCharacter);
-    expect(moodValue.style!.color, StoryTheme.accentMood);
-    expect(settingValue.style!.color, StoryTheme.accentSetting);
-
-    // Sanity check the three accents are actually distinct colours, so this
-    // test can't pass by coincidence if the theme accents were ever collapsed.
+    // The three banner lines used to be tinted one accent each. With a single
+    // action colour, colour no longer distinguishes them — the caption does,
+    // so the values are plain ink and only the captions recede.
+    for (final value in <String>['Fox', 'Spooky', 'Ocean']) {
+      expect(
+        tester.widget<Text>(find.text(value)).style!.color,
+        StoryPalette.light.ink,
+        reason: value,
+      );
+    }
     expect(
-      <Color>{
-        StoryTheme.accentCharacter,
-        StoryTheme.accentMood,
-        StoryTheme.accentSetting,
-      }.length,
-      3,
+      tester.widget<Text>(find.text('Mood: ')).style!.color,
+      StoryPalette.light.inkMuted,
     );
   });
 
-  testWidgets('a config with null fields renders the unknown fallback without throwing', (tester) async {
-    await pumpReader(tester, config: const StoryConfig());
+  testWidgets(
+    'a config with null fields renders the unknown fallback without throwing',
+    (tester) async {
+      await pumpReader(tester, config: const StoryConfig());
 
-    expect(tester.takeException(), isNull);
-    // Mood and Setting fall back; the hero does not, because an unnamed hero
-    // is still a hero rather than a missing choice.
-    expect(find.text('unknown'), findsNWidgets(2));
-    expect(find.text('Your hero'), findsOneWidget);
-  });
+      expect(tester.takeException(), isNull);
+      // Mood and Setting fall back; the hero does not, because an unnamed hero
+      // is still a hero rather than a missing choice.
+      expect(find.text('unknown'), findsNWidgets(2));
+      expect(find.text('Your hero'), findsOneWidget);
+    },
+  );
 
   // The reader is the end of the story flow. It replaces the 4-step flow in the
   // stack rather than sitting on top of it, so there is nothing behind it to go
@@ -121,18 +125,18 @@ void main() {
       await pumpReader(tester, onNextPage: () {});
 
       // PopScope is generic; match any type argument.
-      final popScope = tester
-          .widgetList(find.byWidgetPredicate((w) => w is PopScope))
-          .single as PopScope;
+      final popScope =
+          tester.widgetList(find.byWidgetPredicate((w) => w is PopScope)).single
+              as PopScope;
       expect(popScope.canPop, isFalse);
     });
 
     testWidgets('allows back when there is no page to turn to', (tester) async {
       await pumpReader(tester);
 
-      final popScope = tester
-          .widgetList(find.byWidgetPredicate((w) => w is PopScope))
-          .single as PopScope;
+      final popScope =
+          tester.widgetList(find.byWidgetPredicate((w) => w is PopScope)).single
+              as PopScope;
       expect(popScope.canPop, isTrue);
     });
 

@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'story/hero_preview.dart';
 import 'story/story_button.dart';
 import 'story/story_config.dart';
 import 'story/story_option.dart';
 import 'story/story_option_grid.dart';
+import 'story/story_row_label.dart';
 import 'story/story_scaffold.dart';
 import 'story/story_theme.dart';
 
-/// Step 3 of 4 — setting selection.
+/// Step 2 of 4 — where the story happens.
+///
+/// Ahead of the feeling step on purpose: the place is the backdrop every
+/// later preview draws, so choosing it first means the child never looks at
+/// an empty box.
 class StorySettingScreen extends StatefulWidget {
   final StoryConfig config;
   final VoidCallback? onBack;
@@ -25,7 +31,7 @@ class StorySettingScreen extends StatefulWidget {
 }
 
 class _StorySettingScreenState extends State<StorySettingScreen> {
-  static const int _step = 3;
+  static const int _step = 2;
 
   /// Seeded from the incoming config so stepping Back re-enters the screen
   /// with the child's existing choice still highlighted and Next still live.
@@ -39,21 +45,41 @@ class _StorySettingScreenState extends State<StorySettingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
     return StoryScaffold(
       step: _step,
-      prompt: 'Nice! Now, where does your story take place?',
-      sectionLabel: 'CHOOSE A SETTING',
+      title: 'Pick a place!',
       onBack: widget.onBack,
       footer: StoryButton(
         label: 'Next',
-        accent: StoryTheme.accentForStep(_step),
+        accent: palette.action,
         onPressed: _selected == null ? null : _handleNext,
       ),
-      child: StoryOptionGrid(
-        options: StoryOptions.settings,
-        selectedLabel: _selected,
-        accent: StoryTheme.accentForStep(_step),
-        onSelect: (label) => setState(() => _selected = label),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          HeroPreview(
+            hero: widget.config.hero,
+            height: HeroPreview.heightFor(
+              context,
+              fraction: 0.21,
+              min: 150,
+              max: 230,
+            ),
+            setting: _selected,
+            mood: widget.config.mood,
+          ),
+          const SizedBox(height: 12),
+          const StoryRowLabel(text: 'CHOOSE A PLACE'),
+          const SizedBox(height: 10),
+          StoryOptionGrid(
+            options: StoryOptions.settings,
+            selectedLabel: _selected,
+            accent: palette.action,
+            onSelect: (label) => setState(() => _selected = label),
+          ),
+        ],
       ),
     );
   }

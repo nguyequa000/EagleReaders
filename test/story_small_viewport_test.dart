@@ -51,9 +51,8 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: StoryHeroScreen()));
       await tester.pump();
 
-      // Every feature row button has to be reachable on the smallest phone —
-      // five circles across a 375pt width is the tightest row in the app.
-      expectAllPresent(const <String>['Avatar', 'Hair', 'Hat', 'Outfit', 'Pet']);
+      // Every feature row button has to be reachable on the smallest phone.
+      expectAllPresent(const <String>['Hero', 'Pose', 'Pet']);
       expect(find.text('Surprise me!'), findsOneWidget);
       expect(find.text('Next'), findsOneWidget);
     });
@@ -61,21 +60,22 @@ void main() {
     testWidgets('step 2 builds all 4 mood options', (tester) async {
       useIPhoneSe(tester);
       await tester.pumpWidget(
-        const MaterialApp(
-          home: StoryMoodScreen(config: StoryConfig()),
-        ),
+        const MaterialApp(home: StoryMoodScreen(config: StoryConfig())),
       );
 
-      expectAllPresent(const <String>['Funny', 'Adventurous', 'Spooky', 'Calm']);
+      expectAllPresent(const <String>[
+        'Funny',
+        'Adventurous',
+        'Spooky',
+        'Calm',
+      ]);
     });
 
     testWidgets('step 3 builds all 4 setting options', (tester) async {
       useIPhoneSe(tester);
       await tester.pumpWidget(
         const MaterialApp(
-          home: StorySettingScreen(
-            config: StoryConfig(mood: 'Funny'),
-          ),
+          home: StorySettingScreen(config: StoryConfig(mood: 'Funny')),
         ),
       );
 
@@ -92,9 +92,7 @@ void main() {
     testWidgets('step 2 builds the second row of moods', (tester) async {
       usePhone(tester, size: const Size(360, 640), statusBar: 24);
       await tester.pumpWidget(
-        const MaterialApp(
-          home: StoryMoodScreen(config: StoryConfig()),
-        ),
+        const MaterialApp(home: StoryMoodScreen(config: StoryConfig())),
       );
 
       expectAllPresent(const <String>['Spooky', 'Calm']);
@@ -109,16 +107,19 @@ void main() {
 
     final position = tester
         .state<ScrollableState>(
-          find.descendant(
-            of: find.byType(SingleChildScrollView),
-            matching: find.byType(Scrollable),
-          ).first,
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         )
         .position;
     expect(
       position.maxScrollExtent,
       greaterThan(0.0),
-      reason: 'content taller than the viewport must be scrollable, not clipped',
+      reason:
+          'content taller than the viewport must be scrollable, not clipped',
     );
   });
 
@@ -130,10 +131,12 @@ void main() {
 
     final position = tester
         .state<ScrollableState>(
-          find.descendant(
-            of: find.byType(SingleChildScrollView),
-            matching: find.byType(Scrollable),
-          ).first,
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         )
         .position;
     expect(

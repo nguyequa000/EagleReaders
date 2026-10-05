@@ -13,11 +13,7 @@ class StoryReaderScreen extends StatelessWidget {
   /// predates the story flow wiring it up.
   final VoidCallback? onNextPage;
 
-  const StoryReaderScreen({
-    super.key,
-    required this.config,
-    this.onNextPage,
-  });
+  const StoryReaderScreen({super.key, required this.config, this.onNextPage});
 
   String _buildStoryText() {
     // A named hero carries the prose; an unnamed one falls back to a phrase
@@ -28,8 +24,10 @@ class StoryReaderScreen extends StatelessWidget {
 
     final moodSentence = switch (mood.toLowerCase()) {
       'funny' => 'Every turn in the tale made everyone giggle and laugh.',
-      'adventurous' => 'Every day felt like the next big adventure waiting to happen.',
-      'spooky' => 'The shadows whispered secrets and the air crackled with mystery.',
+      'adventurous' =>
+        'Every day felt like the next big adventure waiting to happen.',
+      'spooky' =>
+        'The shadows whispered secrets and the air crackled with mystery.',
       'calm' => 'The story moved like a gentle stream, soft and peaceful.',
       _ => 'The story had a special feeling all its own.',
     };
@@ -48,6 +46,7 @@ And when the sun began to set, $character knew that every day could be as magica
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final storyText = _buildStoryText();
 
     // The reader replaces the 4-step flow rather than stacking on it, so there
@@ -57,16 +56,19 @@ And when the sun began to set, $character knew that every day could be as magica
     return PopScope(
       canPop: onNextPage == null,
       child: Scaffold(
-        backgroundColor: StoryTheme.ground,
+        backgroundColor: palette.ground,
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(
             'Your Story',
-            style:
-                StoryTheme.display(size: 19, color: Colors.white, weight: 600),
+            style: StoryTheme.display(
+              size: 19,
+              color: palette.headerInk,
+              weight: 600,
+            ),
           ),
-          backgroundColor: StoryTheme.brand,
-          foregroundColor: Colors.white,
+          backgroundColor: palette.header,
+          foregroundColor: palette.headerInk,
           elevation: 0,
           actions: <Widget>[
             if (onNextPage != null)
@@ -82,13 +84,17 @@ And when the sun began to set, $character knew that every day could be as magica
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _buildDetailBanner(),
+              _buildDetailBanner(palette),
               const SizedBox(height: 18),
               Expanded(
                 child: SingleChildScrollView(
                   child: Text(
                     storyText,
-                    style: StoryTheme.body(size: 17, height: 1.7),
+                    style: StoryTheme.body(
+                      size: 17,
+                      color: palette.ink,
+                      height: 1.7,
+                    ),
                   ),
                 ),
               ),
@@ -99,14 +105,14 @@ And when the sun began to set, $character knew that every day could be as magica
     );
   }
 
-  Widget _buildDetailBanner() {
+  Widget _buildDetailBanner(StoryPalette palette) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: StoryTheme.card,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
-        border: Border.all(color: StoryTheme.shadow),
-        boxShadow: StoryTheme.hardShadow(),
+        border: Border.all(color: palette.line),
+        boxShadow: palette.cardShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,33 +121,36 @@ And when the sun began to set, $character knew that every day could be as magica
             'STORY PREVIEW',
             style: StoryTheme.display(
               size: 12,
-              color: StoryTheme.inkMuted,
+              color: palette.inkMuted,
               weight: 600,
               tracking: 1.4,
             ),
           ),
           const SizedBox(height: 10),
-          _bannerLine('Hero', config.hero.name ?? 'Your hero',
-              StoryTheme.accentCharacter),
-          _bannerLine('Mood', config.mood, StoryTheme.accentMood),
-          _bannerLine('Setting', config.setting, StoryTheme.accentSetting),
+          _bannerLine(palette, 'Hero', config.hero.name ?? 'Your hero'),
+          _bannerLine(palette, 'Mood', config.mood),
+          _bannerLine(palette, 'Setting', config.setting),
         ],
       ),
     );
   }
 
-  Widget _bannerLine(String caption, String? value, Color accent) {
+  Widget _bannerLine(StoryPalette palette, String caption, String? value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: <Widget>[
           Text(
             '$caption: ',
-            style: StoryTheme.body(size: 14, color: StoryTheme.inkMuted),
+            style: StoryTheme.body(size: 14, color: palette.inkMuted),
           ),
           Text(
             value ?? 'unknown',
-            style: StoryTheme.display(size: 14, color: accent, weight: 600),
+            style: StoryTheme.display(
+              size: 14,
+              color: palette.ink,
+              weight: 600,
+            ),
           ),
         ],
       ),
