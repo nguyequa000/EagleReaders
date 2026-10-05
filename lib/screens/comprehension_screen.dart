@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import '../services/coin_service.dart';
+import 'coins_earned_snack_bar.dart';
 
 // Data model
 class ComprehensionQuestion {
@@ -26,6 +28,8 @@ class ComprehensionQuestion {
 
 //  Screen widget
 class ComprehensionScreen extends StatefulWidget {
+  /// Whose activity log the result is recorded against.
+  final String childId;
   final String childName;
   final String bookTitle;
 
@@ -39,13 +43,24 @@ class ComprehensionScreen extends StatefulWidget {
   /// Called when the user taps "Keep Reading →"
   final VoidCallback? onKeepReading;
 
+  /// The chapter's own title (e.g. "CHAPTER I. Down the Rabbit-Hole"), shown
+  /// instead of "End of Chapter N" when the book provides one.
+  final String? chapterTitle;
+
+  /// Shows a Skip button that closes the quiz without recording a score
+  /// (used for the quizzes that pop up at the end of each chapter).
+  final bool skippable;
+
   const ComprehensionScreen({
     super.key,
+    required this.childId,
     required this.childName,
     required this.bookTitle,
     required this.chapterNumber,
     this.questions,
     this.onKeepReading,
+    this.chapterTitle,
+    this.skippable = false,
   });
 
   @override
@@ -116,7 +131,9 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     try {
       List<ComprehensionQuestion> loaded;
 
-      loaded = _demoQuestions;
+      // Chapter-specific questions when the caller has them (see
+      // QuestionBank), otherwise the generic demo pair.
+      loaded = widget.questions ?? _demoQuestions;
       setState(() {
         _questions = loaded;
         _loading = false;
@@ -169,11 +186,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       _savingResult = true;
       try {
         await ActivityService.instance.logEvent(
-          widget.childName,
+          widget.childId,
           'comprehension_result',
           {
             'title': widget.bookTitle,
             'chapter': widget.chapterNumber,
+            if (widget.chapterTitle != null)
+              'chapterTitle': widget.chapterTitle,
             // Kept for backwards-compat with any older readers of this log.
             'score': '$_correctCount/${_questions.length}',
             'correct': _correctCount,
@@ -183,6 +202,8 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       } finally {
         _savingResult = false;
       }
+      if (!mounted) return;
+      await _awardCoins();
       if (!mounted) return;
       widget.onKeepReading?.call();
       if (widget.onKeepReading == null) Navigator.of(context).pop();
@@ -195,6 +216,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       });
       _fadeController.forward();
     }
+  }
+
+  /// Coins for finishing the quiz (CR #2). A failed award must never stop the
+  /// child getting back to the book, so errors are swallowed.
+  Future<void> _awardCoins() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final coins = await CoinService.instance.awardQuiz(
+        widget.childId,
+        widget.bookTitle,
+      );
+      if (coins > 0) messenger?.showSnackBar(coinsEarnedSnackBar(coins));
+    } catch (_) {}
   }
 
   //answer tile colour
@@ -239,7 +273,9 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: Text(
-        'End of Chapter ${widget.chapterNumber}',
+        widget.chapterTitle ?? 'End of Chapter ${widget.chapterNumber}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: _cream,
           fontWeight: FontWeight.bold,
@@ -247,6 +283,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         ),
       ),
       centerTitle: true,
+      actions: [
+        if (widget.skippable)
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Skip', style: TextStyle(color: _cream)),
+          ),
+      ],
     );
   }
 

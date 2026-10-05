@@ -1,26 +1,28 @@
 // Centralized reading-activity tracking layer.
 //
 // Every screen that needs to record or read a child's activity (reading
-// module, comprehension quiz, parent dashboard) should go through this
-// service instead of touching SharedPreferences directly. This keeps the
-// storage key format and event shape in one place so the parent dashboard
-// can trust what it reads.
+// module, comprehension quiz, story creation, parent dashboard) should go
+// through this service instead of touching Firestore directly. This keeps the
+// storage path and event shape in one place so the parent dashboard can trust
+// what it reads.
 //
-// Storage: SharedPreferences, key `activity_log_<childName>` -> JSON list of
-// event maps. Each event always has `type` and `ts` (epoch millis). Other
-// fields depend on `type`:
+// Storage: Firestore, one document per event at
+// `parents/{uid}/children/{childId}/activity/{autoId}`. Children have no
+// Firebase identity of their own, so `uid` is the signed-in parent (see
+// `firestore.rules`). Each event always has `type` and `ts` (epoch millis).
+// Other fields depend on `type`:
 //   book_opened          {title}
 //   book_finished        {title}
 //   reading_session      {title, minutes, bookType}   // time spent reading
 //   comprehension_result {title, chapter, score, correct, total}
+//   story_created        {title}
 //
-// NOTE: child identity is currently just a display-name string (e.g.
-// "Alex"). There is no child-profile id system wired in yet — this is a
-// known simplification, not a design decision; revisit if/when profiles
-// get real ids.
+// One document per event (rather than one array per child) means writes never
+// read-modify-write, so concurrent logs for the same child cannot clobber each
+// other.
 
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ActivityEvent {
   final String type;
@@ -32,7 +34,7 @@ class ActivityEvent {
   factory ActivityEvent.fromJson(Map<String, dynamic> json) {
     final map = Map<String, dynamic>.from(json);
     final type = map.remove('type') as String? ?? 'unknown';
-    final ts = map.remove('ts') as int? ?? 0;
+    final ts = (map.remove('ts') as num?)?.toInt() ?? 0;
     return ActivityEvent(type: type, ts: ts, data: map);
   }
 
@@ -51,6 +53,16 @@ class ActivityEvent {
       'comprehension_result' =>
         '$childName scored ${data['score'] ?? ''} on "$title"',
       'story_created' => '$childName created a new story: "$title"',
+      // Coin ledger rows, merged into the feed (see CoinTransaction).
+      'coins_earned' => switch (data['reason']) {
+        'story' =>
+          '$childName earned ${data['coins']} coins for creating "$title"',
+        _ => '$childName earned ${data['coins']} coins for a quiz on "$title"',
+      },
+      'reward_redeemed' =>
+        '$childName redeemed "$title" for ${data['coins']} coins',
+      'coins_refunded' =>
+        '$childName got ${data['coins']} coins back for "$title"',
       _ => '$childName: $type — "$title"',
     };
   }
@@ -62,67 +74,71 @@ class ChildActivityStats {
   final int storiesCreated;
   final double? lastComprehensionScorePct;
 
+  /// Title of the book the child has open and not yet finished, if any.
+  final String? currentlyReading;
+
   const ChildActivityStats({
     required this.booksFinished,
     required this.minutesThisWeek,
     required this.storiesCreated,
     required this.lastComprehensionScorePct,
+    this.currentlyReading,
   });
 }
 
 class ActivityService {
-  ActivityService._();
-  static final ActivityService instance = ActivityService._();
+  ActivityService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestoreOverride = firestore,
+      _authOverride = auth;
 
-  // Per-child write queue. logEvent does a read-modify-write against a
-  // single SharedPreferences key; without serializing writes, two
-  // concurrent logEvent calls for the same child (e.g. a reading_session
-  // flush racing a book_finished log when a book completes) can both read
-  // the pre-mutation list and the second write silently clobbers the
-  // first's event. Chaining onto the previous write's future per child
-  // makes each logEvent atomic relative to the others.
-  final Map<String, Future<void>> _writeQueues = {};
+  /// Shared instance the screens use. Assignable only so tests can point it
+  /// at in-memory fakes before any screen touches Firebase.
+  static ActivityService instance = ActivityService();
 
-  String _keyFor(String childName) => 'activity_log_$childName';
+  // Resolved lazily: constructing the default instance must not touch
+  // Firebase, which is not initialized in tests.
+  final FirebaseFirestore? _firestoreOverride;
+  final FirebaseAuth? _authOverride;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
 
-  Future<void> logEvent(
-    String childName,
-    String type,
-    Map<String, dynamic> data,
-  ) {
-    final previous = _writeQueues[childName] ?? Future.value();
-    final next = previous.then((_) => _appendEvent(childName, type, data));
-    // Swallow errors here so one failed write doesn't wedge the queue for
-    // subsequent callers; the error still propagates to whoever awaited
-    // this specific call via the returned future.
-    _writeQueues[childName] = next.catchError((_) {});
-    return next;
+  CollectionReference<Map<String, dynamic>>? _collectionFor(String childId) {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    return _firestore
+        .collection('parents')
+        .doc(uid)
+        .collection('children')
+        .doc(childId)
+        .collection('activity');
   }
 
-  Future<void> _appendEvent(
-    String childName,
+  /// Records one event. Silently skipped when no parent is signed in: logging
+  /// is fire-and-forget from widget lifecycle hooks, where a throw would only
+  /// surface as an unhandled async error.
+  Future<void> logEvent(
+    String childId,
     String type,
     Map<String, dynamic> data,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = _keyFor(childName);
-    final events = jsonDecode(prefs.getString(key) ?? '[]') as List<dynamic>;
-    events.add({
+    final collection = _collectionFor(childId);
+    if (collection == null) return;
+    await collection.add({
+      ...data,
       'type': type,
       'ts': DateTime.now().millisecondsSinceEpoch,
-      ...data,
     });
-    await prefs.setString(key, jsonEncode(events));
   }
 
-  Future<List<ActivityEvent>> getEvents(String childName) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw =
-        jsonDecode(prefs.getString(_keyFor(childName)) ?? '[]')
-            as List<dynamic>;
-    return raw
-        .map((e) => ActivityEvent.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+  /// All of a child's events, oldest first. Empty when signed out.
+  Future<List<ActivityEvent>> getEvents(String childId) async {
+    final collection = _collectionFor(childId);
+    if (collection == null) return [];
+    final snapshot = await collection.orderBy('ts').get();
+    return [
+      for (final doc in snapshot.docs) ActivityEvent.fromJson(doc.data()),
+    ];
   }
 
   /// Convenience: start a reading session timer. Call [logReadingSession]
@@ -130,7 +146,7 @@ class ActivityService {
   DateTime startSession() => DateTime.now();
 
   Future<void> logReadingSession(
-    String childName, {
+    String childId, {
     required DateTime start,
     required String title,
     required String bookType,
@@ -139,16 +155,19 @@ class ActivityService {
     // Ignore sub-minute sessions (e.g. immediately closing a book) so the
     // parent dashboard doesn't fill up with noise.
     if (minutes <= 0) return;
-    await logEvent(childName, 'reading_session', {
+    await logEvent(childId, 'reading_session', {
       'title': title,
       'minutes': minutes,
       'bookType': bookType,
     });
   }
 
-  Future<ChildActivityStats> getStats(String childName) async {
-    final events = await getEvents(childName);
+  Future<ChildActivityStats> getStats(String childId) async =>
+      statsFrom(await getEvents(childId));
 
+  /// Derives the parent-facing stats from an already-fetched event list, so
+  /// screens that also show the feed only read Firestore once.
+  static ChildActivityStats statsFrom(List<ActivityEvent> events) {
     final booksFinished = events
         .where((e) => e.type == 'book_finished')
         .map((e) => e.data['title'])
@@ -162,25 +181,39 @@ class ActivityService {
         )
         .fold<int>(
           0,
-          (sum, e) => sum + ((e.data['minutes'] as num?)?.toInt() ?? 0),
+          (minutes, e) => minutes + ((e.data['minutes'] as num?)?.toInt() ?? 0),
         );
 
     final storiesCreated = events
         .where((e) => e.type == 'story_created')
         .length;
 
+    final sorted = [...events]..sort((a, b) => a.ts.compareTo(b.ts));
+
     double? lastScorePct;
-    final comprehensionEvents = events
+    final lastComprehension = sorted
         .where((e) => e.type == 'comprehension_result')
-        .toList();
-    if (comprehensionEvents.isNotEmpty) {
-      comprehensionEvents.sort((a, b) => a.ts.compareTo(b.ts));
-      final last = comprehensionEvents.last;
-      final correct = (last.data['correct'] as num?)?.toDouble();
-      final total = (last.data['total'] as num?)?.toDouble();
+        .lastOrNull;
+    if (lastComprehension != null) {
+      final correct = (lastComprehension.data['correct'] as num?)?.toDouble();
+      final total = (lastComprehension.data['total'] as num?)?.toDouble();
       if (correct != null && total != null && total > 0) {
         lastScorePct = (correct / total) * 100;
       }
+    }
+
+    // The latest opened book, unless it has been finished since.
+    String? currentlyReading;
+    final lastOpened = sorted.where((e) => e.type == 'book_opened').lastOrNull;
+    if (lastOpened != null) {
+      final title = lastOpened.data['title'] as String?;
+      final finishedSince = sorted.any(
+        (e) =>
+            e.type == 'book_finished' &&
+            e.data['title'] == title &&
+            e.ts >= lastOpened.ts,
+      );
+      if (!finishedSince) currentlyReading = title;
     }
 
     return ChildActivityStats(
@@ -188,6 +221,7 @@ class ActivityService {
       minutesThisWeek: minutesThisWeek,
       storiesCreated: storiesCreated,
       lastComprehensionScorePct: lastScorePct,
+      currentlyReading: currentlyReading,
     );
   }
 }

@@ -20,7 +20,10 @@ class _ChildPinScreenState extends State<ChildPinScreen> {
     if (widget.child.verifyPin(_pin.text)) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ChildDashboardScreen(childName: widget.child.name),
+          builder: (_) => ChildDashboardScreen(
+            childId: widget.child.id,
+            childName: widget.child.name,
+          ),
         ),
       );
     } else {

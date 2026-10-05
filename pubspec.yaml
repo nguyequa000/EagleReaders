@@ -73,6 +73,7 @@ flutter:
 
   assets:
     - assets/books/
+    - assets/data/
     - assets/story/toon/explorer/
     - assets/story/toon/scout/
     - assets/story/toon/friend/

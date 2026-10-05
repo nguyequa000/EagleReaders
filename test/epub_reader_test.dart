@@ -9,8 +9,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
+import 'package:storysprout/services/activity_service.dart';
+
+import 'test_helpers.dart';
 
 void main() {
+  setUp(() => ActivityService.instance = signedIn().activity);
+
   testWidgets('Reader is EPUB-only and rejects text imports', (tester) async {
     SharedPreferences.setMockInitialValues({});
     MethodChannelFilePicker.registerWith();
@@ -36,7 +41,9 @@ void main() {
       ),
     );
     await tester.pumpWidget(
-      const MaterialApp(home: ReadingModulePage(childName: 'Alex')),
+      const MaterialApp(
+        home: ReadingModulePage(childId: '1', childName: 'Alex'),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('.txt'), findsNothing);
@@ -74,7 +81,9 @@ void main() {
       );
     });
     await tester.pumpWidget(
-      const MaterialApp(home: ReadingModulePage(childName: 'Alex')),
+      const MaterialApp(
+        home: ReadingModulePage(childId: '1', childName: 'Alex'),
+      ),
     );
     await tester.pumpAndSettle();
     // ZIP/XML decoding and image codecs need the real async event loop.
@@ -142,7 +151,9 @@ void main() {
       );
     });
     await tester.pumpWidget(
-      const MaterialApp(home: ReadingModulePage(childName: 'Alex')),
+      const MaterialApp(
+        home: ReadingModulePage(childId: '1', childName: 'Alex'),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
