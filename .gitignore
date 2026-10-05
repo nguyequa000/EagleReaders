@@ -46,3 +46,4 @@ app.*.map.json
 
 # Local course reference material (SRS, charter, WBS, prototypes)
 context/
+tool/.cache/

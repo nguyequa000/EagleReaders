@@ -1,41 +1,18 @@
-import 'package:dicebear_core/dicebear_core.dart';
-import 'package:dicebear_styles/avataaars.dart';
 import 'package:flutter/foundation.dart';
 
-/// The five rows of the hero builder.
-enum HeroFeature { avatar, hair, hat, outfit, pet }
-
-/// A complete facial expression — a pairing of eyes and mouth.
+/// The rows of the hero builder.
 ///
-/// An expression is not something the child picks while building their hero.
-/// It is decided by the **mood of the story**, so choosing "Spooky" widens the
-/// hero's eyes and choosing "Funny" makes them pull a face.
-///
-/// It has to be a pair: Avataaars keeps eyes and mouth in separate slots, so
-/// setting only `eyes` leaves the mouth wherever the seed left it — which is
-/// how every hero ended up wearing the same open mouth.
-@immutable
-class HeroExpression {
-  final String id;
-  final String label;
-  final String eyes;
-  final String mouth;
-
-  const HeroExpression({
-    required this.id,
-    required this.label,
-    required this.eyes,
-    required this.mouth,
-  });
-}
+/// Three, where the earlier avatar engine had five. Kenney's Toon Characters
+/// are finished characters rather than a parts bin, so there is no hair, hat
+/// or outfit to swap — what a child picks instead is *who* their hero is and
+/// *what they are doing*, which is the more legible question at age three.
+enum HeroFeature { hero, pose, pet }
 
 /// One selectable option within a feature row.
 @immutable
 class HeroOption {
-  /// The value written into the avatar options, or the asset path for a pet.
-  ///
-  /// Null means "none" — the empty slot a hat or a pet row needs so a child can
-  /// take one off again.
+  /// The value written into the config, or null for the empty slot the pet
+  /// row needs so a child can take one off again.
   final String? value;
 
   /// What the child reads on the tile.
@@ -44,221 +21,135 @@ class HeroOption {
   const HeroOption({required this.value, required this.label});
 }
 
-/// What the builder can offer, read out of the Avataaars style definition.
-///
-/// Nothing here is a hand-maintained list of strings. The variants and the
-/// colour swatches both come from the style's own catalogue, so when the
-/// package updates the rows follow it instead of silently drifting out of date.
+/// What the builder can offer.
 class HeroCatalog {
   const HeroCatalog._();
 
-  static Style? _style;
+  static const String _dir = 'assets/story/toon';
 
-  /// The parsed Avataaars style. Parsed once — it decodes a 124KB JSON
-  /// document, which is not something to redo on every rebuild.
-  static Style get style => _style ??= Style.parse(avataaars);
-
-  static Map<String, Object?> get _definition => style.definition();
-
-  /// Variants of `top` that cover the head rather than style the hair.
+  /// The six heroes.
   ///
-  /// Avataaars has no separate hat slot: `top` is one layer holding either a
-  /// hairstyle or a piece of headwear, and choosing one replaces the other.
-  /// The wireframe asks for two rows, so the split lives here and
-  /// [HeroConfig] remembers the hair underneath a hat.
-  static const Set<String> hatVariants = <String>{
-    'hat',
-    'hijab',
-    'turban',
-    'winterHat1',
-    'winterHat02',
-    'winterHat03',
-    'winterHat04',
+  /// Labelled by character rather than by the pack's own folder names, which
+  /// are gendered ("Female adventurer"). A child picks the one that looks
+  /// like their hero; the label should not do that sorting for them.
+  static const List<HeroOption> heroes = <HeroOption>[
+    HeroOption(value: 'explorer', label: 'Explorer'),
+    HeroOption(value: 'scout', label: 'Scout'),
+    HeroOption(value: 'friend', label: 'Friend'),
+    HeroOption(value: 'pal', label: 'Pal'),
+    HeroOption(value: 'robot', label: 'Robot'),
+    HeroOption(value: 'monster', label: 'Monster'),
+  ];
+
+  /// What the hero is doing.
+  ///
+  /// Curated from the pack's 45 poses per character. The ones left out are
+  /// either fighting (attack, kick, hit, shove), falling, or drawn from
+  /// behind — a hero facing away is not a hero a child recognises as theirs.
+  static const List<HeroOption> poses = <HeroOption>[
+    HeroOption(value: 'idle', label: 'Standing'),
+    HeroOption(value: 'walk1', label: 'Walking'),
+    HeroOption(value: 'run1', label: 'Running'),
+    HeroOption(value: 'jump', label: 'Jumping'),
+    HeroOption(value: 'cheer1', label: 'Cheering'),
+    HeroOption(value: 'wide', label: 'Arms Wide'),
+    HeroOption(value: 'hold', label: 'Holding'),
+    HeroOption(value: 'talk', label: 'Talking'),
+    HeroOption(value: 'think', label: 'Thinking'),
+    HeroOption(value: 'duck', label: 'Hiding'),
+  ];
+
+  /// Outfit colours, as the swatch a child taps and the suffix on the
+  /// picture it selects.
+  ///
+  /// These characters are finished drawings with no garment layer to tint, so
+  /// the variants are generated ahead of time by `tool/recolour_outfits.py`:
+  /// each character's clothing sits in a hue band nothing else on the figure
+  /// shares, and rotating only that band repaints the outfit while leaving
+  /// skin, hair and boots alone.
+  static const Map<String, String> outfitColors = <String, String>{
+    '#4E9FD1': 'blue',
+    '#5FAE4B': 'green',
+    '#E0A62B': 'yellow',
+    '#9470D6': 'purple',
+    '#DE6FA6': 'pink',
   };
 
-  /// Expressions, keyed by the story mood that selects them.
+  /// The hero's companion.
   ///
-  /// Curated rather than generated: the catalogue's own ids are clinical
-  /// ('winkWacky', 'screamOpen', 'vomit') and not every eyes/mouth pairing
-  /// reads as a feeling.
-  static const List<HeroExpression> expressions = <HeroExpression>[
-    HeroExpression(id: 'happy', label: 'Happy', eyes: 'happy', mouth: 'smile'),
-    HeroExpression(id: 'silly', label: 'Silly', eyes: 'winkWacky', mouth: 'tongue'),
-    HeroExpression(id: 'wow', label: 'Wow!', eyes: 'surprised', mouth: 'screamOpen'),
-    HeroExpression(id: 'brave', label: 'Brave', eyes: 'squint', mouth: 'serious'),
-    HeroExpression(id: 'calm', label: 'Calm', eyes: 'default', mouth: 'default'),
-  ];
-
-  static HeroExpression? expressionById(String? id) {
-    if (id == null) return null;
-    for (final expression in expressions) {
-      if (expression.id == id) return expression;
-    }
-    return null;
-  }
-
-  /// Which face the hero wears for a given story mood.
-  ///
-  /// Mood labels come from [StoryOptions.moods]. An unknown or unchosen mood
-  /// falls back to Happy rather than to nothing, so the hero is never
-  /// expressionless while the child is still deciding.
-  static HeroExpression expressionForMood(String? mood) {
-    switch (mood?.toLowerCase()) {
-      case 'funny':
-        return expressionById('silly')!;
-      case 'spooky':
-        return expressionById('wow')!;
-      case 'adventurous':
-        return expressionById('brave')!;
-      case 'calm':
-        return expressionById('calm')!;
-      default:
-        return expressionById('happy')!;
-    }
-  }
-
-  /// The base figures offered by the Avatar row, as skin tones.
-  ///
-  /// The Avatar row picks a *bare* base — no hair, no hat, no expression — so
-  /// the only thing that distinguishes one base from another is its skin tone.
-  /// Presenting them as whole faces rather than colour dots is also the better
-  /// control for a child: they choose a person, not a swatch.
-  static List<String> get skinTones => colorsFor(HeroFeature.hair).isEmpty
-      ? const <String>[]
-      : _swatches('skin');
-
-  static List<String> _swatches(String key) {
-    final colors = _definition['colors'] as Map<String, Object?>;
-    final body = colors[key] as Map<String, Object?>?;
-    if (body == null) return const <String>[];
-    return (body['values'] as List<Object?>).cast<String>();
-  }
-
-  /// Kenney's CC0 animal portraits. Not from DiceBear — no avatar style has
-  /// pets, so these are bundled assets rather than catalogue entries.
+  /// Monsters rather than animals, and deliberately. These stand beside the
+  /// hero head to foot; the animal set they replaced was a head in a circle,
+  /// which read as a face floating next to a whole person. Kenney has no
+  /// full-body animals in the flat-vector style the heroes are drawn in, and a
+  /// companion that does not match the hero is worse than one that is not an
+  /// animal. Composed from parts by `tool/build_buddies.py`.
   static const List<String> petAssets = <String>[
-    'assets/story/pets/panda.png',
-    'assets/story/pets/monkey.png',
-    'assets/story/pets/rabbit.png',
-    'assets/story/pets/penguin.png',
-    'assets/story/pets/pig.png',
-    'assets/story/pets/giraffe.png',
-    'assets/story/pets/elephant.png',
-    'assets/story/pets/parrot.png',
+    'assets/story/pets/pip.png',
+    'assets/story/pets/bloop.png',
+    'assets/story/pets/sunny.png',
+    'assets/story/pets/mint.png',
+    'assets/story/pets/sky.png',
+    'assets/story/pets/berry.png',
+    'assets/story/pets/rusty.png',
+    'assets/story/pets/snow.png',
+    'assets/story/pets/cloud.png',
+    'assets/story/pets/shadow.png',
   ];
 
-  /// The DiceBear component each feature row writes to.
-  static String? componentFor(HeroFeature feature) {
-    switch (feature) {
-      case HeroFeature.avatar:
-        // The Avatar row swaps the seed rather than any one component.
-        return null;
-      case HeroFeature.hair:
-      case HeroFeature.hat:
-        return 'top';
-      case HeroFeature.outfit:
-        return 'clothes';
-      case HeroFeature.pet:
-        return null;
-    }
+  /// The picture of one hero, in one pose, wearing one outfit colour.
+  ///
+  /// A null colour draws the character as the pack drew them.
+  static String assetFor(String hero, String pose, [String? colorHex]) {
+    final suffix = colorHex == null ? '' : '-${outfitColors[colorHex] ?? ''}';
+    return '$_dir/$hero/$pose$suffix.png';
   }
 
-  /// The colour axis shown beneath each row, or null where the row has none.
-  static String? colorKeyFor(HeroFeature feature) {
-    switch (feature) {
-      case HeroFeature.avatar:
-        // No colour row: the Avatar row is itself the skin-tone choice, shown
-        // as faces rather than dots. A second control for the same value would
-        // be two ways to change one thing.
-        return null;
-      case HeroFeature.hair:
-        return 'hair';
-      case HeroFeature.hat:
-        return 'hat';
-      case HeroFeature.outfit:
-        return 'clothes';
-      case HeroFeature.pet:
-        return null;
-    }
-  }
-
-  static List<String> _variantsOf(String component) {
-    final components = _definition['components'] as Map<String, Object?>;
-    final body = components[component] as Map<String, Object?>;
-    return (body['variants'] as Map<String, Object?>).keys.toList();
-  }
+  /// Every hero picture, for the asset-integrity test.
+  static List<String> get allHeroAssets => <String>[
+    for (final hero in heroes)
+      for (final pose in poses) ...<String>[
+        assetFor(hero.value!, pose.value!),
+        for (final hex in outfitColors.keys)
+          assetFor(hero.value!, pose.value!, hex),
+      ],
+  ];
 
   /// The options shown in a feature's strip.
   static List<HeroOption> optionsFor(HeroFeature feature) {
     switch (feature) {
+      case HeroFeature.hero:
+        return heroes;
+      case HeroFeature.pose:
+        return poses;
       case HeroFeature.pet:
         return <HeroOption>[
           const HeroOption(value: null, label: 'None'),
           for (final asset in petAssets)
             HeroOption(value: asset, label: _labelFromAsset(asset)),
         ];
-      case HeroFeature.hat:
-        return <HeroOption>[
-          const HeroOption(value: null, label: 'None'),
-          for (final variant in _variantsOf('top'))
-            if (hatVariants.contains(variant))
-              HeroOption(value: variant, label: humanize(variant)),
-        ];
-      case HeroFeature.hair:
-        return <HeroOption>[
-          for (final variant in _variantsOf('top'))
-            if (!hatVariants.contains(variant))
-              HeroOption(value: variant, label: humanize(variant)),
-        ];
-      case HeroFeature.avatar:
-        return <HeroOption>[
-          for (var i = 0; i < skinTones.length; i++)
-            HeroOption(value: skinTones[i], label: 'Hero ${i + 1}'),
-        ];
-      case HeroFeature.outfit:
-        return <HeroOption>[
-          for (final variant in _variantsOf('clothes'))
-            HeroOption(value: variant, label: humanize(variant)),
-        ];
     }
   }
 
-  /// The swatches shown beneath a feature's strip, as `#rrggbb` strings.
-  static List<String> colorsFor(HeroFeature feature) {
-    final key = colorKeyFor(feature);
-    if (key == null) return const <String>[];
-    final colors = _definition['colors'] as Map<String, Object?>;
-    final body = colors[key] as Map<String, Object?>?;
-    if (body == null) return const <String>[];
-    return (body['values'] as List<Object?>).cast<String>();
-  }
+  /// The swatches shown beneath a feature's strip.
+  ///
+  /// Only the hero row has any: the colour is what they are wearing, which is
+  /// part of who they are rather than of what they are doing.
+  static List<String> colorsFor(HeroFeature feature) =>
+      feature == HeroFeature.hero
+      ? outfitColors.keys.toList()
+      : const <String>[];
 
   static String _labelFromAsset(String asset) {
     final file = asset.split('/').last.split('.').first;
     return file[0].toUpperCase() + file.substring(1);
   }
 
-  /// Turns a catalogue id into something a child can read:
-  /// `shirtCrewNeck` becomes `Shirt Crew Neck`, `winterHat02` becomes
-  /// `Winter Hat 02`.
-  static String humanize(String id) {
-    final spaced = id
-        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'),
-            (m) => '${m[1]} ${m[2]}')
-        .replaceAllMapped(RegExp(r'([A-Za-z])(\d)'), (m) => '${m[1]} ${m[2]}');
-    return spaced[0].toUpperCase() + spaced.substring(1);
-  }
-
   static String labelFor(HeroFeature feature) {
     switch (feature) {
-      case HeroFeature.avatar:
-        return 'Avatar';
-      case HeroFeature.hair:
-        return 'Hair';
-      case HeroFeature.hat:
-        return 'Hat';
-      case HeroFeature.outfit:
-        return 'Outfit';
+      case HeroFeature.hero:
+        return 'Hero';
+      case HeroFeature.pose:
+        return 'Pose';
       case HeroFeature.pet:
         return 'Pet';
     }

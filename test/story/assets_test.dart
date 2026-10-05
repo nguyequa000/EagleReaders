@@ -37,7 +37,10 @@ void main() {
   });
 
   test('both font files are bundled', () async {
-    for (final path in ['assets/fonts/Fredoka.ttf', 'assets/fonts/Nunito.ttf']) {
+    for (final path in [
+      'assets/fonts/Fredoka.ttf',
+      'assets/fonts/Nunito.ttf',
+    ]) {
       final data = await rootBundle.load(path);
       expect(data.lengthInBytes, greaterThan(10000), reason: '$path too small');
     }

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'hero_catalog.dart';
 import 'hero_config.dart';
 import 'story_theme.dart';
 
-/// The row of feature buttons — Face, Hair, Hat, Outfit, Pet.
+/// The row of feature buttons — Avatar, Hair, Hat, Outfit, Pet.
 class HeroFeatureRow extends StatelessWidget {
   final HeroFeature selected;
   final ValueChanged<HeroFeature> onSelect;
@@ -49,16 +48,16 @@ class _FeatureButton extends StatelessWidget {
   });
 
   static const Map<HeroFeature, IconData> _icons = <HeroFeature, IconData>{
-    HeroFeature.avatar: Icons.face_retouching_natural,
-    HeroFeature.hair: Icons.content_cut,
-    HeroFeature.hat: Icons.emoji_events,
-    HeroFeature.outfit: Icons.checkroom,
+    HeroFeature.hero: Icons.face_retouching_natural,
+    HeroFeature.pose: Icons.directions_run,
     HeroFeature.pet: Icons.pets,
   };
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final label = HeroCatalog.labelFor(feature);
+    final tint = palette.tintForIndex(HeroFeature.values.indexOf(feature));
 
     return Semantics(
       button: true,
@@ -76,18 +75,21 @@ class _FeatureButton extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: selected ? accent : StoryTheme.card,
+                color: selected ? accent : tint,
                 shape: BoxShape.circle,
+                // The ink line is constant; the fill is what changes. A ring
+                // that only appears when selected would make the unselected
+                // circles look unfinished next to it.
                 border: Border.all(
-                  color: selected ? accent : StoryTheme.shadow,
-                  width: selected ? StoryTheme.ringWidth : 1,
+                  color: palette.outline,
+                  width: StoryTheme.outlineWidth,
                 ),
-                boxShadow: StoryTheme.hardShadow(),
+                boxShadow: palette.cardShadow(depth: 3, pressed: selected),
               ),
               child: Icon(
                 _icons[feature],
                 size: 24,
-                color: selected ? Colors.white : StoryTheme.inkMuted,
+                color: selected ? palette.onAction : palette.ink,
               ),
             ),
             const SizedBox(height: 6),
@@ -95,7 +97,7 @@ class _FeatureButton extends StatelessWidget {
               label,
               style: StoryTheme.display(
                 size: 12,
-                color: selected ? accent : StoryTheme.inkMuted,
+                color: selected ? accent : palette.inkMuted,
                 weight: selected ? 600 : 500,
               ),
             ),
@@ -155,8 +157,10 @@ class _HeroOptionStripState extends State<HeroOptionStrip> {
 
   void _nudge(double delta) {
     if (!_controller.hasClients) return;
-    final target = (_controller.offset + delta)
-        .clamp(0.0, _controller.position.maxScrollExtent);
+    final target = (_controller.offset + delta).clamp(
+      0.0,
+      _controller.position.maxScrollExtent,
+    );
     // jumpTo, not animateTo: the SRS rules out animation, and an instant move
     // is also the more legible one for a child watching the row.
     _controller.jumpTo(target);
@@ -263,24 +267,28 @@ class _OptionTile extends StatelessWidget {
     required this.onTap,
   });
 
-  Widget _buildThumb() {
+  Widget _buildThumb(StoryPalette palette) {
     if (option.value == null) {
-      return Icon(Icons.block, size: 30, color: StoryTheme.disabled);
+      return Icon(Icons.block, size: 30, color: palette.disabled);
     }
     if (feature == HeroFeature.pet) {
       return Image.asset(option.value!, width: 48, height: 48);
     }
     // Render the option onto this child's hero, so the tile answers "what
     // would this look like on me" rather than "what does this look like".
-    return SvgPicture.string(
-      hero.withOption(feature, option.value).toSvg(size: 120),
+    return Image.asset(
+      hero.withOption(feature, option.value).assetPath,
       width: 58,
       height: 58,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
     return Semantics(
       button: true,
       selected: selected,
@@ -294,21 +302,21 @@ class _OptionTile extends StatelessWidget {
           width: 76,
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: selected
-                ? Color.alphaBlend(
-                    accent.withValues(alpha: 0.12), StoryTheme.card)
-                : StoryTheme.card,
-            borderRadius: BorderRadius.circular(14),
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? accent : StoryTheme.shadow,
-              width: selected ? StoryTheme.ringWidth : 1,
+              color: selected ? accent : palette.outline,
+              width: selected
+                  ? StoryTheme.ringWidth
+                  : StoryTheme.outlineWidthThin,
             ),
+            boxShadow: palette.cardShadow(depth: 3, pressed: selected),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              SizedBox(height: 58, child: Center(child: _buildThumb())),
-              if (feature != HeroFeature.avatar) ...<Widget>[
+              SizedBox(height: 58, child: Center(child: _buildThumb(palette))),
+              if (feature != HeroFeature.hero) ...<Widget>[
                 const SizedBox(height: 2),
                 Text(
                   option.label,
@@ -316,7 +324,7 @@ class _OptionTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: StoryTheme.display(
                     size: 10,
-                    color: selected ? accent : StoryTheme.inkMuted,
+                    color: selected ? accent : palette.inkMuted,
                     weight: selected ? 600 : 500,
                   ),
                 ),
@@ -346,49 +354,87 @@ class HeroColorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final colors = HeroCatalog.colorsFor(feature);
     if (colors.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        itemCount: colors.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final hex = colors[index];
-          final isSelected = hex.toLowerCase() == selected?.toLowerCase();
-          return Semantics(
-            button: true,
-            selected: isSelected,
+    // A Wrap rather than a horizontal list: the swatches fit the width, and a
+    // list left-aligns them against a centred label, which read as a
+    // misalignment. Wrapping also means a longer palette drops to a second
+    // row instead of scrolling somewhere a child will not think to look.
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 9,
+      runSpacing: 9,
+      children: <Widget>[
+        for (var index = 0; index < colors.length; index++)
+          _Swatch(
+            hex: colors[index],
             label: '${HeroCatalog.labelFor(feature)} colour ${index + 1}',
-            excludeSemantics: true,
-            onTap: () => onSelect(hex),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onSelect(hex),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _parseHex(hex),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? accent : StoryTheme.shadow,
-                    width: isSelected ? 3 : 1,
-                  ),
-                ),
-              ),
+            selected: colors[index].toLowerCase() == selected?.toLowerCase(),
+            accent: accent,
+            outline: palette.outline,
+            shadow: palette.cardShadow(
+              depth: 2,
+              pressed: colors[index].toLowerCase() == selected?.toLowerCase(),
             ),
-          );
-        },
-      ),
+            onTap: () => onSelect(colors[index]),
+          ),
+      ],
     );
   }
+}
+
+/// One colour choice.
+class _Swatch extends StatelessWidget {
+  final String hex;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final Color outline;
+  final List<BoxShadow> shadow;
+  final VoidCallback onTap;
+
+  const _Swatch({
+    required this.hex,
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.outline,
+    required this.shadow,
+    required this.onTap,
+  });
 
   static Color _parseHex(String hex) {
     final cleaned = hex.replaceAll('#', '');
     return Color(int.parse('ff$cleaned', radix: 16));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: _parseHex(hex),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? accent : outline,
+              width: selected ? 4 : StoryTheme.outlineWidthThin,
+            ),
+            boxShadow: shadow,
+          ),
+        ),
+      ),
+    );
   }
 }

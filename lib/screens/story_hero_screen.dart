@@ -5,6 +5,7 @@ import 'story/hero_config.dart';
 import 'story/hero_controls.dart';
 import 'story/hero_preview.dart';
 import 'story/story_button.dart';
+import 'story/story_row_label.dart';
 import 'story/story_scaffold.dart';
 import 'story/story_theme.dart';
 
@@ -38,13 +39,14 @@ class _StoryHeroScreenState extends State<StoryHeroScreen> {
   static const int _step = 1;
 
   late HeroConfig _hero = widget.hero;
-  HeroFeature _feature = HeroFeature.avatar;
+  HeroFeature _feature = HeroFeature.hero;
 
   void _update(HeroConfig hero) => setState(() => _hero = hero);
 
   @override
   Widget build(BuildContext context) {
-    final accent = StoryTheme.accentForStep(_step);
+    final palette = StoryTheme.of(context);
+    final accent = palette.action;
     final colors = HeroCatalog.colorsFor(_feature);
 
     return StoryScaffold(
@@ -63,7 +65,19 @@ class _StoryHeroScreenState extends State<StoryHeroScreen> {
         children: <Widget>[
           Stack(
             children: <Widget>[
-              HeroPreview(hero: _hero, height: 244),
+              HeroPreview(
+                hero: _hero,
+                height: HeroPreview.heightFor(
+                  context,
+                  // Smaller than the later steps on purpose: this is the
+                  // only screen carrying three control rows and a colour
+                  // wheel under the preview, and the alternative is a step
+                  // that scrolls before a child reaches Next.
+                  fraction: 0.25,
+                  min: 190,
+                  max: 270,
+                ),
+              ),
               // Sits on the preview rather than between the preview and the
               // controls, where it broke the rhythm of the three rows and read
               // as a fourth control.
@@ -84,7 +98,7 @@ class _StoryHeroScreenState extends State<StoryHeroScreen> {
             onSelect: (feature) => setState(() => _feature = feature),
           ),
           const SizedBox(height: 18),
-          _RowLabel(text: _labelForStrip()),
+          StoryRowLabel(text: _labelForStrip()),
           const SizedBox(height: 8),
           HeroOptionStrip(
             feature: _feature,
@@ -94,7 +108,7 @@ class _StoryHeroScreenState extends State<StoryHeroScreen> {
           ),
           if (colors.isNotEmpty) ...<Widget>[
             const SizedBox(height: 16),
-            _RowLabel(text: _labelForColors()),
+            StoryRowLabel(text: _labelForColors()),
             const SizedBox(height: 8),
             HeroColorRow(
               feature: _feature,
@@ -111,53 +125,17 @@ class _StoryHeroScreenState extends State<StoryHeroScreen> {
 
   String _labelForStrip() {
     switch (_feature) {
-      case HeroFeature.avatar:
+      case HeroFeature.hero:
         return 'PICK YOUR HERO';
-      case HeroFeature.hair:
-        return 'PICK A HAIRSTYLE';
-      case HeroFeature.hat:
-        return 'PICK A HAT';
-      case HeroFeature.outfit:
-        return 'PICK AN OUTFIT';
+      case HeroFeature.pose:
+        return 'WHAT ARE THEY DOING?';
       case HeroFeature.pet:
         return 'PICK A PET';
     }
   }
 
-  String _labelForColors() {
-    switch (_feature) {
-      case HeroFeature.avatar:
-        return 'SKIN TONE';
-      case HeroFeature.hair:
-        return 'HAIR COLOUR';
-      case HeroFeature.hat:
-        return 'HAT COLOUR';
-      case HeroFeature.outfit:
-        return 'OUTFIT COLOUR';
-      case HeroFeature.pet:
-        return '';
-    }
-  }
-}
-
-class _RowLabel extends StatelessWidget {
-  final String text;
-
-  const _RowLabel({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: StoryTheme.display(
-        size: 12,
-        color: StoryTheme.inkMuted,
-        weight: 600,
-        tracking: 1.4,
-      ),
-    );
-  }
+  String _labelForColors() =>
+      _feature == HeroFeature.hero ? 'OUTFIT COLOUR' : '';
 }
 
 class _SurpriseButton extends StatelessWidget {
@@ -168,6 +146,8 @@ class _SurpriseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
     return Semantics(
       button: true,
       label: 'Surprise me',
@@ -179,7 +159,7 @@ class _SurpriseButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
           decoration: BoxDecoration(
-            color: StoryTheme.card,
+            color: palette.surface,
             borderRadius: BorderRadius.circular(StoryTheme.radiusButton),
             border: Border.all(color: accent, width: 1.5),
           ),
@@ -190,8 +170,7 @@ class _SurpriseButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 'Surprise me!',
-                style:
-                    StoryTheme.display(size: 13, color: accent, weight: 600),
+                style: StoryTheme.display(size: 13, color: accent, weight: 600),
               ),
             ],
           ),

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/story/hero_catalog.dart';
 import 'package:storysprout/screens/story/hero_config.dart';
@@ -8,176 +9,204 @@ void main() {
   group('catalogue', () {
     test('every feature row has options', () {
       for (final feature in HeroFeature.values) {
-        expect(HeroCatalog.optionsFor(feature), isNotEmpty,
-            reason: HeroCatalog.labelFor(feature));
-      }
-    });
-
-    test('hair and hat partition the same top slot without overlapping', () {
-      final hair = HeroCatalog.optionsFor(HeroFeature.hair)
-          .map((o) => o.value)
-          .whereType<String>()
-          .toSet();
-      final hats = HeroCatalog.optionsFor(HeroFeature.hat)
-          .map((o) => o.value)
-          .whereType<String>()
-          .toSet();
-
-      expect(hair.intersection(hats), isEmpty);
-      // Together they must account for every top variant, or a variant would
-      // exist in the catalogue that no row can ever reach.
-      expect(hair.length + hats.length, 34);
-      expect(hats, contains('turban'));
-      expect(hair, contains('bigHair'));
-    });
-
-    test('rows that can be empty offer a None, and rows that cannot do not', () {
-      for (final feature in <HeroFeature>[HeroFeature.hat, HeroFeature.pet]) {
-        expect(HeroCatalog.optionsFor(feature).first.value, isNull,
-            reason: '${HeroCatalog.labelFor(feature)} must be removable');
-      }
-      for (final feature in <HeroFeature>[
-        HeroFeature.avatar,
-        HeroFeature.hair,
-        HeroFeature.outfit,
-      ]) {
         expect(
-          HeroCatalog.optionsFor(feature).map((o) => o.value),
-          everyElement(isNotNull),
-          reason: 'a hero always has a ${HeroCatalog.labelFor(feature)}',
+          HeroCatalog.optionsFor(feature),
+          isNotEmpty,
+          reason: HeroCatalog.labelFor(feature),
         );
       }
     });
 
-    test('only the rows that tint something carry a colour wheel', () {
-      // Avatar has none because the row itself is the skin-tone choice, shown
-      // as faces; Pet has none because a pet is a bundled picture.
-      const without = <HeroFeature>[HeroFeature.avatar, HeroFeature.pet];
-      for (final feature in HeroFeature.values) {
-        final colors = HeroCatalog.colorsFor(feature);
-        if (without.contains(feature)) {
-          expect(colors, isEmpty, reason: HeroCatalog.labelFor(feature));
-        } else {
-          expect(colors, isNotEmpty, reason: HeroCatalog.labelFor(feature));
-          for (final swatch in colors) {
-            expect(swatch, matches(RegExp(r'^#[0-9a-fA-F]{6}$')));
-          }
-        }
+    test('only the pet row can be empty', () {
+      // A hero and a pose always draw something; "none" there would leave an
+      // empty preview box with no way back.
+      expect(HeroCatalog.optionsFor(HeroFeature.pet).first.value, isNull);
+      for (final feature in <HeroFeature>[HeroFeature.hero, HeroFeature.pose]) {
+        expect(
+          HeroCatalog.optionsFor(feature).map((o) => o.value),
+          everyElement(isNotNull),
+          reason: HeroCatalog.labelFor(feature),
+        );
       }
     });
 
-    test('humanize turns catalogue ids into readable labels', () {
-      expect(HeroCatalog.humanize('shirtCrewNeck'), 'Shirt Crew Neck');
-      expect(HeroCatalog.humanize('bigHair'), 'Big Hair');
-      expect(HeroCatalog.humanize('winterHat02'), 'Winter Hat 02');
-      expect(HeroCatalog.humanize('turban'), 'Turban');
+    test('only the hero row carries a colour wheel', () {
+      // The colour is what the hero is wearing, so it belongs with who they
+      // are rather than with what they are doing or which animal follows them.
+      expect(HeroCatalog.colorsFor(HeroFeature.hero), hasLength(5));
+      for (final feature in <HeroFeature>[HeroFeature.pose, HeroFeature.pet]) {
+        expect(
+          HeroCatalog.colorsFor(feature),
+          isEmpty,
+          reason: HeroCatalog.labelFor(feature),
+        );
+      }
     });
 
-    test('every pet asset path is one this app bundles', () {
-      for (final asset in HeroCatalog.petAssets) {
-        expect(asset, startsWith('assets/story/pets/'));
-        expect(asset, endsWith('.png'));
+    test('every swatch names a generated outfit', () {
+      // A swatch with no matching picture would select a path that does not
+      // exist, and a missing image draws as nothing at all.
+      for (final hex in HeroCatalog.colorsFor(HeroFeature.hero)) {
+        expect(hex, matches(RegExp(r'^#[0-9A-Fa-f]{6}$')));
+        expect(HeroCatalog.outfitColors[hex], isNotNull, reason: hex);
+        expect(
+          HeroCatalog.assetFor('explorer', 'idle', hex),
+          endsWith('-${HeroCatalog.outfitColors[hex]}.png'),
+        );
+      }
+    });
+
+    test('an outfit colour changes the picture, and clears back', () {
+      const bare = HeroConfig();
+      final hex = HeroCatalog.colorsFor(HeroFeature.hero).first;
+      final dressed = bare.withColor(HeroFeature.hero, hex);
+
+      expect(dressed.assetPath, isNot(bare.assetPath));
+      expect(dressed.selectedColor(HeroFeature.hero), hex);
+      expect(
+        bare.assetPath,
+        endsWith('idle.png'),
+        reason: 'no colour chosen draws the character as the pack drew them',
+      );
+    });
+
+    test('option labels are distinct and readable', () {
+      for (final feature in HeroFeature.values) {
+        final labels = HeroCatalog.optionsFor(
+          feature,
+        ).map((o) => o.label).toList();
+        expect(
+          labels.toSet(),
+          hasLength(labels.length),
+          reason: '${HeroCatalog.labelFor(feature)} repeats a label',
+        );
+        for (final label in labels) {
+          expect(label, isNotEmpty);
+          expect(label[0], label[0].toUpperCase());
+        }
       }
     });
   });
 
   group('config', () {
-    test('a bare hero renders a bare person', () {
-      const hero = HeroConfig();
-      final svg = hero.toSvg();
-      expect(svg, startsWith('<svg'));
-      // Nothing is pinned, so the seed supplies everything.
-      // The base pins its own bareness rather than leaving it to chance.
-      expect(hero.toAvatarOptions()['topProbability'], 0);
-      expect(hero.toAvatarOptions()['facialHairProbability'], 0);
+    test('an unbuilt hero still draws', () {
+      const bare = HeroConfig();
+      expect(bare.isBare, isTrue);
+      expect(
+        bare.assetPath,
+        HeroCatalog.assetFor(
+          HeroCatalog.heroes.first.value!,
+          HeroCatalog.poses.first.value!,
+        ),
+        reason: 'the first hero standing still is the opening state',
+      );
     });
 
-    test('choosing an option pins exactly that one', () {
-      final hero = const HeroConfig().withOption(HeroFeature.outfit, 'hoodie');
-      expect(hero.outfitVariant, 'hoodie');
-      expect(hero.toAvatarOptions()['clothesVariant'], <String>['hoodie']);
-      expect(hero.toAvatarOptions().containsKey('topVariant'), isFalse);
+    test('choosing a hero or a pose changes the picture', () {
+      const bare = HeroConfig();
+      final other = bare.withOption(
+        HeroFeature.hero,
+        HeroCatalog.heroes[3].value,
+      );
+      final posed = bare.withOption(
+        HeroFeature.pose,
+        HeroCatalog.poses[4].value,
+      );
+
+      expect(other.assetPath, isNot(bare.assetPath));
+      expect(posed.assetPath, isNot(bare.assetPath));
+      expect(posed.assetPath, contains('cheer1'));
     });
 
-    test('a hat hides the hair but does not erase it', () {
-      final hero = const HeroConfig()
-          .withOption(HeroFeature.hair, 'bigHair')
-          .withOption(HeroFeature.hat, 'turban');
+    test('a hero cannot be cleared, a pet can', () {
+      final built = const HeroConfig()
+          .withOption(HeroFeature.hero, HeroCatalog.heroes[2].value)
+          .withOption(HeroFeature.pet, HeroCatalog.petAssets.first);
 
-      expect(hero.effectiveTop, 'turban');
-      expect(hero.hairVariant, 'bigHair',
-          reason: 'the hair has to survive so taking the hat off restores it');
-
-      final bareheaded = hero.withOption(HeroFeature.hat, null);
-      expect(bareheaded.hatVariant, isNull);
-      expect(bareheaded.effectiveTop, 'bigHair');
-    });
-
-    test('hair colour and hat colour never both apply', () {
-      final hatted = const HeroConfig()
-          .withOption(HeroFeature.hair, 'bigHair')
-          .withOption(HeroFeature.hat, 'turban')
-          .withColor(HeroFeature.hair, '#4a312c')
-          .withColor(HeroFeature.hat, '#2a8c82');
-
-      final options = hatted.toAvatarOptions();
-      expect(options['hatColor'], <String>['#2a8c82']);
-      expect(options.containsKey('hairColor'), isFalse,
-          reason: 'tinting hair nobody can see is a silent no-op');
-
-      final bare = hatted.withOption(HeroFeature.hat, null).toAvatarOptions();
-      expect(bare['hairColor'], <String>['#4a312c']);
-      expect(bare.containsKey('hatColor'), isFalse);
-    });
-
-    test('a chosen colour reaches the rendered SVG', () {
-      final hero = const HeroConfig()
-          .withOption(HeroFeature.outfit, 'hoodie')
-          .withColor(HeroFeature.outfit, '#2a8c82');
-      expect(hero.toSvg(), contains('#2a8c82'));
+      expect(
+        built.withOption(HeroFeature.hero, null).character,
+        HeroCatalog.heroes[2].value,
+        reason: 'clearing the hero would leave nothing to draw',
+      );
+      expect(built.withOption(HeroFeature.pet, null).petAsset, isNull);
     });
 
     test('selectedValue reads back what was set, per row', () {
       var hero = const HeroConfig();
       for (final feature in HeroFeature.values) {
-        final option = HeroCatalog.optionsFor(feature)
-            .firstWhere((o) => o.value != null);
+        final option = HeroCatalog.optionsFor(
+          feature,
+        ).firstWhere((o) => o.value != null);
         hero = hero.withOption(feature, option.value);
-        expect(hero.selectedValue(feature), option.value,
-            reason: HeroCatalog.labelFor(feature));
+        expect(
+          hero.selectedValue(feature),
+          option.value,
+          reason: HeroCatalog.labelFor(feature),
+        );
       }
     });
 
-    test('randomize changes the look, keeps the name and the pet', () {
-      final hero = const HeroConfig(name: 'Sparkle')
-          .withOption(HeroFeature.pet, 'assets/story/pets/panda.png');
+    test('randomize changes the hero, keeps the name and the pet', () {
+      final hero = const HeroConfig(
+        name: 'Sparkle',
+      ).withOption(HeroFeature.pet, 'assets/story/pets/panda.png');
       final rolled = hero.randomized(Random(7));
 
-      expect(rolled.toSvg(), isNot(hero.toSvg()));
       expect(rolled.name, 'Sparkle', reason: 'they worked on the name');
-      expect(rolled.petAsset, hero.petAsset,
-          reason: 'the pet is a companion, not part of the dice roll');
-      expect(rolled.toSvg(), isNot(hero.toSvg()));
+      expect(rolled.petAsset, hero.petAsset, reason: 'the pet is a companion');
+      expect(rolled.character, isNotNull);
+      expect(rolled.pose, isNotNull);
     });
 
-    test('randomize replaces pinned features rather than keeping them', () {
-      final hero = const HeroConfig().withOption(HeroFeature.outfit, 'hoodie');
-      final rolled = hero.randomized(Random(3));
-      expect(rolled.outfitVariant, isNotNull,
-          reason: 'a roll dresses the hero rather than stripping them');
-      // Nothing is left to chance any more: the roll writes real choices.
-      expect(rolled.hairVariant, isNotNull);
-      expect(rolled.skinTone, isNotNull);
+    test('randomize never throws, however many times it is tapped', () {
+      // Two separate bugs have crashed Randomize before: an out-of-range seed
+      // on the web, and indexing into a palette that had been emptied.
+      final rng = Random(3);
+      var hero = const HeroConfig();
+      for (var i = 0; i < 200; i++) {
+        hero = hero.randomized(rng);
+        expect(hero.assetPath, startsWith('assets/story/toon/'));
+      }
     });
 
-    test('identical choices always give an identical hero', () {
+    test('identical choices give an identical hero', () {
       final a = const HeroConfig()
-          .withOption(HeroFeature.hair, 'bigHair')
-          .withColor(HeroFeature.hair, '#4a312c');
+          .withOption(HeroFeature.hero, 'robot')
+          .withOption(HeroFeature.pose, 'jump');
       final b = const HeroConfig()
-          .withOption(HeroFeature.hair, 'bigHair')
-          .withColor(HeroFeature.hair, '#4a312c');
-      expect(a.toSvg(), b.toSvg());
+          .withOption(HeroFeature.pose, 'jump')
+          .withOption(HeroFeature.hero, 'robot');
+      expect(a, b);
+      expect(a.assetPath, b.assetPath);
+    });
+  });
+
+  group('artwork', () {
+    setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
+    test('every hero in every pose is actually bundled', () async {
+      // 60 pictures, and a missing one shows as an empty preview rather than
+      // an error — so the only way to know is to ask for all of them.
+      for (final asset in HeroCatalog.allHeroAssets) {
+        await expectLater(
+          rootBundle.load(asset),
+          completes,
+          reason: '$asset is offered but not bundled',
+        );
+      }
+    });
+
+    test('every bundled picture holds real image data', () async {
+      for (final asset in HeroCatalog.allHeroAssets) {
+        final data = await rootBundle.load(asset);
+        expect(data.lengthInBytes, greaterThan(1000), reason: asset);
+      }
+    });
+
+    test('every pet is bundled too', () async {
+      for (final asset in HeroCatalog.petAssets) {
+        await expectLater(rootBundle.load(asset), completes, reason: asset);
+      }
     });
   });
 }

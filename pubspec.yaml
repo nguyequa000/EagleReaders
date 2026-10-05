@@ -47,9 +47,6 @@ dependencies:
   shared_preferences: ^2.5.5
   # Salted SHA-256 hashing for child PINs (see services/child_profiles.dart).
   crypto: ^3.0.6
-  # Offline avatar generation for the story hero (see screens/story/).
-  dicebear_core: ^10.7.0
-  dicebear_styles: ^10.6.0
 
 dev_dependencies:
   flutter_test:
@@ -76,6 +73,12 @@ flutter:
 
   assets:
     - assets/books/
+    - assets/story/toon/explorer/
+    - assets/story/toon/scout/
+    - assets/story/toon/friend/
+    - assets/story/toon/pal/
+    - assets/story/toon/robot/
+    - assets/story/toon/monster/
     - assets/story/pets/
     - assets/story/moods/
     - assets/story/settings/
