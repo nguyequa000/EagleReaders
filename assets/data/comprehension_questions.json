@@ -1,0 +1,214 @@
+{
+  "_comment": "Placeholder end-of-chapter quiz questions, hand-written per chapter. Books are matched on their EPUB metadata title (letters and digits only, case-insensitive); chapters on their quiz number (1 = the first chapter). 'correct' is the index into 'answers'.",
+  "books": [
+    {
+      "title": "Alice's Adventures in Wonderland",
+      "chapters": {
+        "1": [
+          {
+            "question": "What did the White Rabbit take out of its waistcoat-pocket?",
+            "answers": ["A carrot", "A watch", "A key"],
+            "correct": 1
+          },
+          {
+            "question": "What words were on the label of the little bottle Alice found?",
+            "answers": ["\"DRINK ME\"", "\"EAT ME\"", "\"OPEN ME\""],
+            "correct": 0
+          },
+          {
+            "question": "What did Alice find lying on the little glass table?",
+            "answers": ["A white glove", "A slice of cake", "A tiny golden key"],
+            "correct": 2
+          }
+        ],
+        "2": [
+          {
+            "question": "What did Alice's tears turn into?",
+            "answers": ["A rainstorm", "A large pool", "A river of lemonade"],
+            "correct": 1
+          },
+          {
+            "question": "What did the White Rabbit drop when Alice spoke to him?",
+            "answers": ["His gloves and his fan", "His pocket watch", "His top hat"],
+            "correct": 0
+          },
+          {
+            "question": "Who did Alice upset by talking about her cat, Dinah?",
+            "answers": ["The Caterpillar", "The Cheshire Cat", "The Mouse"],
+            "correct": 2
+          }
+        ],
+        "3": [
+          {
+            "question": "Who said a Caucus-race was the best way to get dry?",
+            "answers": ["The Dodo", "The Mouse", "The Lory"],
+            "correct": 0
+          },
+          {
+            "question": "Who won the Caucus-race?",
+            "answers": ["Nobody", "Only Alice", "Everybody"],
+            "correct": 2
+          },
+          {
+            "question": "What did Alice hand out as prizes?",
+            "answers": ["Flowers from her hair", "Comfits (sweets) from her pocket", "Gold coins"],
+            "correct": 1
+          }
+        ],
+        "4": [
+          {
+            "question": "Who did the White Rabbit think Alice was?",
+            "answers": ["His housemaid, Mary Ann", "A thief", "The Queen"],
+            "correct": 0
+          },
+          {
+            "question": "What happened when Alice drank from a bottle in the Rabbit's house?",
+            "answers": ["She became invisible", "She fell fast asleep", "She grew so big she filled the room"],
+            "correct": 2
+          },
+          {
+            "question": "Who was sent down the chimney?",
+            "answers": ["The Duck", "Bill the Lizard", "The Mouse"],
+            "correct": 1
+          }
+        ],
+        "5": [
+          {
+            "question": "Where was the Caterpillar sitting?",
+            "answers": ["In a tall tree", "On a teacup", "On top of a mushroom"],
+            "correct": 2
+          },
+          {
+            "question": "What did the Caterpillar first ask Alice?",
+            "answers": ["\"Who are you?\"", "\"What time is it?\"", "\"Where is your cat?\""],
+            "correct": 0
+          },
+          {
+            "question": "What did Alice eat to change her size?",
+            "answers": ["Jam tarts", "Pieces of the mushroom", "Pepper"],
+            "correct": 1
+          }
+        ],
+        "6": [
+          {
+            "question": "What was in the air of the Duchess's kitchen, making everyone sneeze?",
+            "answers": ["Flour", "Smoke", "Pepper"],
+            "correct": 2
+          },
+          {
+            "question": "What did the Duchess's baby turn into?",
+            "answers": ["A pig", "A kitten", "A frog"],
+            "correct": 0
+          },
+          {
+            "question": "Who grinned from ear to ear and then slowly vanished?",
+            "answers": ["The Hatter", "The Cheshire Cat", "The Duchess"],
+            "correct": 1
+          }
+        ],
+        "7": [
+          {
+            "question": "Who was at the tea-party with the March Hare and the Hatter?",
+            "answers": ["The Queen", "The Dodo", "The Dormouse"],
+            "correct": 2
+          },
+          {
+            "question": "What riddle did the Hatter ask Alice?",
+            "answers": ["\"Why is a raven like a writing-desk?\"", "\"What has four legs and a tail?\"", "\"Why did the chicken cross the road?\""],
+            "correct": 0
+          },
+          {
+            "question": "Why was it always tea-time at the party?",
+            "answers": ["The Queen made it a rule", "The Hatter had quarrelled with Time", "They forgot to wind their clock"],
+            "correct": 1
+          }
+        ],
+        "8": [
+          {
+            "question": "What were the gardeners doing to the white rose tree?",
+            "answers": ["Watering it", "Painting the roses red", "Cutting it down"],
+            "correct": 1
+          },
+          {
+            "question": "What did the players use as croquet mallets?",
+            "answers": ["Flamingos", "Umbrellas", "Broomsticks"],
+            "correct": 0
+          },
+          {
+            "question": "What did the Queen keep shouting?",
+            "answers": ["\"Time for tea!\"", "\"Let them eat cake!\"", "\"Off with her head!\""],
+            "correct": 2
+          }
+        ],
+        "9": [
+          {
+            "question": "Who took Alice to meet the Mock Turtle?",
+            "answers": ["The Duchess", "The Gryphon", "The King"],
+            "correct": 1
+          },
+          {
+            "question": "What did the Mock Turtle call his old schoolmaster, because \"he taught us\"?",
+            "answers": ["Tortoise", "Professor", "Mr. Turtle"],
+            "correct": 0
+          },
+          {
+            "question": "What was the Mock Turtle doing most of the time?",
+            "answers": ["Dancing", "Singing loudly", "Sighing and sobbing"],
+            "correct": 2
+          }
+        ],
+        "10": [
+          {
+            "question": "What is the Lobster Quadrille?",
+            "answers": ["A kind of soup", "A dance", "A card game"],
+            "correct": 1
+          },
+          {
+            "question": "Which sea creatures are the partners in the dance?",
+            "answers": ["Lobsters", "Sharks", "Jellyfish"],
+            "correct": 0
+          },
+          {
+            "question": "Which song did the Mock Turtle sing at the end of the chapter?",
+            "answers": ["\"Twinkle, Twinkle, Little Bat\"", "\"You Are Old, Father William\"", "\"Beautiful Soup\""],
+            "correct": 2
+          }
+        ],
+        "11": [
+          {
+            "question": "Who was on trial for stealing the tarts?",
+            "answers": ["The Knave of Hearts", "The Hatter", "Alice"],
+            "correct": 0
+          },
+          {
+            "question": "Who was called as the first witness?",
+            "answers": ["The Cheshire Cat", "The Hatter", "The Duchess"],
+            "correct": 1
+          },
+          {
+            "question": "What strange thing began to happen to Alice in the courtroom?",
+            "answers": ["She shrank to the size of a mouse", "She turned invisible", "She began to grow larger again"],
+            "correct": 2
+          }
+        ],
+        "12": [
+          {
+            "question": "What did Alice call the King, the Queen and the whole court?",
+            "answers": ["\"A bunch of birds!\"", "\"Nothing but a pack of cards!\"", "\"A family of mice!\""],
+            "correct": 1
+          },
+          {
+            "question": "How did Alice's adventure end?",
+            "answers": ["She woke up on the riverbank", "She went home on a train", "She became the Queen"],
+            "correct": 0
+          },
+          {
+            "question": "Who was with Alice when she woke up?",
+            "answers": ["The White Rabbit", "Her cat Dinah", "Her sister"],
+            "correct": 2
+          }
+        ]
+      }
+    }
+  ]
+}
