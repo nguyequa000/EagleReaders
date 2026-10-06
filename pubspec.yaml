@@ -44,6 +44,7 @@ dependencies:
   file_picker: ^11.0.2
   flutter_epub_viewer: ^1.2.8
   epub_view: ^3.2.0
+  firebase_ai: ^4.0.0
   shared_preferences: ^2.5.5
   # Salted SHA-256 hashing for child PINs (see services/child_profiles.dart).
   crypto: ^3.0.6
