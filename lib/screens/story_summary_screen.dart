@@ -1,275 +1,302 @@
 import 'package:flutter/material.dart';
-import 'story_character_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-class StorySummaryScreen extends StatelessWidget {
+import 'story/hero_preview.dart';
+import 'story/story_button.dart';
+import 'story/story_config.dart';
+import 'story/story_option.dart';
+import 'story/story_row_label.dart';
+import 'story/story_scaffold.dart';
+import 'story/story_theme.dart';
+
+/// Step 4 of 4 — name the hero, review the choices, start reading.
+///
+/// The preview here is the whole story in one picture: the hero the child
+/// built, standing in the place they chose, wearing the face their mood
+/// called for. It is the payoff for the three steps before it, so it gets the
+/// most room on the screen.
+class StorySummaryScreen extends StatefulWidget {
   final StoryConfig config;
   final VoidCallback? onBack;
+
+  /// Jump back to step 1 to change the hero.
+  final VoidCallback? onEditHero;
+
   final void Function(StoryConfig config)? onStartReading;
 
-  const StorySummaryScreen({super.key, required this.config, this.onBack, this.onStartReading});
+  const StorySummaryScreen({
+    super.key,
+    required this.config,
+    this.onBack,
+    this.onEditHero,
+    this.onStartReading,
+  });
 
-  static const Color _forestGreen = Color(0xFF3D6B1A);
-  static const Color _buttonGreen = Color(0xFF4A7C20);
-  static const Color _cream = Color(0xFFF5F0DC);
-  static const Color _cardWhite = Color(0xFFFFFFFF);
-  static const Color _sectionLabel = Color(0xFF5C7A2A);
-  static const Color _selectedBg = Color(0xFFE8F5D0);
+  @override
+  State<StorySummaryScreen> createState() => _StorySummaryScreenState();
+}
+
+class _StorySummaryScreenState extends State<StorySummaryScreen> {
+  static const int _step = 4;
+
+  late final TextEditingController _name = TextEditingController(
+    text: widget.config.hero.name ?? '',
+  );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  /// The config as it stands, including whatever has been typed.
+  StoryConfig get _current {
+    final typed = _name.text.trim();
+    return widget.config.copyWith(
+      hero: widget.config.hero.copyWith(name: typed.isEmpty ? null : typed),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _cream,
-      body: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildSproutBubble(),
-                  const SizedBox(height: 24),
-                  _buildSectionLabel('YOUR STORY'),
-                  const SizedBox(height: 12),
-                  _buildSummaryCard(),
-                  const SizedBox(height: 20),
-                  _buildStartReadingButton(),
-                ],
-              ),
-            ),
-          ),
-          _buildProgressBar(),
-        ],
-      ),
-    );
-  }
+    final palette = StoryTheme.of(context);
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      color: _forestGreen,
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        bottom: 14,
-        left: 4,
-        right: 16,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: onBack ?? () => Navigator.of(context).pop(),
-          ),
-          const Expanded(
-            child: Text(
-              "Let's Build Something!",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String text) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          style: const TextStyle(
-            color: _sectionLabel,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.4,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Divider(color: Color(0xFFCCCCCC), thickness: 1, height: 1),
-      ],
-    );
-  }
-
-  Widget _buildSproutBubble() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _cardWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _selectedBg,
-              shape: BoxShape.circle,
-              border: Border.all(color: _buttonGreen, width: 1.5),
-            ),
-            child: const Center(
-              child: Text('🌱', style: TextStyle(fontSize: 24)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              "Here is your story so far — ready to start reading?",
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF3B3B3B),
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _cardWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return StoryScaffold(
+      step: _step,
+      title: 'Your story!',
+      onBack: widget.onBack,
+      footer: StoryButton(
+        label: 'Start Reading!',
+        accent: palette.action,
+        showArrow: false,
+        onPressed: () => widget.onStartReading?.call(_current),
       ),
       child: Column(
-        children: [
-          _buildSummaryRow('Character', config.character ?? '—', '⚔️'),
-          _buildDivider(),
-          _buildSummaryRow('Mood', config.mood ?? '—', '😄'),
-          _buildDivider(),
-          _buildSummaryRow('Setting', config.setting ?? '—', '🌲'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      indent: 16,
-      endIndent: 16,
-      color: Color(0xFFF0EDE0),
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value, String emoji) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 20),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF3B3B3B),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Stack(
+            children: <Widget>[
+              HeroPreview(
+                hero: _current.hero,
+                height: HeroPreview.heightFor(
+                  context,
+                  fraction: 0.32,
+                  min: 200,
+                  max: 310,
+                ),
+                setting: widget.config.setting,
+                mood: widget.config.mood,
               ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: _selectedBg,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _buttonGreen, width: 1),
-            ),
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _forestGreen,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStartReadingButton() {
-    return ElevatedButton(
-      onPressed: () => onStartReading?.call(config),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _buttonGreen,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 0,
-      ),
-      child: const Text(
-        'Start Reading!',
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressBar() {
-    return Container(
-      color: _forestGreen,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      child: Column(
-        children: [
-          const Text(
-            '4 of 4',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Container(
-                  height: 5,
-                  margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(3),
+              if (widget.onEditHero != null)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: _EditHeroChip(
+                    accent: palette.action,
+                    onTap: widget.onEditHero!,
                   ),
                 ),
-              );
-            }),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const StoryRowLabel(text: 'NAME YOUR HERO'),
+          const SizedBox(height: 8),
+          _NameField(controller: _name, onChanged: () => setState(() {})),
+          const SizedBox(height: 16),
+          const StoryRowLabel(text: 'YOUR STORY'),
+          const SizedBox(height: 8),
+          _SummaryRow(
+            caption: 'Place',
+            option: StoryOptions.byLabel(
+              StoryOptions.settings,
+              widget.config.setting,
+            ),
+            tint: palette.tintForIndex(1),
+          ),
+          const SizedBox(height: 10),
+          _SummaryRow(
+            caption: 'Feeling',
+            option: StoryOptions.byLabel(
+              StoryOptions.moods,
+              widget.config.mood,
+            ),
+            tint: palette.tintForIndex(0),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// Where the child types their hero's name.
+///
+/// Optional on purpose — a hero with no name still reads fine, and a required
+/// field would block a four-year-old who cannot spell yet from their story.
+class _NameField extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  const _NameField({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+        border: Border.all(
+          color: palette.outline,
+          width: StoryTheme.outlineWidth,
+        ),
+        boxShadow: palette.cardShadow(depth: 3),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.edit_outlined, size: 18, color: palette.action),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: (_) => onChanged(),
+              textCapitalization: TextCapitalization.words,
+              maxLength: 20,
+              style: StoryTheme.display(
+                size: 16,
+                color: palette.ink,
+                weight: 600,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                counterText: '',
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                hintText: 'Give them a name',
+                hintStyle: StoryTheme.body(size: 15, color: palette.inkMuted),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditHeroChip extends StatelessWidget {
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _EditHeroChip({required this.accent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+
+    return Semantics(
+      button: true,
+      label: 'Edit hero',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            // Filled rather than outlined: the accent on a paper fill is
+            // about 2:1, far under the minimum, and this chip sits over a
+            // painted scene where a pale fill would disappear entirely.
+            color: accent,
+            borderRadius: BorderRadius.circular(StoryTheme.radiusButton),
+            border: Border.all(
+              color: palette.outline,
+              width: StoryTheme.outlineWidthThin,
+            ),
+            boxShadow: palette.cardShadow(depth: 3),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.tune, size: 15, color: palette.onAction),
+              const SizedBox(width: 6),
+              Text(
+                'Edit hero',
+                style: StoryTheme.display(
+                  size: 13,
+                  color: palette.onAction,
+                  weight: 700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One reviewed choice. Renders the illustration for the option the child
+/// actually picked; falls back to an em dash when nothing was chosen.
+class _SummaryRow extends StatelessWidget {
+  final String caption;
+  final StoryOption? option;
+
+  /// The tint this choice wore on its own step, carried through so the four
+  /// screens read as one flow.
+  final Color tint;
+
+  const _SummaryRow({
+    required this.caption,
+    required this.option,
+    required this.tint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    final selected = option;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+        border: Border.all(
+          color: palette.outline,
+          width: StoryTheme.outlineWidthThin,
+        ),
+        boxShadow: palette.cardShadow(depth: 3),
+      ),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 34,
+            height: 34,
+            child: selected == null
+                ? null
+                : SvgPicture.asset(selected.asset, width: 34, height: 34),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              caption,
+              style: StoryTheme.body(
+                size: 14,
+                color: palette.inkMuted,
+                weight: 600,
+              ),
+            ),
+          ),
+          Text(
+            selected?.label ?? '—',
+            style: StoryTheme.display(
+              size: 15,
+              color: palette.ink,
+              weight: 600,
+            ),
           ),
         ],
       ),
