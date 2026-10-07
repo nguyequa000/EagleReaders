@@ -71,4 +71,30 @@ void main() {
       expect((await library.load()).length, 1);
     },
   );
+
+  test('<pre> text keeps its shape but not the typewriter font', () async {
+    final alice = await BookLibrary.readDocument(
+      File('assets/books/alice_in_wonderland.epub').readAsBytesSync(),
+    );
+    final html = alice.Chapters!
+        .map((c) => c.HtmlContent!)
+        .firstWhere((h) => h.contains('Fury said to a'));
+    expect(html, isNot(contains('<pre')));
+    // The Mouse's tail starts full size and shrinks to half at its tip.
+    expect(
+      html,
+      contains(
+        '<div style="margin-left: 2.50em; font-size: 1.00em">'
+        '“Fury said to a</div>',
+      ),
+    );
+    expect(html, contains('font-size: 0.50em">death.’”</div>'));
+    // Ordinary preformatted text keeps its size.
+    expect(
+      BookLibrary.preAsLines('<pre class="x">\n  a\n\n b  \n\n</pre>'),
+      '<div><div><div style="margin-left: 0.50em">a</div>'
+      '<div style="margin-left: 0.0em">&#160;</div>'
+      '<div style="margin-left: 0.00em">b</div></div></div>',
+    );
+  });
 }

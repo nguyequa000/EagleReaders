@@ -31,7 +31,11 @@ Future<void> readingWork(
   await tester.pumpAndSettle();
 }
 
-Future<void> showLibrary(WidgetTester tester, BookLibrary library) async {
+Future<void> showLibrary(
+  WidgetTester tester,
+  BookLibrary library, {
+  bool canManage = false,
+}) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pumpAndSettle();
   await tester.pumpWidget(
@@ -39,6 +43,7 @@ Future<void> showLibrary(WidgetTester tester, BookLibrary library) async {
       home: ReadingLibraryScreen(
         childName: library.childName,
         library: library,
+        canManage: canManage,
       ),
     ),
   );
@@ -48,11 +53,14 @@ Future<void> showLibrary(WidgetTester tester, BookLibrary library) async {
   );
 }
 
+/// Adds a book as the parent, then reopens the shelf as the child.
 Future<void> importBook(
   WidgetTester tester,
+  BookLibrary library,
   String title, {
   String? author,
 }) async {
+  await showLibrary(tester, library, canManage: true);
   await tester.tap(find.text('Add Book'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Choose File'));
@@ -68,7 +76,7 @@ Future<void> importBook(
     () => find.text('Book added to your shelf.').evaluate().isNotEmpty,
     action: () => tester.tap(find.text('Add to shelf')),
   );
-  await tester.pumpAndSettle();
+  await showLibrary(tester, library);
 }
 
 Future<void> openShelfBook(WidgetTester tester, String title) async {

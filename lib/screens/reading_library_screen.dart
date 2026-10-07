@@ -12,10 +12,14 @@ class ReadingLibraryScreen extends StatefulWidget {
   final String childName;
   final BookLibrary? library;
 
+  /// Parents can add and remove books; children only read them.
+  final bool canManage;
+
   const ReadingLibraryScreen({
     super.key,
     required this.childName,
     this.library,
+    this.canManage = false,
   });
 
   @override
@@ -239,16 +243,20 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen>
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Add your own EPUB books, then pick up where you left off.',
+              Text(
+                widget.canManage
+                    ? 'Add EPUB books for ${widget.childName} to read.'
+                    : 'Ask a grown-up to add books to your shelf.',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () => _tabs.animateTo(1),
-                icon: const Icon(Icons.add),
-                label: const Text('Add your first book'),
-              ),
+              if (widget.canManage) ...[
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => _tabs.animateTo(1),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add the first book'),
+                ),
+              ],
             ],
           ),
         ),
@@ -273,8 +281,9 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen>
             borderRadius: BorderRadius.circular(20),
           ),
           child: InkWell(
-            onTap: () => _open(book),
-            onLongPress: () => _remove(book),
+            // Opening logs reading activity, so only the child opens books.
+            onTap: widget.canManage ? null : () => _open(book),
+            onLongPress: widget.canManage ? () => _remove(book) : null,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -308,11 +317,12 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen>
                           ),
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Remove ${book.title}',
-                        onPressed: () => _remove(book),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
+                      if (widget.canManage)
+                        IconButton(
+                          tooltip: 'Remove ${book.title}',
+                          onPressed: () => _remove(book),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
                     ],
                   ),
                   if (book.author.isNotEmpty)
@@ -483,17 +493,23 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen>
     data: readingTheme(context),
     child: Scaffold(
       appBar: AppBar(
-        title: const Text('Reading Library'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(icon: Icon(Icons.menu_book_outlined), text: 'My Books'),
-            Tab(icon: Icon(Icons.add_circle_outline), text: 'Add Book'),
-          ],
+        title: Text(
+          widget.canManage ? "${widget.childName}'s Books" : 'Reading Library',
         ),
+        bottom: widget.canManage
+            ? TabBar(
+                controller: _tabs,
+                tabs: const [
+                  Tab(icon: Icon(Icons.menu_book_outlined), text: 'Shelf'),
+                  Tab(icon: Icon(Icons.add_circle_outline), text: 'Add Book'),
+                ],
+              )
+            : null,
       ),
       body: SafeArea(
-        child: TabBarView(controller: _tabs, children: [_shelf(), _addTab()]),
+        child: widget.canManage
+            ? TabBarView(controller: _tabs, children: [_shelf(), _addTab()])
+            : _shelf(),
       ),
     ),
   );

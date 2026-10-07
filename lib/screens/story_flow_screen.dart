@@ -6,9 +6,10 @@ import 'story_setting_screen.dart';
 import 'story_summary_screen.dart';
 
 class StoryFlowScreen extends StatefulWidget {
+  final String childName;
   final void Function(StoryConfig config)? onComplete;
 
-  const StoryFlowScreen({super.key, this.onComplete});
+  const StoryFlowScreen({super.key, required this.childName, this.onComplete});
 
   @override
   State<StoryFlowScreen> createState() => _StoryFlowScreenState();
@@ -17,6 +18,7 @@ class StoryFlowScreen extends StatefulWidget {
 class _StoryFlowScreenState extends State<StoryFlowScreen> {
   int _step = 1;
   StoryConfig _config = const StoryConfig();
+  bool _starting = false;
 
   void _goToStep(int step, StoryConfig config) {
     setState(() {
@@ -31,7 +33,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
       case 1:
         return StoryCharacterScreen(
           onBack: () => Navigator.of(context).maybePop(),
-          onNext: (config) => _goToStep(2, config),
+          onNext: (config) => _goToStep(2, config.copyWith(idea: _config.idea)),
         );
       case 2:
         return StoryMoodScreen(
@@ -48,20 +50,30 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
       case 4:
         return StorySummaryScreen(
           config: _config,
-          onBack: () => _goToStep(3, _config),
-          onStartReading: (config) {
-            Navigator.of(context).push(
+          onBack: (config) => _goToStep(3, config),
+          onStartReading: (config) async {
+            // Double taps would push two readers and generate two stories.
+            if (_starting) return;
+            _starting = true;
+            widget.onComplete?.call(config);
+            final finished = await Navigator.of(context).push<bool>(
               MaterialPageRoute(
-                builder: (_) => StoryReaderScreen(config: config),
+                builder: (_) => StoryReaderScreen(
+                  config: config,
+                  childName: widget.childName,
+                ),
               ),
             );
-            widget.onComplete?.call(config);
+            _starting = false;
+            // Finished (or handed off to its quiz): leave the wizard so the
+            // child lands back on the dashboard. Back mid-story keeps it.
+            if (finished == true && context.mounted) {
+              Navigator.of(context).removeRoute(ModalRoute.of(context)!);
+            }
           },
         );
       default:
-        return StoryCharacterScreen(
-          onNext: (config) => _goToStep(2, config),
-        );
+        return StoryCharacterScreen(onNext: (config) => _goToStep(2, config));
     }
   }
 }

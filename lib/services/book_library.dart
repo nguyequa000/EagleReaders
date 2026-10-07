@@ -91,6 +91,57 @@ class BookLibrary {
     return next;
   }
 
+  /// The reader draws `<pre>` in a typewriter font, which makes shaped
+  /// text (like the Mouse's tail poem in Alice) look like code. This keeps
+  /// its lines and indents but uses the book's own font.
+  // ponytail: 0.5em per space approximates the monospace shape; exact
+  // alignment would need a custom epub_view paragraph builder.
+  static String preAsLines(String html) => html.replaceAllMapped(
+    RegExp(r'<pre\b[^>]*>([\s\S]*?)</pre>', caseSensitive: false),
+    (m) {
+      final lines = m[1]!.split('\n');
+      while (lines.isNotEmpty && lines.first.trim().isEmpty) {
+        lines.removeAt(0);
+      }
+      while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+        lines.removeLast();
+      }
+      int indent(String line) => line.length - line.trimLeft().length;
+      final base = lines
+          .where((l) => l.trim().isNotEmpty)
+          .map(indent)
+          .fold<int?>(null, (a, b) => a == null || b < a ? b : a);
+      // Many very short lines means shaped text (a tail, a tree...), which
+      // shrinks toward its tip like the printed book.
+      // ponytail: line-count/length heuristic; add a per-book flag if a
+      // short-lined poem shrinks that shouldn't.
+      final shaped =
+          lines.length >= 20 &&
+          lines.every(
+            (l) => l.replaceAll(RegExp(r'<[^>]+>'), '').trim().length <= 16,
+          );
+      String row(int i) {
+        final line = lines[i];
+        if (line.trim().isEmpty) {
+          return '<div style="margin-left: 0.0em">&#160;</div>';
+        }
+        final size = shaped ? 1 - 0.5 * i / (lines.length - 1) : 1.0;
+        // em margins follow the line's own font size, so undo the shrink
+        // to keep each line where the original shape put it.
+        final margin = (indent(line) - base!) * 0.5 / size;
+        return '<div style="margin-left: ${margin.toStringAsFixed(2)}em'
+            '${shaped ? '; font-size: ${size.toStringAsFixed(2)}em' : ''}">'
+            '${line.trim()}</div>';
+      }
+
+      // One div per line: epub_view turns <br/> into <br></br> (two breaks)
+      // and flutter_html drops leading spaces, so indents become margins.
+      // The outer div has one child, so epub_view keeps it one paragraph.
+      final rows = [for (var i = 0; i < lines.length; i++) row(i)];
+      return '<div><div>${rows.join()}</div></div>';
+    },
+  );
+
   static Future<EpubBook> readDocument(Uint8List bytes) async {
     if (bytes.isEmpty) throw const FormatException('Empty EPUB');
     final book = await EpubDocument.openData(bytes);
@@ -109,7 +160,8 @@ class BookLibrary {
           sections.add(
             chapter
               ..Anchor = null
-              ..SubChapters = [],
+              ..SubChapters = []
+              ..HtmlContent = preAsLines(chapter.HtmlContent!),
           );
         }
         collect(subs);

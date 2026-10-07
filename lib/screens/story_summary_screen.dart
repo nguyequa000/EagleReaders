@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
+import '../services/story_generator.dart';
 import 'story_character_screen.dart';
 
-class StorySummaryScreen extends StatelessWidget {
+class StorySummaryScreen extends StatefulWidget {
   final StoryConfig config;
-  final VoidCallback? onBack;
+  final void Function(StoryConfig config)? onBack;
   final void Function(StoryConfig config)? onStartReading;
 
-  const StorySummaryScreen({super.key, required this.config, this.onBack, this.onStartReading});
+  const StorySummaryScreen({
+    super.key,
+    required this.config,
+    this.onBack,
+    this.onStartReading,
+  });
+
+  @override
+  State<StorySummaryScreen> createState() => _StorySummaryScreenState();
+}
+
+class _StorySummaryScreenState extends State<StorySummaryScreen> {
+  late String _idea = widget.config.idea;
+  StoryConfig get config => widget.config.copyWith(idea: _idea.trim());
 
   static const Color _forestGreen = Color(0xFF3D6B1A);
   static const Color _buttonGreen = Color(0xFF4A7C20);
@@ -14,6 +28,22 @@ class StorySummaryScreen extends StatelessWidget {
   static const Color _cardWhite = Color(0xFFFFFFFF);
   static const Color _sectionLabel = Color(0xFF5C7A2A);
   static const Color _selectedBg = Color(0xFFE8F5D0);
+
+  // Mirrors the option lists in the character/mood/setting screens.
+  static const Map<String, String> _emojis = {
+    'Brave Knight': '⚔️',
+    'Friendly Dragon': '🐉',
+    'Clever Fox': '🦊',
+    'Magic Fairy': '🧚',
+    'Funny': '😄',
+    'Adventurous': '🏕️',
+    'Spooky': '👻',
+    'Calm': '😌',
+    'Forest': '🌲',
+    'Ocean': '🌊',
+    'City': '🏙️',
+    'Outer Space': '🚀',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +53,7 @@ class StorySummaryScreen extends StatelessWidget {
         children: [
           _buildHeader(context),
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,6 +63,23 @@ class StorySummaryScreen extends StatelessWidget {
                   _buildSectionLabel('YOUR STORY'),
                   const SizedBox(height: 12),
                   _buildSummaryCard(),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    initialValue: _idea,
+                    onChanged: (value) => setState(() => _idea = value),
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 500,
+                    decoration: InputDecoration(
+                      errorText: hasBadWords(_idea) ? badWordsMessage : null,
+                      labelText: 'Your story idea (optional)',
+                      hintText: 'A fox finds a map to a hidden treehouse...',
+                      alignLabelWithHint: true,
+                      filled: true,
+                      fillColor: _cardWhite,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   _buildStartReadingButton(),
                 ],
@@ -58,7 +105,13 @@ class StorySummaryScreen extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: onBack ?? () => Navigator.of(context).pop(),
+            onPressed: () {
+              if (widget.onBack != null) {
+                widget.onBack!(config);
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           const Expanded(
             child: Text(
@@ -158,11 +211,23 @@ class StorySummaryScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildSummaryRow('Character', config.character ?? '—', '⚔️'),
+          _buildSummaryRow(
+            'Character',
+            config.character ?? '—',
+            _emojis[config.character] ?? '⚔️',
+          ),
           _buildDivider(),
-          _buildSummaryRow('Mood', config.mood ?? '—', '😄'),
+          _buildSummaryRow(
+            'Mood',
+            config.mood ?? '—',
+            _emojis[config.mood] ?? '😄',
+          ),
           _buildDivider(),
-          _buildSummaryRow('Setting', config.setting ?? '—', '🌲'),
+          _buildSummaryRow(
+            'Setting',
+            config.setting ?? '—',
+            _emojis[config.setting] ?? '🌲',
+          ),
         ],
       ),
     );
@@ -183,10 +248,7 @@ class StorySummaryScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 20),
-          ),
+          Text(emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -221,14 +283,14 @@ class StorySummaryScreen extends StatelessWidget {
 
   Widget _buildStartReadingButton() {
     return ElevatedButton(
-      onPressed: () => onStartReading?.call(config),
+      onPressed: hasBadWords(_idea)
+          ? null
+          : () => widget.onStartReading?.call(config),
       style: ElevatedButton.styleFrom(
         backgroundColor: _buttonGreen,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 18),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
       ),
       child: const Text(

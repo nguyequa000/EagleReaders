@@ -63,19 +63,21 @@ void main() {
       expect(loaded[1].verifyPin('2222'), isTrue);
     });
 
-    test('save overwrites the previous list, deleting dropped children',
-        () async {
-      final ctx = signedIn();
-      await ctx.store.save([
-        ChildProfile.withPin(id: 'a', name: 'Emma', pin: '1111'),
-      ]);
-      await ctx.store.save([
-        ChildProfile.withPin(id: 'c', name: 'Mia', pin: '3333'),
-      ]);
+    test(
+      'save overwrites the previous list, deleting dropped children',
+      () async {
+        final ctx = signedIn();
+        await ctx.store.save([
+          ChildProfile.withPin(id: 'a', name: 'Emma', pin: '1111'),
+        ]);
+        await ctx.store.save([
+          ChildProfile.withPin(id: 'c', name: 'Mia', pin: '3333'),
+        ]);
 
-      final loaded = await ctx.store.load();
-      expect(loaded.single.name, 'Mia');
-    });
+        final loaded = await ctx.store.load();
+        expect(loaded.single.name, 'Mia');
+      },
+    );
 
     test('profiles are scoped to the signed-in parent', () async {
       final firstParent = signedIn(uid: 'parent-1');
@@ -114,26 +116,28 @@ void main() {
   });
 
   group('migration from local storage', () {
-    test('lifts legacy plaintext profiles into Firestore and clears them',
-        () async {
-      SharedPreferences.setMockInitialValues({
-        ChildProfileStore.legacyKey: jsonEncode([
-          {'id': 'a', 'name': 'Emma', 'pin': '1111', 'emoji': '👧'},
-          {'id': 'b', 'name': 'Noah', 'pin': '2222'},
-        ]),
-      });
+    test(
+      'lifts legacy plaintext profiles into Firestore and clears them',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          ChildProfileStore.legacyKey: jsonEncode([
+            {'id': 'a', 'name': 'Emma', 'pin': '1111', 'emoji': '👧'},
+            {'id': 'b', 'name': 'Noah', 'pin': '2222'},
+          ]),
+        });
 
-      final ctx = signedIn();
-      final loaded = await ctx.store.load();
+        final ctx = signedIn();
+        final loaded = await ctx.store.load();
 
-      expect(loaded.map((c) => c.name), ['Emma', 'Noah']);
-      // The PIN still works, but is now hashed rather than plaintext.
-      expect(loaded[0].verifyPin('1111'), isTrue);
-      expect(loaded[0].pinHash, isNot('1111'));
+        expect(loaded.map((c) => c.name), ['Emma', 'Noah']);
+        // The PIN still works, but is now hashed rather than plaintext.
+        expect(loaded[0].verifyPin('1111'), isTrue);
+        expect(loaded[0].pinHash, isNot('1111'));
 
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(ChildProfileStore.legacyKey), isNull);
-    });
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(ChildProfileStore.legacyKey), isNull);
+      },
+    );
 
     test('does not clobber children already in Firestore', () async {
       final ctx = signedIn();

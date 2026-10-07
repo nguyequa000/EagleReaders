@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_profile_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
+import 'package:storysprout/screens/reading_library_screen.dart';
 import 'package:storysprout/services/child_profiles.dart';
 
 import 'test_helpers.dart';
@@ -52,7 +53,10 @@ void main() {
     expect(find.text('50%'), findsOneWidget); // last quiz score
     expect(find.text('Last opened'), findsOneWidget);
     expect(find.text('alice.epub'), findsOneWidget);
-    expect(find.text('Alex scored 1/2 on "alice.epub"'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Alex scored 1/2 on "alice.epub"'),
+      200,
+    );
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -68,7 +72,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No quiz yet'), findsOneWidget);
     expect(find.text('Nothing yet'), findsOneWidget);
-    expect(find.text('No activity yet.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('No activity yet.'), 200);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Only the parent profile view can add books', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      const MaterialApp(home: ChildProfileScreen(childName: 'Alex')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Manage Alex's books"));
+    await tester.pumpAndSettle();
+    final library = tester.widget<ReadingLibraryScreen>(
+      find.byType(ReadingLibraryScreen),
+    );
+    expect(library.childName, 'Alex');
+    expect(library.canManage, isTrue);
+    expect(find.text('Add Book'), findsOneWidget);
   });
 }

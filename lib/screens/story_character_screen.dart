@@ -5,14 +5,21 @@ class StoryConfig {
   final String? character;
   final String? mood;
   final String? setting;
+  final String idea;
 
-  const StoryConfig({this.character, this.mood, this.setting});
+  const StoryConfig({this.character, this.mood, this.setting, this.idea = ''});
 
-  StoryConfig copyWith({String? character, String? mood, String? setting}) {
+  StoryConfig copyWith({
+    String? character,
+    String? mood,
+    String? setting,
+    String? idea,
+  }) {
     return StoryConfig(
       character: character ?? this.character,
       mood: mood ?? this.mood,
       setting: setting ?? this.setting,
+      idea: idea ?? this.idea,
     );
   }
 }
@@ -36,7 +43,7 @@ class StoryCharacterScreen extends StatefulWidget {
 }
 
 class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
-  // Theme colors 
+  // Theme colors
   static const Color _forestGreen = Color(0xFF3D6B1A);
   static const Color _buttonGreen = Color(0xFF4A7C20);
   static const Color _cream = Color(0xFFF5F0DC);
@@ -266,9 +273,7 @@ class _StoryCharacterScreenState extends State<StoryCharacterScreen> {
         backgroundColor: _buttonGreen,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
       ),
       child: const Text(
