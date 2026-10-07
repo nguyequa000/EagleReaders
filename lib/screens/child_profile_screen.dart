@@ -154,9 +154,17 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
     child: ListTile(
       leading: Icon(icon, color: Colors.green),
       title: Text(label),
-      trailing: Text(
-        value,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      // Capped, because a long book file name would otherwise take the whole
+      // row and fail layout, blanking the screen.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 160),
+        child: Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.end,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
       ),
     ),
   );
