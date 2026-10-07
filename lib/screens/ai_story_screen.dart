@@ -1,44 +1,60 @@
 import 'package:flutter/material.dart';
+import '../services/story_generator.dart';
 import 'story_character_screen.dart';
 
-class StoryReaderScreen extends StatelessWidget {
+class StoryReaderScreen extends StatefulWidget {
   final StoryConfig config;
 
-  const StoryReaderScreen({super.key, required this.config});
+  /// Injectable for tests; defaults to the Gemini-backed generator.
+  final StoryGenerator? generator;
 
-  String _buildStoryText() {
-    final character = config.character ?? 'a curious friend';
-    final mood = config.mood ?? 'wonderful';
-    final setting = config.setting ?? 'a magical place';
+  const StoryReaderScreen({super.key, required this.config, this.generator});
 
-    final moodSentence = switch (mood.toLowerCase()) {
-      'funny' => 'Every turn in the tale made everyone giggle and laugh.',
-      'adventurous' => 'Every day felt like the next big adventure waiting to happen.',
-      'spooky' => 'The shadows whispered secrets and the air crackled with mystery.',
-      'calm' => 'The story moved like a gentle stream, soft and peaceful.',
-      _ => 'The story had a special feeling all its own.',
-    };
+  @override
+  State<StoryReaderScreen> createState() => _StoryReaderScreenState();
+}
 
-    return '''
-Once upon a time, in $setting, there lived $character.
+class _StoryReaderScreenState extends State<StoryReaderScreen> {
+  static const Color _forestGreen = Color(0xFF3D6B1A);
 
-$character loved to explore and discover new things. Today was special because the whole world felt full of $mood energy.
+  late final StoryGenerator _generator;
+  late Future<String> _story;
 
-$moodSentence
+  @override
+  void initState() {
+    super.initState();
+    _generator = widget.generator ?? const StoryGenerator();
+    _story = _generate();
+  }
 
-Along the way, $character met new friends, solved little puzzles, and discovered that the best part of any journey is how much joy it brings.
+  // Runs once per open (or per retry), never from build().
+  Future<String> _generate() async {
+    final config = widget.config;
+    final text = await _generator.generateStory(
+      character: config.character ?? 'a curious friend',
+      mood: config.mood ?? 'wonderful',
+      setting: config.setting ?? 'a magical place',
+    );
+    if (text.trim().isEmpty) {
+      throw const StoryGenerationException(
+        'The story came back empty. Please try again.',
+      );
+    }
+    return text;
+  }
 
-And when the sun began to set, $character knew that every day could be as magical as this one. The end.''';
+  void _retry() {
+    setState(() {
+      _story = _generate();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final storyText = _buildStoryText();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Story'),
-        backgroundColor: const Color(0xFF3D6B1A),
+        backgroundColor: _forestGreen,
       ),
       body: Container(
         color: const Color(0xFFF5F0DC),
@@ -49,18 +65,87 @@ And when the sun began to set, $character knew that every day could be as magica
             _buildDetailBanner(),
             const SizedBox(height: 16),
             Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  storyText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    height: 1.6,
-                    color: Color(0xFF2E2E2E),
-                  ),
-                ),
+              child: FutureBuilder<String>(
+                future: _story,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return _buildLoading();
+                  }
+                  if (snapshot.hasError) {
+                    return _buildError(snapshot.error!);
+                  }
+                  return _buildStory(snapshot.data!);
+                },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: _forestGreen),
+          SizedBox(height: 16),
+          Text(
+            'Sprout is writing your story…',
+            style: TextStyle(fontSize: 16, color: Color(0xFF2E2E2E)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(Object error) {
+    final message = error is StoryGenerationException
+        ? error.message
+        : 'Sprout could not write your story right now. '
+            'Check your connection and try again.';
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('🌱', style: TextStyle(fontSize: 40)),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              height: 1.5,
+              color: Color(0xFF2E2E2E),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _retry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _forestGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStory(String text) {
+    return SingleChildScrollView(
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 18,
+          height: 1.6,
+          color: Color(0xFF2E2E2E),
         ),
       ),
     );
@@ -73,7 +158,7 @@ And when the sun began to set, $character knew that every day could be as magica
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -92,9 +177,9 @@ And when the sun began to set, $character knew that every day could be as magica
             ),
           ),
           const SizedBox(height: 8),
-          Text('Character: ${config.character ?? 'unknown'}'),
-          Text('Mood: ${config.mood ?? 'unknown'}'),
-          Text('Setting: ${config.setting ?? 'unknown'}'),
+          Text('Character: ${widget.config.character ?? 'unknown'}'),
+          Text('Mood: ${widget.config.mood ?? 'unknown'}'),
+          Text('Setting: ${widget.config.setting ?? 'unknown'}'),
         ],
       ),
     );
