@@ -20,7 +20,15 @@ class StoryFlowScreen extends StatefulWidget {
   /// `story_created` event so it counts on the parent dashboard.
   final String? childId;
 
-  const StoryFlowScreen({super.key, this.onComplete, this.childId});
+  /// Only for display (the end-of-story quiz); activity is keyed by [childId].
+  final String childName;
+
+  const StoryFlowScreen({
+    super.key,
+    this.onComplete,
+    this.childId,
+    this.childName = '',
+  });
 
   @override
   State<StoryFlowScreen> createState() => _StoryFlowScreenState();
@@ -29,6 +37,9 @@ class StoryFlowScreen extends StatefulWidget {
 class _StoryFlowScreenState extends State<StoryFlowScreen> {
   int _step = 1;
   StoryConfig _config = const StoryConfig();
+
+  /// Double taps would push two readers and generate two stories.
+  bool _starting = false;
 
   void _goToStep(int step, StoryConfig config) {
     setState(() {
@@ -46,7 +57,11 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
   /// [childId] is passed in rather than read from `widget`: this screen has
   /// already been replaced by the reader, so its state is gone by the time the
   /// last page turns.
-  void _openFinishedScreen(BuildContext readerContext, String? childId) {
+  void _openFinishedScreen(
+    BuildContext readerContext,
+    String? childId,
+    String childName,
+  ) {
     Navigator.of(readerContext).push(
       MaterialPageRoute<void>(
         builder: (finishedContext) => StoryFinishedScreen(
@@ -65,7 +80,8 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
             navigator.push(
               // Same child, so the second story is logged and earns coins too.
               MaterialPageRoute<void>(
-                builder: (_) => StoryFlowScreen(childId: childId),
+                builder: (_) =>
+                    StoryFlowScreen(childId: childId, childName: childName),
               ),
             );
           },
@@ -136,8 +152,13 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
           onBack: () => _goToStep(3, _config),
           // Straight back to the builder rather than three taps of Back.
           onEditHero: () => _goToStep(1, _config),
+          // Kept so going back and returning doesn't lose what they typed.
+          onIdeaChanged: (idea) => _config = _config.copyWith(idea: idea),
           onStartReading: (config) {
+            if (_starting) return;
+            _starting = true;
             final childId = widget.childId;
+            final childName = widget.childName;
             if (childId != null) {
               unawaited(
                 ActivityService.instance.logEvent(childId, 'story_created', {
@@ -157,7 +178,10 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
                 // using it here would fire callbacks against a dead element.
                 builder: (readerContext) => StoryReaderScreen(
                   config: config,
-                  onNextPage: () => _openFinishedScreen(readerContext, childId),
+                  childId: childId,
+                  childName: childName,
+                  onNextPage: () =>
+                      _openFinishedScreen(readerContext, childId, childName),
                 ),
               ),
             );

@@ -36,9 +36,11 @@ class ComprehensionScreen extends StatefulWidget {
   /// The chapter number that just finished (e.g. 3)
   final int chapterNumber;
 
-  /// Optional: pass questions in directly (used by tests / story module).
-  /// If null the screen loads from assets/data/comprehension_questions.json
+  /// Questions to ask directly (story module, tests).
   final List<ComprehensionQuestion>? questions;
+
+  /// Writes the questions when [questions] is null (e.g. the local model).
+  final Future<List<ComprehensionQuestion>> Function()? generateQuestions;
 
   /// Called when the user taps "Keep Reading →"
   final VoidCallback? onKeepReading;
@@ -58,6 +60,7 @@ class ComprehensionScreen extends StatefulWidget {
     required this.bookTitle,
     required this.chapterNumber,
     this.questions,
+    this.generateQuestions,
     this.onKeepReading,
     this.chapterTitle,
     this.skippable = false,
@@ -129,38 +132,22 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   // data loading
   Future<void> _loadQuestions() async {
     try {
-      List<ComprehensionQuestion> loaded;
-
       // Chapter-specific questions when the caller has them (see
-      // QuestionBank), otherwise the generic demo pair.
-      loaded = widget.questions ?? _demoQuestions;
+      // QuestionBank), then AI-written ones, otherwise the generic demo pair.
+      final generate = widget.generateQuestions;
+      final loaded =
+          widget.questions ??
+          (generate != null ? await generate() : _demoQuestions);
+      if (!mounted) return;
       setState(() {
         _questions = loaded;
         _loading = false;
       });
       _fadeController.forward();
-      return;
-
-      /* if (widget.questions != null) {
-        loaded = widget.questions!;
-      } else {
-        // Load from bundled JSON asset
-        final raw = await rootBundle
-            .loadString('assets/data/comprehension_questions.json');
-        final List<dynamic> jsonList = jsonDecode(raw);
-        loaded = jsonList
-            .map((e) => ComprehensionQuestion.fromJson(e))
-            .toList();
-      }
-
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
-        _questions = loaded;
-        _loading = false;
-      });
-      _fadeController.forward(); */
-    } catch (e) {
-      setState(() {
-        _error = 'Could not load questions.';
+        _error = "Sprout couldn't think of questions right now.";
         _loading = false;
       });
     }
@@ -255,7 +242,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       backgroundColor: _darkBg,
       appBar: _buildAppBar(),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: _green))
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: _green),
+                  SizedBox(height: 16),
+                  Text(
+                    'Sprout is thinking of questions…',
+                    style: TextStyle(color: _cream, fontSize: 16),
+                  ),
+                ],
+              ),
+            )
           : _error != null
           ? _buildError()
           : _questions.isEmpty
@@ -502,7 +501,13 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
           Text(_error!, style: const TextStyle(color: _cream, fontSize: 16)),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _loadQuestions,
+            onPressed: () {
+              setState(() {
+                _error = null;
+                _loading = true;
+              });
+              _loadQuestions();
+            },
             style: ElevatedButton.styleFrom(backgroundColor: _green),
             child: const Text('Retry'),
           ),

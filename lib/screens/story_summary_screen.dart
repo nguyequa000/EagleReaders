@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../services/story_generator.dart';
+
 import 'story/hero_preview.dart';
 import 'story/story_button.dart';
 import 'story/story_config.dart';
@@ -24,12 +26,16 @@ class StorySummaryScreen extends StatefulWidget {
 
   final void Function(StoryConfig config)? onStartReading;
 
+  /// Every change to the story idea, so the flow can keep it across Back.
+  final ValueChanged<String>? onIdeaChanged;
+
   const StorySummaryScreen({
     super.key,
     required this.config,
     this.onBack,
     this.onEditHero,
     this.onStartReading,
+    this.onIdeaChanged,
   });
 
   @override
@@ -49,12 +55,33 @@ class _StorySummaryScreenState extends State<StorySummaryScreen> {
     super.dispose();
   }
 
+  /// What the child wants the story to be about, for the AI to build on.
+  late String _idea = widget.config.idea;
+
   /// The config as it stands, including whatever has been typed.
   StoryConfig get _current {
     final typed = _name.text.trim();
     return widget.config.copyWith(
       hero: widget.config.hero.copyWith(name: typed.isEmpty ? null : typed),
+      idea: _idea,
     );
+  }
+
+  /// Both the name and the idea go to the story writer, so neither may carry
+  /// unkind words.
+  bool get _blocked => hasBadWords(_name.text) || hasBadWords(_idea);
+
+  /// The idea lives in a sheet rather than on the page: every step has to fit
+  /// without scrolling (see story_no_scroll_test), and this one is full.
+  Future<void> _editIdea() async {
+    final idea = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _IdeaSheet(initial: _idea),
+    );
+    if (idea == null || !mounted) return;
+    setState(() => _idea = idea);
+    widget.onIdeaChanged?.call(idea);
   }
 
   @override
@@ -69,7 +96,9 @@ class _StorySummaryScreenState extends State<StorySummaryScreen> {
         label: 'Start Reading!',
         accent: palette.action,
         showArrow: false,
-        onPressed: () => widget.onStartReading?.call(_current),
+        onPressed: _blocked
+            ? null
+            : () => widget.onStartReading?.call(_current),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,12 +125,30 @@ class _StorySummaryScreenState extends State<StorySummaryScreen> {
                     onTap: widget.onEditHero!,
                   ),
                 ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: _EditHeroChip(
+                  accent: palette.action,
+                  onTap: _editIdea,
+                  label: _idea.isEmpty ? 'Add an idea' : 'Edit idea',
+                  icon: Icons.lightbulb_outline,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           const StoryRowLabel(text: 'NAME YOUR HERO'),
           const SizedBox(height: 8),
           _NameField(controller: _name, onChanged: () => setState(() {})),
+          if (_blocked)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                badWordsMessage,
+                style: StoryTheme.body(size: 14, color: palette.ink),
+              ),
+            ),
           const SizedBox(height: 16),
           const StoryRowLabel(text: 'YOUR STORY'),
           const SizedBox(height: 8),
@@ -188,8 +235,15 @@ class _NameField extends StatelessWidget {
 class _EditHeroChip extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
+  final String label;
+  final IconData icon;
 
-  const _EditHeroChip({required this.accent, required this.onTap});
+  const _EditHeroChip({
+    required this.accent,
+    required this.onTap,
+    this.label = 'Edit hero',
+    this.icon = Icons.tune,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +251,7 @@ class _EditHeroChip extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Edit hero',
+      label: label,
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
@@ -220,10 +274,10 @@ class _EditHeroChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.tune, size: 15, color: palette.onAction),
+              Icon(icon, size: 15, color: palette.onAction),
               const SizedBox(width: 6),
               Text(
-                'Edit hero',
+                label,
                 style: StoryTheme.display(
                   size: 13,
                   color: palette.onAction,
@@ -233,6 +287,79 @@ class _EditHeroChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Where the child types what they want their story to be about. Pops with
+/// the trimmed idea (empty to clear it), or null if dismissed.
+class _IdeaSheet extends StatefulWidget {
+  final String initial;
+
+  const _IdeaSheet({required this.initial});
+
+  @override
+  State<_IdeaSheet> createState() => _IdeaSheetState();
+}
+
+class _IdeaSheetState extends State<_IdeaSheet> {
+  late final TextEditingController _text = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    final unkind = hasBadWords(_text.text);
+
+    return Padding(
+      // Stay above the keyboard.
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const StoryRowLabel(text: 'YOUR STORY IDEA'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _text,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: maxIdeaLength,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+            style: StoryTheme.body(size: 16, color: palette.ink),
+            decoration: InputDecoration(
+              hintText: 'A fox finds a map to a hidden treehouse...',
+              errorText: unkind ? badWordsMessage : null,
+              filled: true,
+              fillColor: palette.surface,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          StoryButton(
+            label: 'Use this idea',
+            accent: palette.action,
+            showArrow: false,
+            onPressed: unkind
+                ? null
+                : () => Navigator.pop(context, _text.text.trim()),
+          ),
+        ],
       ),
     );
   }

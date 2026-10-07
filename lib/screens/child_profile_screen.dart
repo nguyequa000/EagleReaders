@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import 'live_refresh.dart';
+import 'reading_library_screen.dart';
 
-/// Parent-facing, read-only view of one child's reading profile.
+/// Parent-facing view of one child's reading profile and book shelf.
 ///
 /// Activity is keyed by [childId] (see [ActivityService]); [childName] is
 /// only for display.
@@ -83,6 +84,23 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.library_add, color: Colors.green),
+                    title: Text("Manage ${widget.childName}'s books"),
+                    subtitle: const Text('Add or remove EPUB books'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ReadingLibraryScreen(
+                          childId: widget.childId,
+                          childName: widget.childName,
+                          canManage: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 _tile(
                   Icons.menu_book,
                   'Books finished',

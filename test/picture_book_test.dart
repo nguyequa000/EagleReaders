@@ -18,9 +18,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/picture_book_view.dart';
-import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
+import 'package:storysprout/services/book_library.dart';
 
+import 'reading_test_helpers.dart';
 import 'test_helpers.dart';
 
 void main() {
@@ -78,8 +79,10 @@ void main() {
   group('reader', () {
     late FakeFirebaseFirestore firestore;
     late SharedPreferences prefs;
+    BookLibrary? library;
 
     setUp(() async {
+      library = null;
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
       final ctx = signedIn();
@@ -108,23 +111,17 @@ void main() {
           null,
         ),
       );
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: ReadingModulePage(childId: '1', childName: 'Alex'),
-        ),
+      // Imported once per test onto the child's shelf, then opened from it.
+      final shelf = library ??= testLibrary(child: '1');
+      await showLibrary(tester, shelf);
+      if (find.text('picture.epub').evaluate().isEmpty) {
+        await importBook(tester, shelf, 'picture.epub');
+      }
+      await readingWork(
+        tester,
+        () => find.byType(PictureBookView).evaluate().isNotEmpty,
+        action: () => tester.tap(find.text('picture.epub')),
       );
-      await tester.pumpAndSettle();
-      // ZIP decoding needs the real async event loop.
-      await tester.runAsync(() async {
-        await tester.tap(find.text('Choose File'));
-        for (var attempt = 0; attempt < 100; attempt++) {
-          await tester.pump();
-          if (find.byType(PictureBookView).evaluate().isNotEmpty) break;
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-      });
-      await tester.pumpAndSettle();
     }
 
     testWidgets('shows one page at a time and turns exactly one page', (
@@ -354,7 +351,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(prefs.getInt('epub_position_Alex_picture.epub'), 2);
+      expect(prefs.getInt('epub_position_1_picture.epub'), 2);
 
       await openPictureBook(tester);
       expect(find.text('Page 3 of 4'), findsOneWidget);

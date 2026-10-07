@@ -8,11 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
-import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
+import 'package:storysprout/services/child_profiles.dart';
+import 'package:storysprout/services/story_generator.dart';
 
+import 'reading_test_helpers.dart';
 import 'test_helpers.dart';
 
 void main() {
@@ -28,7 +31,30 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final fb = signedIn();
     ActivityService.instance = fb.activity;
+    // Shelves are keyed by child id, like activity.
     const childIds = {'Alex': '1', 'Sam': '2'};
+    String? quizBook;
+    var quizText = '';
+    ReadingModulePage.generateQuestions = (title, chapterHtml) async {
+      quizBook = title;
+      quizText = bookExcerpt(chapterHtml);
+      return const [
+        ComprehensionQuestion(
+          question: 'Who follows the White Rabbit?',
+          answers: ['Alice', 'The Queen', 'The Hatter'],
+          correctIndex: 0,
+        ),
+        ComprehensionQuestion(
+          question: 'What does Alice fall down?',
+          answers: ['A well', 'A rabbit-hole', 'A hill'],
+          correctIndex: 1,
+        ),
+      ];
+    };
+    addTearDown(
+      () => ReadingModulePage.generateQuestions = generateBookQuestions,
+    );
+    final library = testLibrary(child: childIds['Alex']!);
     var fileName = 'alice.epub';
     final bytes = File(
       'assets/books/alice_in_wonderland.epub',
@@ -49,27 +75,32 @@ void main() {
 
     EpubView view() => tester.widget<EpubView>(find.byType(EpubView));
     Future<void> openReader({String child = 'Alex'}) async {
-      await tester.pumpWidget(const SizedBox.shrink());
+      final shelf = child == 'Alex'
+          ? library
+          : testLibrary(child: childIds[child]!, root: library.root);
+      await showLibrary(tester, shelf);
+      if (find.text(fileName).evaluate().isEmpty) {
+        await importBook(tester, shelf, fileName);
+      }
+      await openShelfBook(tester, fileName);
+      expect(view().controller.isBookLoaded.value, isTrue);
+    }
+
+    Future<void> openFromContents(int index) async {
+      await tester.tap(find.byTooltip('Contents'));
       await tester.pumpAndSettle();
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ReadingModulePage(childId: childIds[child]!, childName: child),
+      final title = view().controller.tableOfContents()[index].title!;
+      final entry = find.widgetWithText(ListTile, title);
+      await tester.scrollUntilVisible(
+        entry,
+        200,
+        scrollable: find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byType(Scrollable),
         ),
       );
+      await tester.tap(entry);
       await tester.pumpAndSettle();
-      await tester.runAsync(() async {
-        await tester.tap(find.text('Choose File'));
-        for (var attempt = 0; attempt < 100; attempt++) {
-          await tester.pump();
-          if (find.byType(EpubView).evaluate().isNotEmpty &&
-              view().controller.isBookLoaded.value) {
-            break;
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-      });
-      await tester.pumpAndSettle();
-      expect(view().controller.isBookLoaded.value, isTrue);
     }
 
     await openReader();
@@ -78,10 +109,9 @@ void main() {
     var style = (view().builders.options as DefaultBuilderOptions).textStyle;
     expect(style.fontSize, 24);
     expect(style.height, 1.8);
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
+    await openFromContents(1);
     expect(find.text('Chapter 2 of $total'), findsOneWidget);
-    final savedPosition = prefs.getInt('epub_position_Alex_alice.epub');
+    final savedPosition = prefs.getInt('epub_position_1_alice.epub');
     expect(savedPosition, greaterThan(0));
 
     await tester.tap(find.byTooltip('Reading settings'));
@@ -107,47 +137,46 @@ void main() {
       (view().builders.options as DefaultBuilderOptions).textStyle.fontSize,
       26,
     );
-    await tester.tap(find.text('Previous'));
-    await tester.pumpAndSettle();
+    await openFromContents(0);
     expect(find.text('Chapter 1 of $total'), findsOneWidget);
 
-    // The footer tracker is read-only; only the contents menu and
-    // Previous/Next buttons navigate the EPUB document.
+    // The tracker is read-only; only the contents menu navigates.
     expect(find.byType(Slider), findsNothing);
     expect(find.text('${total - 1} chapters left'), findsOneWidget);
-    // Tracker sits above the book text; navigation stays below it.
+    // Tracker sits above the book text.
     final readerTop = tester.getTopLeft(find.byType(EpubView)).dy;
     expect(
       tester.getBottomLeft(find.text('${total - 1} chapters left')).dy,
       lessThanOrEqualTo(readerTop),
     );
-    expect(
-      tester.getTopLeft(find.text('Previous')).dy,
-      greaterThanOrEqualTo(tester.getBottomLeft(find.byType(EpubView)).dy),
-    );
-    Future<void> openFromContents(int index) async {
-      await tester.tap(find.byTooltip('Contents'));
-      await tester.pumpAndSettle();
-      final title = view().controller.tableOfContents()[index].title!;
-      final entry = find.widgetWithText(ListTile, title);
-      await tester.scrollUntilVisible(
-        entry,
-        200,
-        scrollable: find.descendant(
-          of: find.byType(BottomSheet),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(entry);
-      await tester.pumpAndSettle();
-    }
-
+    expect(find.byTooltip('Previous'), findsNothing);
+    expect(find.byTooltip('Next'), findsNothing);
     await openFromContents(2);
     expect(find.text('Chapter 3 of $total'), findsOneWidget);
     expect(find.text('${total - 3} chapters left'), findsOneWidget);
     await openFromContents(total - 1);
     expect(find.text('Chapter $total of $total'), findsOneWidget);
     expect(find.text('Last chapter!'), findsOneWidget);
+    // Finish book fades away while the child scrolls, then comes back.
+    double finishOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.ancestor(
+            of: find.text('Finish book'),
+            matching: find.byType(AnimatedOpacity),
+          ),
+        )
+        .opacity;
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(EpubView)),
+    );
+    await drag.moveBy(const Offset(0, -200));
+    await tester.pump();
+    expect(finishOpacity(), 0);
+    await drag.up();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(finishOpacity(), 1);
     expect(
       (await activityDocs(
         fb.firestore,
@@ -160,11 +189,14 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     });
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Water and sunlight'));
+    expect(quizBook, 'alice.epub');
+    expect(quizText, contains('Down the Rabbit-Hole'));
+    expect(quizText, isNot(contains('PROJECT GUTENBERG LICENSE')));
+    await tester.tap(find.text('Alice'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Next Question →'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('In a city'));
+    await tester.tap(find.text('A well'));
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
       await tester.tap(find.text('Keep Reading →'));
@@ -203,6 +235,9 @@ void main() {
     await fb.store.save([
       ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
     ]);
+    // The reader is pushed over the shelf, so start a fresh app.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
     await tester.pumpWidget(
       MaterialApp(home: ParentDashboardScreen(store: fb.store)),
     );
