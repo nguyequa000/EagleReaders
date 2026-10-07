@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import 'live_refresh.dart';
 
 /// Parent-facing, read-only view of one child's reading profile.
 ///
@@ -19,7 +20,8 @@ class ChildProfileScreen extends StatefulWidget {
   State<ChildProfileScreen> createState() => _ChildProfileScreenState();
 }
 
-class _ChildProfileScreenState extends State<ChildProfileScreen> {
+class _ChildProfileScreenState extends State<ChildProfileScreen>
+    with LiveRefresh {
   List<ActivityEvent> _events = [];
   ChildActivityStats? _stats;
   bool _loading = true;
@@ -28,6 +30,11 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   void initState() {
     super.initState();
     _load();
+    // Reading the child is doing right now, on their own device.
+    refreshOn(
+      () => [ActivityService.instance.changes(widget.childId)],
+      _load,
+    );
   }
 
   Future<void> _load() async {

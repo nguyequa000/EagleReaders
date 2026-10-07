@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/rewards_store.dart';
+import 'live_refresh.dart';
 
 /// Parent-facing reward catalog: create rewards and set what they cost in
 /// coins (CR #2). Children see the active ones on their own screen.
@@ -14,7 +15,8 @@ class RewardsManagerScreen extends StatefulWidget {
   State<RewardsManagerScreen> createState() => _RewardsManagerScreenState();
 }
 
-class _RewardsManagerScreenState extends State<RewardsManagerScreen> {
+class _RewardsManagerScreenState extends State<RewardsManagerScreen>
+    with LiveRefresh {
   late final RewardStore _store = widget.store ?? RewardStore();
 
   List<Reward>? _rewards;
@@ -24,6 +26,7 @@ class _RewardsManagerScreenState extends State<RewardsManagerScreen> {
   void initState() {
     super.initState();
     _load();
+    refreshOn(() => [_store.changes()], _load);
   }
 
   Future<void> _load() async {

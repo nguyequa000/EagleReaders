@@ -6,6 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'firestore_changes.dart';
+
 /// One child on the account: a display name plus a 4-digit PIN.
 ///
 /// The PIN is stored as a salted SHA-256 hash, never in plaintext. Note what
@@ -132,6 +134,14 @@ class ChildProfileStore {
     return [
       for (final doc in snapshot.docs) ChildProfile.fromMap(doc.id, doc.data()),
     ];
+  }
+
+  /// Fires whenever a child is added, edited or removed after the first load,
+  /// including from another device signed into the same account.
+  Stream<void> changes() {
+    final collection = _collection;
+    if (collection == null) return const Stream.empty();
+    return changesOf(collection.snapshots());
   }
 
   /// Replaces the stored set with [profiles]: writes each one and deletes any

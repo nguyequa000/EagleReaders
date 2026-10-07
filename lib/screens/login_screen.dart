@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/session_prefs.dart';
 import 'registration_screen.dart';
 import 'parent_or_child_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.auth});
+  const LoginScreen({super.key, this.auth, this.prefs});
 
   /// Injectable for tests; defaults to [FirebaseAuth.instance].
   final FirebaseAuth? auth;
+
+  /// Injectable for tests; defaults to the device's shared preferences.
+  final SessionPrefs? prefs;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,17 +19,34 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   late final FirebaseAuth _auth = widget.auth ?? FirebaseAuth.instance;
+  late final SessionPrefs _prefs = widget.prefs ?? SessionPrefs();
   late final TextEditingController _email;
   late final TextEditingController _password;
 
   bool _loading = false;
   String? _error;
 
+  /// "Keep me signed in". Never covers PINs: those are asked for every time.
+  bool _keepSignedIn = true;
+
   @override
   void initState() {
     super.initState();
     _email = TextEditingController();
     _password = TextEditingController();
+    _restoreRemembered();
+  }
+
+  /// Fills in the email and checkbox from the last sign-in on this device.
+  Future<void> _restoreRemembered() async {
+    final email = await _prefs.rememberedEmail();
+    final keep = await _prefs.keepSignedIn();
+    if (!mounted) return;
+    setState(() {
+      // Never clobber what the user has started typing.
+      if (email != null && _email.text.isEmpty) _email.text = email;
+      _keepSignedIn = keep;
+    });
   }
 
   @override
@@ -50,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await _prefs.save(keepSignedIn: _keepSignedIn, email: email);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ParentOrChildScreen()),
@@ -125,6 +147,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock),
                     ),
+                  ),
+                  CheckboxListTile(
+                    value: _keepSignedIn,
+                    onChanged: _loading
+                        ? null
+                        : (value) =>
+                              setState(() => _keepSignedIn = value ?? true),
+                    title: const Text('Keep me signed in'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: Colors.green,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),

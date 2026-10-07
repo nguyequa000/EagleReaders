@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'services/firebase_options.dart';
-import 'screens/login_screen.dart';
+import 'screens/auth_gate.dart';
 import 'screens/story/story_theme.dart';
 import 'screens/story/story_theme_controller.dart';
 
@@ -30,7 +30,8 @@ class StorySproutApp extends StatelessWidget {
           theme: StoryTheme.themeFor(StoryPalette.light),
           darkTheme: StoryTheme.themeFor(StoryPalette.dark),
           themeMode: mode,
-          home: const LoginScreen(),
+          // Skips the login screen when this device is still signed in.
+          home: const AuthGate(),
         );
       },
     );

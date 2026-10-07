@@ -5,6 +5,7 @@ import '../services/activity_service.dart';
 import '../services/child_profiles.dart';
 import '../services/coin_service.dart';
 import 'child_profile_screen.dart';
+import 'live_refresh.dart';
 import 'parent_settings_screen.dart';
 import 'reward_requests_screen.dart';
 import 'rewards_manager_screen.dart';
@@ -29,7 +30,8 @@ class ParentDashboardScreen extends StatefulWidget {
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
 }
 
-class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+class _ParentDashboardScreenState extends State<ParentDashboardScreen>
+    with LiveRefresh {
   late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   late final CoinService _coins = widget.coins ?? CoinService.instance;
   List<ChildProfile>? _children;
@@ -154,7 +156,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       _loading = false;
     });
     // A pull-to-refresh must not tear down a live listener for nothing.
-    if (!_watching(children)) _watchPending(children);
+    if (!_watching(children)) {
+      _watchPending(children);
+      // Stats, balances and the feed follow the children's own devices: a
+      // finished book or an earned coin shows up here while it is open.
+      refreshOn(
+        () => [
+          _store.changes(),
+          for (final c in children) ...[
+            ActivityService.instance.changes(c.id),
+            _coins.changes(c.id),
+          ],
+        ],
+        _load,
+      );
+    }
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/coin_service.dart';
 import '../services/rewards_store.dart';
+import 'live_refresh.dart';
 
 /// What a child can work toward (CR #2): their coin balance, the rewards their
 /// parent has set up (cheapest first) with a Redeem button on each one they
@@ -28,7 +29,8 @@ class ChildRewardsScreen extends StatefulWidget {
   State<ChildRewardsScreen> createState() => _ChildRewardsScreenState();
 }
 
-class _ChildRewardsScreenState extends State<ChildRewardsScreen> {
+class _ChildRewardsScreenState extends State<ChildRewardsScreen>
+    with LiveRefresh {
   late final RewardStore _store = widget.store ?? RewardStore();
   late final CoinService _coins = widget.coins ?? CoinService.instance;
   List<Reward>? _rewards;
@@ -41,6 +43,9 @@ class _ChildRewardsScreenState extends State<ChildRewardsScreen> {
   void initState() {
     super.initState();
     _load();
+    // The parent can add or retire rewards, and give or decline requests,
+    // from their own device while this screen is open.
+    refreshOn(() => [_store.changes(), _coins.changes(widget.childId)], _load);
   }
 
   Future<void> _load() async {

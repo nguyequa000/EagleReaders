@@ -3,6 +3,7 @@ import '../services/coin_service.dart';
 import 'child_rewards_screen.dart';
 import 'reading_module_page.dart';
 import 'story_flow_screen.dart';
+import 'live_refresh.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
   final String childId;
@@ -18,7 +19,8 @@ class ChildDashboardScreen extends StatefulWidget {
   State<ChildDashboardScreen> createState() => _ChildDashboardScreenState();
 }
 
-class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
+class _ChildDashboardScreenState extends State<ChildDashboardScreen>
+    with LiveRefresh {
   int _selectedTab = 0;
   int? _coins;
 
@@ -26,6 +28,11 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
   void initState() {
     super.initState();
     _loadBalance();
+    // Coins a parent gives back, or a redemption decided on their phone.
+    refreshOn(
+      () => [CoinService.instance.changes(widget.childId)],
+      _loadBalance,
+    );
   }
 
   /// Re-read after every pushed screen returns: quizzes and stories earn

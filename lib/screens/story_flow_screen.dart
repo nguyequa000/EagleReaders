@@ -42,7 +42,11 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
   /// Pushed on top of the reader rather than replacing it, so the back control
   /// on the finished screen returns to the story — a child who taps the arrow
   /// by accident is not stranded.
-  void _openFinishedScreen(BuildContext readerContext) {
+  ///
+  /// [childId] is passed in rather than read from `widget`: this screen has
+  /// already been replaced by the reader, so its state is gone by the time the
+  /// last page turns.
+  void _openFinishedScreen(BuildContext readerContext, String? childId) {
     Navigator.of(readerContext).push(
       MaterialPageRoute<void>(
         builder: (finishedContext) => StoryFinishedScreen(
@@ -59,7 +63,10 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
             navigator.pop();
             navigator.pop();
             navigator.push(
-              MaterialPageRoute<void>(builder: (_) => const StoryFlowScreen()),
+              // Same child, so the second story is logged and earns coins too.
+              MaterialPageRoute<void>(
+                builder: (_) => StoryFlowScreen(childId: childId),
+              ),
             );
           },
           onReturnHome: () {
@@ -150,7 +157,7 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
                 // using it here would fire callbacks against a dead element.
                 builder: (readerContext) => StoryReaderScreen(
                   config: config,
-                  onNextPage: () => _openFinishedScreen(readerContext),
+                  onNextPage: () => _openFinishedScreen(readerContext, childId),
                 ),
               ),
             );
