@@ -48,6 +48,8 @@ dependencies:
   shared_preferences: ^2.5.5
   path_provider: ^2.1.5
   image: ^3.3.0
+  # Shrinks big illustrated EPUBs for the paged reader (services/lighter_epub.dart).
+  archive: ^3.6.1
   # Salted SHA-256 hashing for child PINs (see services/child_profiles.dart).
   crypto: ^3.0.6
   flutter_tts: ^4.2.5
@@ -78,7 +80,6 @@ flutter:
 
   assets:
     - assets/books/
-    - assets/data/
     - assets/story/toon/explorer/
     - assets/story/toon/scout/
     - assets/story/toon/friend/

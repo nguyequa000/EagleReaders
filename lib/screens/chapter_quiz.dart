@@ -5,16 +5,32 @@
 /// read past the end of a chapter.
 library;
 
-final _chapterTitle = RegExp(
-  r'^\s*(chapter|part|book)\b',
-  caseSensitive: false,
-);
+/// "Chapter 3", "CHAPTER I.".
+final _chapterWord = RegExp(r'^\s*(chapter|ch\.)\s', caseSensitive: false);
+
+/// A title led by its chapter number: a Roman numeral ("I The Old
+/// Sea-dog…", "XII. Council of War"; capitals only, so "Civil War" isn't
+/// one) or digits ("1 The Start", "12. The End").
+final _chapterNumber = RegExp(r'^\s*([IVXLC]+|\d+)([.:)]|\s|$)');
+
+/// "Part One", "BOOK II": groupings of chapters.
+final _partTitle = RegExp(r'^\s*(part|book)\b', caseSensitive: false);
+
+bool _isChapter(String title) =>
+    _chapterWord.hasMatch(title) || _chapterNumber.hasMatch(title);
 
 /// One contents entry, as the trigger sees it.
 typedef QuizContentsEntry = ({String title, int depth});
 
-/// A chapter the child has just finished.
-typedef FinishedChapter = ({String title, int number});
+/// A chapter the child has just finished: contents entries [entry] up to
+/// (not including) [end], the next top-level entry or the end of the book.
+typedef FinishedChapter = ({String title, int number, int entry, int end});
+
+/// How a reader view reports a due quiz. [from] and [to] (exclusive) are the
+/// finished chapter's extent in the view's own units (spine files, pages),
+/// so the quiz can be written from what the chapter actually contains.
+typedef ChapterEndCallback =
+    void Function(FinishedChapter chapter, int from, int to);
 
 class ChapterQuizTrigger {
   /// [contents] is the book's contents in order. Only top-level entries count
@@ -31,19 +47,29 @@ class ChapterQuizTrigger {
   int? _chapter;
 
   /// Real chapters get a quiz; front and back matter ("Contents",
-  /// "Copyright", "How to Draw") doesn't. A book whose entries aren't titled
-  /// "Chapter…"/"Part…"/"Book…" gets a quiz after every top-level entry.
+  /// "Copyright", "How to Draw") doesn't, and nor do part title pages in a
+  /// book with chapters (Treasure Island's "PART ONE—The Old Buccaneer"
+  /// sits between its chapters at the same level). Failing chapters, parts
+  /// get a quiz; failing both, every top-level entry does.
   static Map<int, int> _quizChapters(List<QuizContentsEntry> contents) {
     final topLevel = [
       for (var i = 0; i < contents.length; i++)
         if (contents[i].depth == 0) i,
     ];
-    final named = [
+    final chapters = [
       for (final i in topLevel)
-        if (_chapterTitle.hasMatch(contents[i].title)) i,
+        if (_isChapter(contents[i].title)) i,
     ];
-    final chapters = named.isNotEmpty ? named : topLevel;
-    return {for (var n = 0; n < chapters.length; n++) chapters[n]: n + 1};
+    final parts = [
+      for (final i in topLevel)
+        if (_partTitle.hasMatch(contents[i].title)) i,
+    ];
+    final quizzed = chapters.isNotEmpty
+        ? chapters
+        : parts.isNotEmpty
+        ? parts
+        : topLevel;
+    return {for (var n = 0; n < quizzed.length; n++) quizzed[n]: n + 1};
   }
 
   /// Reports that the child is now in contents entry [entry] (null when the
@@ -51,17 +77,36 @@ class ChapterQuizTrigger {
   ///
   /// [pageTurn] is false for jumps (Contents, reopening the book), which never
   /// trigger a quiz. Returns the chapter just finished when a quiz is due:
-  /// the child turned a page from a quiz chapter straight into the chapter
-  /// that follows it, and hasn't been quizzed on it yet.
+  /// the child turned a page from a quiz chapter straight into what follows
+  /// it, and hasn't been quizzed on it yet.
   FinishedChapter? moveTo(int? entry, {required bool pageTurn}) {
     final previous = _chapter;
     final current = entry == null ? null : _chapterOf(entry);
     _chapter = current;
     if (!pageTurn || previous == null || current == null) return null;
-    if (current != _nextChapter(previous)) return null;
+    if (!_follows(previous, current)) return null;
     final number = _quizzable[previous];
     if (number == null || !_done.add(previous)) return null;
-    return (title: _contents[previous].title, number: number);
+    return (
+      title: _contents[previous].title,
+      number: number,
+      entry: previous,
+      end: _nextChapter(previous) ?? _contents.length,
+    );
+  }
+
+  /// Whether moving from [previous] to [current] is reading on rather than a
+  /// jump: [current] comes after it with no other quiz chapter in between.
+  /// Entries in between can be passed without the reader ever reporting
+  /// them: a part's title page that shares a file with a chapter ("PART
+  /// TWO" between Treasure Island's chapters VI and VII) goes by in the
+  /// same page turn.
+  bool _follows(int previous, int current) {
+    if (current <= previous) return false;
+    for (var i = previous + 1; i < current; i++) {
+      if (_quizzable.containsKey(i)) return false;
+    }
+    return true;
   }
 
   /// The top-level entry [entry] belongs to.

@@ -18,8 +18,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/picture_book_view.dart';
+import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/book_library.dart';
+import 'package:storysprout/services/story_generator.dart';
 
 import 'reading_test_helpers.dart';
 import 'test_helpers.dart';
@@ -81,8 +83,33 @@ void main() {
     late SharedPreferences prefs;
     BookLibrary? library;
 
+    /// What each Gemini picture quiz was asked about: (chapter, page count).
+    late List<(String, int)> quizCalls;
+
     setUp(() async {
       library = null;
+      // Gemini writes picture-book quizzes from the chapter's pages; a fake
+      // here, recording what it was given.
+      quizCalls = [];
+      ReadingModulePage.writePictureQuiz = (book, chapter, pages) async {
+        quizCalls.add((chapter, pages.length));
+        return const [
+          ComprehensionQuestion(
+            question: 'What did the little seed need to grow?',
+            answers: ['Water and sunlight', 'Snow and darkness', 'Wind'],
+            correctIndex: 0,
+          ),
+          ComprehensionQuestion(
+            question: 'Where did the story take place?',
+            answers: ['In a city', 'In a garden', 'In the ocean'],
+            correctIndex: 1,
+          ),
+        ];
+      };
+      addTearDown(
+        () => ReadingModulePage.writePictureQuiz =
+            generatePictureChapterQuestions,
+      );
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
       final ctx = signedIn();
@@ -184,6 +211,32 @@ void main() {
         expect(find.byType(ComprehensionScreen), findsOneWidget);
         expect(find.text('Chapter 1'), findsOneWidget); // quiz header
         expect(find.text('Skip'), findsOneWidget);
+        // Written from Chapter 1's own pages: page 2 and Part A's page 3.
+        expect(quizCalls, [('Chapter 1', 2)]);
+        expect(
+          find.text('What did the little seed need to grow?'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('the quiz for a chapter is written once and kept', (
+        tester,
+      ) async {
+        await readToChapter2(tester);
+        await tester.tap(find.text('Skip'));
+        await tester.pumpAndSettle();
+
+        // Reopening the book and reading out of Chapter 1 again shows the
+        // same quiz without asking Gemini a second time.
+        await openPictureBook(tester);
+        await tester.tap(find.text('Previous'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ComprehensionScreen), findsOneWidget);
+        expect(find.text('Water and sunlight'), findsOneWidget);
+        expect(quizCalls, hasLength(1));
       });
 
       testWidgets('Skip returns to the book without recording a score', (

@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- largeHeap: the paged reader (flutter_epub_viewer) hands the whole book
+         to its web view as one huge string, which copies it several times on
+         the Java heap. A bigger allowance lets bigger books read page by page;
+         lib/services/device_memory.dart sizes the limit to what was granted. -->
     <application
         android:label="storysprout"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:largeHeap="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

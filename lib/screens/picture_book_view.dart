@@ -182,7 +182,8 @@ class PictureBookView extends StatefulWidget {
   final VoidCallback onFinish;
 
   /// Called when the child turns the page out of a chapter, for its quiz.
-  final ValueChanged<FinishedChapter>? onChapterEnd;
+  /// Reports the finished chapter's pages.
+  final ChapterEndCallback? onChapterEnd;
 
   /// False while the parent is busy (e.g. finishing the book).
   final bool enabled;
@@ -284,7 +285,14 @@ class _PictureBookViewState extends State<PictureBookView> {
     });
     widget.onPageChanged(page);
     final finished = _quiz.moveTo(_contentsEntryAt(page), pageTurn: !_jumping);
-    if (finished != null) widget.onChapterEnd?.call(finished);
+    if (finished != null) {
+      final chapters = widget.book.chapters;
+      final from = chapters[finished.entry].page;
+      final to = finished.end < chapters.length
+          ? chapters[finished.end].page
+          : _count;
+      widget.onChapterEnd?.call(finished, from, to.clamp(from + 1, _count));
+    }
   }
 
   void _toggleZoom() {

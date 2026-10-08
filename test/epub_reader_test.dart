@@ -8,8 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/reading_library_screen.dart';
+import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
+import 'package:storysprout/services/story_generator.dart';
 
 import 'reading_test_helpers.dart';
 import 'test_helpers.dart';
@@ -242,6 +245,67 @@ void main() {
       const Duration(seconds: 5),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Reading out of a chapter brings up a quiz Gemini wrote from it', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    MethodChannelFilePicker.registerWith();
+    final bytes = File(
+      'assets/books/alice_in_wonderland.epub',
+    ).readAsBytesSync();
+    const channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => [
+        {'name': 'alice.epub', 'size': bytes.length, 'bytes': bytes},
+      ],
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final asked = <(String, String)>[];
+    ReadingModulePage.writeChapterQuiz = (book, chapter, html) async {
+      asked.add((chapter, bookExcerpt(html)));
+      return const [
+        ComprehensionQuestion(
+          question: 'What did Alice follow?',
+          answers: ['A White Rabbit', 'A cat', 'A dog'],
+          correctIndex: 0,
+        ),
+      ];
+    };
+    addTearDown(
+      () => ReadingModulePage.writeChapterQuiz = generateChapterQuestions,
+    );
+    await importBook(tester, testLibrary(), 'My Alice book');
+    await openShelfBook(tester, 'My Alice book');
+
+    final controller = tester.widget<EpubView>(find.byType(EpubView)).controller;
+    final toc = controller.tableOfContents();
+    final one = toc.indexWhere((c) => c.title!.startsWith('CHAPTER I.'));
+    // Read into Chapter I, then on into Chapter II.
+    for (final chapter in [one, one + 1]) {
+      controller.jumpTo(index: toc[chapter].startIndex);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byType(ComprehensionScreen), findsOneWidget);
+    expect(find.text('What did Alice follow?'), findsOneWidget);
+    expect(find.text('Skip'), findsOneWidget);
+    final (title, text) = asked.single;
+    expect(title, startsWith('CHAPTER I.'));
+    // Chapter I's own text, not the next chapter's.
+    expect(text, contains('White Rabbit'));
+    expect(text, isNot(contains('Pool of Tears')));
+
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EpubView), findsOneWidget);
   });
 
   testWidgets('Renders EPUB markup and embedded images, not flattened text', (

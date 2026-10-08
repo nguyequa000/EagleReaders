@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -7,6 +8,8 @@ import 'package:epub_view/epub_view.dart';
 import 'package:image/image.dart' as image;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'lighter_epub.dart';
 
 class Book {
   final String id, title, author, filePath;
@@ -66,6 +69,11 @@ class BookLibrary {
   /// Where the paged reader keeps its place: an epub.js CFI, not the
   /// scrolling reader's paragraph index.
   String cfiKey(Book book) => 'epub_cfi_${childId}_${book.id}';
+
+  /// Where chapter [chapter]'s Gemini-written quiz is kept once written.
+  String quizKey(Book book, int chapter) => '${_quizPrefix(book)}$chapter';
+
+  String _quizPrefix(Book book) => 'chapter_quiz_${childId}_${book.id}_';
 
   Future<List<Book>> load() async {
     await _pending;
@@ -261,14 +269,39 @@ class BookLibrary {
     await _write(books);
   });
 
+  /// Where [lighterCopy] keeps its version of [book], next to the original.
+  static String lighterPath(Book book) =>
+      book.filePath.replaceFirst(RegExp(r'\.epub$'), '.reader.epub');
+
+  /// A copy of [book] with its pictures re-saved smaller, made once and then
+  /// reused, for readers that can't take a file as big as the original. Null
+  /// when even the copy is over [maxBytes] (a book that is big for some
+  /// other reason than its pictures).
+  static Future<String?> lighterCopy(Book book, {required int maxBytes}) async {
+    final copy = File(lighterPath(book));
+    if (!await copy.exists()) {
+      final from = book.filePath;
+      // Written beside the final name, so a copy cut short (the app closed
+      // mid-way) is never mistaken for a finished one.
+      final partial = '${copy.path}.part';
+      await Isolate.run(() => shrinkEpubFile(from, partial));
+      // Kept even when still too big, so the work isn't repeated each open.
+      await File(partial).rename(copy.path);
+    }
+    return await copy.length() <= maxBytes ? copy.path : null;
+  }
+
   Future<void> remove(Book book) => _serial(() async {
     final books = await _read();
-    for (final path in [book.filePath, book.coverPath]) {
+    for (final path in [book.filePath, book.coverPath, lighterPath(book)]) {
       if (path != null && await File(path).exists()) await File(path).delete();
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(positionKey(book));
     await prefs.remove(cfiKey(book));
+    for (final key in prefs.getKeys().toList()) {
+      if (key.startsWith(_quizPrefix(book))) await prefs.remove(key);
+    }
     // Keep the entry available for a retry if deleting its files fails.
     await _write(books.where((b) => b.id != book.id).toList());
   });

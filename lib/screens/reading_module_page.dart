@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:epub_view/epub_view.dart';
 // epub_view exposes EpubViewChapter in its API but omits it from the barrel.
@@ -11,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/activity_service.dart';
 import '../services/book_library.dart';
-import '../services/question_bank.dart';
+import '../services/device_memory.dart';
 import '../services/story_generator.dart';
 import '../reading_theme.dart';
 import 'chapter_quiz.dart';
@@ -41,15 +43,30 @@ class ReadingModulePage extends StatefulWidget {
   )
   generateQuestions = generateBookQuestions;
 
+  /// Writes a chapter's quiz from its text; tests swap in a fake.
+  @visibleForTesting
+  static Future<List<ComprehensionQuestion>> Function(
+    String bookTitle,
+    String chapterTitle,
+    List<String> chapterHtml,
+  )
+  writeChapterQuiz = generateChapterQuestions;
+
+  /// Writes a picture-book chapter's quiz from its pages; tests swap in a
+  /// fake.
+  @visibleForTesting
+  static Future<List<ComprehensionQuestion>> Function(
+    String bookTitle,
+    String chapterTitle,
+    List<Uint8List> pages,
+  )
+  writePictureQuiz = generatePictureChapterQuestions;
+
   @override
   State<ReadingModulePage> createState() => _ReadingModulePageState();
 }
 
 class _ReadingModulePageState extends State<ReadingModulePage> {
-  /// The paged reader hands the whole book to its web view as one JavaScript
-  /// array, so bigger text books stay in the scrolling reader.
-  static const _maxPagedBytes = 30 * 1024 * 1024;
-
   SharedPreferences? _prefs;
   EpubController? _controller;
   EpubBook? _document;
@@ -66,6 +83,10 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   List<EpubViewChapter> _chapters = [];
   String get _bookTitle => widget.book.title;
   String? _loadError;
+
+  /// A big illustrated book is getting its lighter copy made (see
+  /// [BookLibrary.lighterCopy]); only happens the first time it's opened.
+  bool _preparing = false;
   int _chapterIndex = 0;
   bool _busy = false;
   bool _ready = false;
@@ -152,16 +173,51 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
 
   Future<void> _openBook() async {
     final path = widget.book.filePath;
-    final bytes = await File(path).readAsBytes();
-    if (bytes.isEmpty) throw const FormatException('Empty EPUB');
-    final raw = await EpubDocument.openData(bytes);
+    final size = await File(path).length();
+    if (size == 0) throw const FormatException('Empty EPUB');
+    // Not kept in a local: a big book's bytes would otherwise stay alive
+    // next to the parsed book while its lighter copy is made.
+    final raw = await EpubDocument.openData(await File(path).readAsBytes());
     // Before flatten(), which rewrites the contents tree in place.
     final pictures = readPictureBook(raw);
     final book = BookLibrary.flatten(raw, allowEmpty: pictures != null);
-    final pagedText =
-        pictures == null && pagedTextSupported && bytes.length <= _maxPagedBytes
-        ? PagedTextBook(PagedTextSource.file(path), book)
-        : null;
+    String? pagedPath;
+    if (pictures == null && pagedTextSupported) {
+      // The paged reader hands the whole book to its web view in one go, so
+      // how big a book it can take depends on the phone's memory.
+      final limit = await pagedBookLimit();
+      if (size <= limit) {
+        pagedPath = path;
+      } else {
+        // Usually big because of its pictures: read a copy with them
+        // re-saved smaller rather than falling back to scrolling.
+        if (mounted) setState(() => _preparing = true);
+        try {
+          pagedPath = await BookLibrary.lighterCopy(
+            widget.book,
+            maxBytes: limit,
+          );
+        } catch (e) {
+          // The scrolling reader still works.
+          debugPrint('Could not make a lighter copy of this book: $e');
+        }
+        if (mounted) setState(() => _preparing = false);
+      }
+    }
+    final pagedText = pagedPath == null
+        ? null
+        : PagedTextBook(PagedTextSource.file(pagedPath), book);
+    if (pagedText != null) {
+      // The paged reader draws pictures from the file, so the parsed copies
+      // are dead weight; for an illustrated book they're most of its size,
+      // and keeping them next to the copy the reader hands its web view ran
+      // the app out of memory.
+      final content = book.Content;
+      content?.Images?.clear();
+      content?.Fonts?.clear();
+      content?.AllFiles?.removeWhere((_, file) => file is EpubByteContentFile);
+      book.CoverImage = null;
+    }
     final prefs = _prefs ??= await SharedPreferences.getInstance();
     if (!mounted) return;
 
@@ -290,9 +346,15 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     _sessionStart = ActivityService.instance.startSession();
   }
 
-  /// Shows the quiz for a chapter the child just read past. Reading time
-  /// pauses while it is open, and it can be skipped.
-  Future<void> _showChapterQuiz(FinishedChapter chapter) async {
+  /// Shows the quiz for a chapter the child just read past: Gemini writes it
+  /// from what the chapter contains ([from] to [to], in the current view's
+  /// units: sections, spine files or pages). Reading time pauses while it is
+  /// open, and it can be skipped.
+  Future<void> _showChapterQuiz(
+    FinishedChapter chapter,
+    int from,
+    int to,
+  ) async {
     // Deliberately not [_busy]: that shows a progress bar above the book,
     // and the few pixels it takes resize the paged reader's web view, which
     // makes epub.js jump back to where the book was opened.
@@ -300,11 +362,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     _chapterQuizOpen = true;
     _savePosition();
     await _endReadingSession();
-    final questions = await QuestionBank.instance.chapterQuestions(
-      bookTitle: _document?.Title,
-      chapter: chapter.number,
-    );
     if (mounted) {
+      final write = _chapterQuizWriter(chapter, from, to);
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => ComprehensionScreen(
@@ -314,7 +373,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             chapterNumber: chapter.number,
             chapterTitle: chapter.title,
             skippable: true,
-            questions: questions,
+            generateQuestions: () => _cachedQuiz(chapter.number, write),
           ),
         ),
       );
@@ -322,6 +381,57 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     _chapterQuizOpen = false;
     if (!mounted) return;
     _sessionStart = ActivityService.instance.startSession();
+  }
+
+  /// What Gemini is given for [chapter]: the page images of a picture book,
+  /// otherwise the chapter's text.
+  Future<List<ComprehensionQuestion>> Function() _chapterQuizWriter(
+    FinishedChapter chapter,
+    int from,
+    int to,
+  ) {
+    final title = _bookTitle;
+    final pictures = _pictureBook;
+    if (pictures != null) {
+      final pages = pictures.pages.sublist(from, to);
+      return () =>
+          ReadingModulePage.writePictureQuiz(title, chapter.title, pages);
+    }
+    final html = _pagedText != null
+        ? _pagedText!.spineHtml.sublist(from, to)
+        : [
+            for (final section in (_document?.Chapters ?? <EpubChapter>[])
+                .sublist(from, to))
+              section.HtmlContent ?? '',
+          ];
+    return () => ReadingModulePage.writeChapterQuiz(title, chapter.title, html);
+  }
+
+  /// A chapter's quiz is written once and kept, so reading the chapter again
+  /// doesn't spend the free tier's few requests a minute.
+  Future<List<ComprehensionQuestion>> _cachedQuiz(
+    int chapter,
+    Future<List<ComprehensionQuestion>> Function() write,
+  ) async {
+    final prefs = _prefs ??= await SharedPreferences.getInstance();
+    final key = widget.library.quizKey(widget.book, chapter);
+    final saved = prefs.getString(key);
+    if (saved != null) {
+      try {
+        return [
+          for (final q in jsonDecode(saved) as List)
+            ComprehensionQuestion.fromJson(Map<String, dynamic>.from(q)),
+        ];
+      } catch (_) {
+        // A damaged entry is just written again.
+      }
+    }
+    final questions = await write();
+    await prefs.setString(
+      key,
+      jsonEncode([for (final q in questions) q.toJson()]),
+    );
+    return questions;
   }
 
   Future<void> _endReadingSession() async {
@@ -429,7 +539,21 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   }
 
   Widget _buildLoadingState() => Center(
-    child: _loadError == null
+    child: _loadError == null && _preparing
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Getting this big book ready…\n'
+                'This only happens the first time.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _foreground),
+              ),
+            ],
+          )
+        : _loadError == null
         ? const CircularProgressIndicator()
         : Padding(
             padding: const EdgeInsets.all(24),
@@ -522,7 +646,10 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
           index,
           pageTurn: DateTime.now().isAfter(_jumpSettlesAt),
         );
-        if (finished != null) _showChapterQuiz(finished);
+        if (finished != null) {
+          // Sections match contents entries one to one in this reader.
+          _showChapterQuiz(finished, finished.entry, finished.end);
+        }
       },
       onDocumentError: (_) {
         if (!mounted) return;
