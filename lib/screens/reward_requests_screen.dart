@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/child_profiles.dart';
 import '../services/coin_service.dart';
+import 'live_refresh.dart';
 
 /// Parent-facing list of rewards the children have redeemed (CR #2).
 ///
@@ -23,7 +24,8 @@ class RewardRequestsScreen extends StatefulWidget {
 
 typedef _Request = ({ChildProfile child, CoinTransaction tx});
 
-class _RewardRequestsScreenState extends State<RewardRequestsScreen> {
+class _RewardRequestsScreenState extends State<RewardRequestsScreen>
+    with LiveRefresh {
   late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   late final CoinService _coins = widget.coins ?? CoinService.instance;
 
@@ -37,10 +39,27 @@ class _RewardRequestsScreenState extends State<RewardRequestsScreen> {
     _load();
   }
 
+  /// The child ids [refreshOn] is currently listening to, so a reload only
+  /// re-subscribes when a child was added or removed.
+  String? _watchedChildren;
+
+  /// A redemption made on the child's device lands here without a refresh.
+  void _watchChildren(List<ChildProfile> children) {
+    final ids = children.map((c) => c.id).join(',');
+    if (ids == _watchedChildren) return;
+    _watchedChildren = ids;
+    refreshOn(
+      () => [_store.changes(), for (final c in children) _coins.changes(c.id)],
+      _load,
+    );
+  }
+
   Future<void> _load() async {
     final requests = <_Request>[];
     try {
-      for (final child in await _store.load()) {
+      final children = await _store.load();
+      _watchChildren(children);
+      for (final child in children) {
         for (final tx in await _coins.redemptions(child.id)) {
           requests.add((child: child, tx: tx));
         }

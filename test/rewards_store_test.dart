@@ -164,18 +164,21 @@ void main() {
   });
 
   group('update and retire', () {
-    test('update changes fields without resurrecting a retired reward', () async {
-      final ctx = signedIn();
-      final reward = await ctx.store.create(title: 'Old', coinCost: 10);
-      await ctx.store.setActive(reward.id, false);
+    test(
+      'update changes fields without resurrecting a retired reward',
+      () async {
+        final ctx = signedIn();
+        final reward = await ctx.store.create(title: 'Old', coinCost: 10);
+        await ctx.store.setActive(reward.id, false);
 
-      await ctx.store.update(reward.id, title: 'New', coinCost: 25);
+        await ctx.store.update(reward.id, title: 'New', coinCost: 25);
 
-      final stored = (await ctx.store.load()).single;
-      expect(stored.title, 'New');
-      expect(stored.coinCost, 25);
-      expect(stored.active, isFalse, reason: 'retirement survives an edit');
-    });
+        final stored = (await ctx.store.load()).single;
+        expect(stored.title, 'New');
+        expect(stored.coinCost, 25);
+        expect(stored.active, isFalse, reason: 'retirement survives an edit');
+      },
+    );
 
     test('update enforces the same validation as create', () async {
       final ctx = signedIn();

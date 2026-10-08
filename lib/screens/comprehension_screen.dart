@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/coin_service.dart';
+import '../services/story_generator.dart' show isQuotaError;
 import 'coins_earned_snack_bar.dart';
 
 // Data model
@@ -24,6 +25,12 @@ class ComprehensionQuestion {
       correctIndex: json['correct'] as int,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'question': question,
+    'answers': answers,
+    'correct': correctIndex,
+  };
 }
 
 //  Screen widget
@@ -36,9 +43,11 @@ class ComprehensionScreen extends StatefulWidget {
   /// The chapter number that just finished (e.g. 3)
   final int chapterNumber;
 
-  /// Optional: pass questions in directly (used by tests / story module).
-  /// If null the screen loads from assets/data/comprehension_questions.json
+  /// Questions to ask directly (story module, tests).
   final List<ComprehensionQuestion>? questions;
+
+  /// Writes the questions when [questions] is null (e.g. the local model).
+  final Future<List<ComprehensionQuestion>> Function()? generateQuestions;
 
   /// Called when the user taps "Keep Reading →"
   final VoidCallback? onKeepReading;
@@ -58,6 +67,7 @@ class ComprehensionScreen extends StatefulWidget {
     required this.bookTitle,
     required this.chapterNumber,
     this.questions,
+    this.generateQuestions,
     this.onKeepReading,
     this.chapterTitle,
     this.skippable = false,
@@ -81,19 +91,6 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-
-  static const List<ComprehensionQuestion> _demoQuestions = [
-    ComprehensionQuestion(
-      question: 'What did the little seed need to grow?',
-      answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
-      correctIndex: 0,
-    ),
-    ComprehensionQuestion(
-      question: 'Where did the story take place?',
-      answers: ['In a city', 'In a garden', 'In the ocean'],
-      correctIndex: 1,
-    ),
-  ];
 
   // Story Sprout brand colours
   static const Color _darkBg = Color(0xFF1A1F1A);
@@ -129,38 +126,24 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
   // data loading
   Future<void> _loadQuestions() async {
     try {
-      List<ComprehensionQuestion> loaded;
-
-      // Chapter-specific questions when the caller has them (see
-      // QuestionBank), otherwise the generic demo pair.
-      loaded = widget.questions ?? _demoQuestions;
+      // Questions the caller already has (a story's own quiz), otherwise the
+      // ones Gemini writes for this book or chapter.
+      final generate = widget.generateQuestions;
+      final loaded =
+          widget.questions ?? (generate != null ? await generate() : []);
+      if (!mounted) return;
       setState(() {
         _questions = loaded;
         _loading = false;
       });
       _fadeController.forward();
-      return;
-
-      /* if (widget.questions != null) {
-        loaded = widget.questions!;
-      } else {
-        // Load from bundled JSON asset
-        final raw = await rootBundle
-            .loadString('assets/data/comprehension_questions.json');
-        final List<dynamic> jsonList = jsonDecode(raw);
-        loaded = jsonList
-            .map((e) => ComprehensionQuestion.fromJson(e))
-            .toList();
-      }
-
-      setState(() {
-        _questions = loaded;
-        _loading = false;
-      });
-      _fadeController.forward(); */
     } catch (e) {
+      debugPrint('Quiz questions failed: $e');
+      if (!mounted) return;
       setState(() {
-        _error = 'Could not load questions.';
+        _error = isQuotaError(e)
+            ? 'Sprout needs a short rest. Try again in a minute!'
+            : "Sprout couldn't think of questions right now.";
         _loading = false;
       });
     }
@@ -255,7 +238,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
       backgroundColor: _darkBg,
       appBar: _buildAppBar(),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: _green))
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: _green),
+                  SizedBox(height: 16),
+                  Text(
+                    'Sprout is thinking of questions…',
+                    style: TextStyle(color: _cream, fontSize: 16),
+                  ),
+                ],
+              ),
+            )
           : _error != null
           ? _buildError()
           : _questions.isEmpty
@@ -499,12 +494,33 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
         children: [
           const Icon(Icons.error_outline, color: _wrongRed, size: 48),
           const SizedBox(height: 12),
-          Text(_error!, style: const TextStyle(color: _cream, fontSize: 16)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _cream, fontSize: 16),
+            ),
+          ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _loadQuestions,
+            onPressed: () {
+              setState(() {
+                _error = null;
+                _loading = true;
+              });
+              _loadQuestions();
+            },
             style: ElevatedButton.styleFrom(backgroundColor: _green),
             child: const Text('Retry'),
+          ),
+          // No quiz shouldn't mean no way back to the book.
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Keep Reading →',
+              style: TextStyle(color: _cream),
+            ),
           ),
         ],
       ),

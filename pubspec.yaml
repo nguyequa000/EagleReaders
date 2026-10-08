@@ -46,8 +46,14 @@ dependencies:
   epub_view: ^3.2.0
   firebase_ai: ^4.0.0
   shared_preferences: ^2.5.5
+  path_provider: ^2.1.5
+  image: ^3.3.0
+  # Shrinks big illustrated EPUBs for the paged reader (services/lighter_epub.dart).
+  archive: ^3.6.1
   # Salted SHA-256 hashing for child PINs (see services/child_profiles.dart).
   crypto: ^3.0.6
+  flutter_tts: ^4.2.5
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -62,7 +68,7 @@ dev_dependencies:
 
   # Fakes for Firebase in widget tests (no emulator / network needed).
   firebase_auth_mocks: ^0.15.1
-  fake_cloud_firestore: ^4.1.0
+  fake_cloud_firestore: 4.3.0
   mock_exceptions: ^0.8.2
 
 # For information on the generic Dart part of this file, see the
@@ -74,7 +80,6 @@ flutter:
 
   assets:
     - assets/books/
-    - assets/data/
     - assets/story/toon/explorer/
     - assets/story/toon/scout/
     - assets/story/toon/friend/

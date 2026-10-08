@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'child_pin_screen.dart';
 import '../services/child_profiles.dart';
+import 'live_refresh.dart';
 
 class ChildSelectorScreen extends StatefulWidget {
   const ChildSelectorScreen({super.key, this.store});
@@ -13,7 +14,8 @@ class ChildSelectorScreen extends StatefulWidget {
   State<ChildSelectorScreen> createState() => _ChildSelectorScreenState();
 }
 
-class _ChildSelectorScreenState extends State<ChildSelectorScreen> {
+class _ChildSelectorScreenState extends State<ChildSelectorScreen>
+    with LiveRefresh {
   late final ChildProfileStore _store = widget.store ?? ChildProfileStore();
   List<ChildProfile>? _children;
 
@@ -21,6 +23,8 @@ class _ChildSelectorScreenState extends State<ChildSelectorScreen> {
   void initState() {
     super.initState();
     _load();
+    // A child added on another device appears without leaving this screen.
+    refreshOn(() => [_store.changes()], _load);
   }
 
   Future<void> _load() async {

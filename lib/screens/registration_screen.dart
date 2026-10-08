@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/session_prefs.dart';
 import 'child_setup_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key, this.auth, this.firestore});
+  const RegistrationScreen({super.key, this.auth, this.firestore, this.prefs});
 
   /// Injectable for tests; default to the shared singletons.
   final FirebaseAuth? auth;
   final FirebaseFirestore? firestore;
+  final SessionPrefs? prefs;
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -82,6 +84,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         }
         return;
       }
+      // A new parent stays signed in on this device, as a returning one does
+      // by default; they can untick it on the login screen next time.
+      await (widget.prefs ?? SessionPrefs()).save(
+        keepSignedIn: true,
+        email: email,
+      );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ChildSetupScreen()),

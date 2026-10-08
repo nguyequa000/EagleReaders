@@ -1,5 +1,6 @@
 import 'package:firebase_ai/firebase_ai.dart';
-import 'story_character_screen.dart';
+import 'screens/story/hero_catalog.dart';
+import 'screens/story/story_config.dart';
 
 // Anything that goes wrong on an AI call becomes one of these, so screens can
 // show [message] to a kid without unpacking SDK error types.
@@ -105,7 +106,7 @@ class AiService {
   }
 
   String _storyPrompt(StoryConfig config, int gradeLevel) {
-    final character = config.character ?? 'a curious friend';
+    final character = _describeHero(config);
     final mood = config.mood ?? 'wonderful';
     final setting = config.setting ?? 'a magical place';
 
@@ -124,6 +125,25 @@ Rules:
 - End on a warm, finished ending. Nothing scary, sad, or unresolved.
 - Plain text only: no markdown, asterisks, headings, or title line. Start with
   the first sentence of the story.''';
+  }
+
+  // The hero is a built character now rather than a string, so describe it
+  // from the catalogue label plus the name the child typed, if any:
+  // "an explorer named Robin", or just "a robot".
+  String _describeHero(StoryConfig config) {
+    final hero = config.hero;
+    final kind = HeroCatalog.heroes
+        .firstWhere(
+          (option) => option.value == hero.effectiveCharacter,
+          orElse: () => HeroCatalog.heroes.first,
+        )
+        .label
+        .toLowerCase();
+    final article = 'aeiou'.contains(kind[0]) ? 'an' : 'a';
+    final name = hero.name?.trim();
+    return (name == null || name.isEmpty)
+        ? '$article $kind'
+        : '$article $kind named $name';
   }
 
   // Runs [call] and turns every SDK failure into an AiFailure.

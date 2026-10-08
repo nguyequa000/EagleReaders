@@ -12,13 +12,28 @@ class StoryConfig {
   final String? mood;
   final String? setting;
 
-  const StoryConfig({this.hero = const HeroConfig(), this.mood, this.setting});
+  /// What the child typed on the summary step for the AI to build on; empty
+  /// when they left it blank.
+  final String idea;
 
-  StoryConfig copyWith({HeroConfig? hero, String? mood, String? setting}) {
+  const StoryConfig({
+    this.hero = const HeroConfig(),
+    this.mood,
+    this.setting,
+    this.idea = '',
+  });
+
+  StoryConfig copyWith({
+    HeroConfig? hero,
+    String? mood,
+    String? setting,
+    String? idea,
+  }) {
     return StoryConfig(
       hero: hero ?? this.hero,
       mood: mood ?? this.mood,
       setting: setting ?? this.setting,
+      idea: idea ?? this.idea,
     );
   }
 }

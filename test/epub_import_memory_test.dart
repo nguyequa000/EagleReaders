@@ -1,10 +1,9 @@
 // Regression tests for the large-EPUB crash: a 96 MB image-heavy EPUB killed
 // the app on Android with an OutOfMemoryError because the file picker was
 // asked to send the whole file over the platform channel (`withData: true`).
-// Off web the reader now asks only for a path and reads the file in Dart.
+// Off web the library now asks only for a path and reads the file in Dart.
 import 'dart:io';
 
-import 'package:epub_view/epub_view.dart';
 // file_picker has no public mock-registration API.
 // ignore: implementation_imports
 import 'package:file_picker/src/platform/file_picker_method_channel.dart';
@@ -12,9 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
 
+import 'reading_test_helpers.dart';
 import 'test_helpers.dart';
 
 void main() {
@@ -44,26 +43,18 @@ void main() {
     return calls;
   }
 
-  Future<void> chooseFile(WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: ReadingModulePage(childId: '1', childName: 'Alex'),
-      ),
+  /// Opens the parent's Add Book tab and picks a file; [done] says when the
+  /// picker's result has been handled.
+  Future<void> chooseFile(WidgetTester tester, bool Function() done) async {
+    await showLibrary(tester, testLibrary(), canManage: true);
+    await tester.tap(find.text('Add Book'));
+    await tester.pumpAndSettle();
+    // File IO needs the real async event loop.
+    await readingWork(
+      tester,
+      done,
+      action: () => tester.tap(find.text('Choose File')),
     );
-    await tester.pumpAndSettle();
-    // File and ZIP decoding need the real async event loop.
-    await tester.runAsync(() async {
-      await tester.tap(find.text('Choose File'));
-      for (var attempt = 0; attempt < 100; attempt++) {
-        await tester.pump();
-        final views = tester.widgetList<EpubView>(find.byType(EpubView));
-        if (views.isNotEmpty && views.single.controller.isBookLoaded.value) {
-          break;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
-    await tester.pumpAndSettle();
   }
 
   testWidgets('Opens an EPUB from its path without asking for the bytes', (
@@ -81,18 +72,14 @@ void main() {
       'bytes': null,
       'path': book.path,
     });
-    await chooseFile(tester);
+    await chooseFile(
+      tester,
+      () => find.byType(TextFormField).evaluate().length == 2,
+    );
 
     expect(calls.single.arguments['withData'], isFalse);
-    expect(find.byType(EpubView), findsOneWidget);
-    expect(
-      tester
-          .widget<EpubView>(find.byType(EpubView))
-          .controller
-          .isBookLoaded
-          .value,
-      isTrue,
-    );
+    // The file was read from its path, ready to add to the shelf.
+    expect(find.text('Add to shelf'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -106,10 +93,13 @@ void main() {
       // Never read: the size check comes first, so a missing file is fine.
       'path': '/does/not/exist/huge.epub',
     });
-    await chooseFile(tester);
+    await chooseFile(
+      tester,
+      () => find.text('This book is too large to open.').evaluate().isNotEmpty,
+    );
 
     expect(find.text('This book is too large to open.'), findsOneWidget);
-    expect(find.byType(EpubView), findsNothing);
+    expect(find.text('Add to shelf'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

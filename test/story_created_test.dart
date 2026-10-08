@@ -90,4 +90,47 @@ void main() {
         .get();
     expect(children.docs, isEmpty);
   });
+
+  testWidgets('A second story from "Create Another Story" is logged too', (
+    tester,
+  ) async {
+    usePhone(tester);
+    final fb = signedIn();
+    ActivityService.instance = fb.activity;
+    CoinService.instance = fb.coins;
+
+    // Opened from a dashboard, as in the app, so the finished screen has
+    // somewhere to unwind to.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StoryFlowScreen(childId: '1'),
+                ),
+              ),
+              child: const Text('DASHBOARD'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('DASHBOARD'));
+    await tester.pumpAndSettle();
+
+    await completeFlow(tester);
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await tester.pumpAndSettle();
+    await tapVisible(tester, 'Create Another Story');
+    await completeFlow(tester);
+    await tester.pumpAndSettle();
+
+    final docs = await activityDocs(fb.firestore, '1');
+    expect(docs.map((d) => d['type']), ['story_created', 'story_created']);
+    final coins = await ledgerDocs(fb.firestore, '1');
+    expect(coins, hasLength(2));
+    expect(await fb.coins.balance('1'), CoinService.coinsPerStory * 2);
+  });
 }

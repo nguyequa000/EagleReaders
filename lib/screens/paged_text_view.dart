@@ -35,13 +35,23 @@ class PagedTextSource {
 class PagedTextBook {
   PagedTextBook(PagedTextSource source, EpubBook book)
     : _source = source._load(),
-      spine = spineHrefs(book);
+      spine = spineHrefs(book) {
+    final html = {
+      for (final file in (book.Content?.Html ?? const {}).entries)
+        _normalize(file.key): file.value.Content ?? '',
+    };
+    spineHtml = [for (final href in spine) html[href] ?? ''];
+  }
 
   final paged.EpubSource _source;
 
   /// The book's reading-order files, used to work out which chapter a page
   /// is in.
   final List<String> spine;
+
+  /// Each spine file's XHTML, for writing a chapter's quiz. Text only, so
+  /// small even for an illustrated book.
+  late final List<String> spineHtml;
 }
 
 /// The book's spine (reading-order) files, as paths relative to the package
@@ -187,7 +197,8 @@ class PagedTextView extends StatefulWidget {
   final VoidCallback onFinish;
 
   /// Called when the child turns the page out of a chapter, for its quiz.
-  final ValueChanged<FinishedChapter>? onChapterEnd;
+  /// Reports the finished chapter's spine files (see [PagedTextBook.spineHtml]).
+  final ChapterEndCallback? onChapterEnd;
 
   final double fontSize;
   final double lineHeight;
@@ -212,6 +223,18 @@ class _PagedTextViewState extends State<PagedTextView> {
   /// measured the whole book ("locations"), which takes a moment.
   bool _locationsReady = false;
   double _progress = 0;
+
+  /// The page within the current chapter, as epub.js lays it out now (so it
+  /// changes with the font size). Null until the first page shows.
+  int? _page;
+  int? _pages;
+
+  /// Where the book opens. Opening at a saved spot on the very first section
+  /// (the cover) leaves epub.js's continuous layout unable to turn the page,
+  /// so start from the beginning instead; it is the same place.
+  String? get _startCfi => spineIndexOfCfi(widget.initialCfi ?? '') == 0
+      ? null
+      : widget.initialCfi;
 
   bool get _atEnd => _locationsReady && _progress >= 0.995;
   bool get _canTurn => widget.enabled && _loaded;
@@ -264,6 +287,15 @@ class _PagedTextViewState extends State<PagedTextView> {
     final relocation = ++_relocation;
     if (!mounted) return;
     setState(() => _progress = location.progress);
+    final page = await _pageInfo();
+    if (!mounted || relocation != _relocation) return;
+    if (page != null) {
+      setState(() {
+        _page = page.page;
+        _pages = page.pages;
+        _progress = page.progress ?? _progress;
+      });
+    }
     final visible = await _visibleSpineIndex();
     final spineIndex = visible ?? spineIndexOfCfi(location.startCfi);
     if (!mounted || relocation != _relocation) return;
@@ -284,8 +316,18 @@ class _PagedTextViewState extends State<PagedTextView> {
       chapter == null ? null : _chapters.indexOf(chapter),
       pageTurn: DateTime.now().isAfter(_jumpSettlesAt),
     );
-    if (finished != null) widget.onChapterEnd?.call(finished);
+    if (finished != null) _reportChapterEnd(finished);
     widget.onRelocated(anchor, chapter?.title);
+  }
+
+  void _reportChapterEnd(FinishedChapter finished) {
+    final spineCount = widget.book.spine.length;
+    final from = _chapters[finished.entry].spineIndex ?? 0;
+    final next = finished.end < _chapters.length
+        ? _chapters[finished.end].spineIndex
+        : null;
+    final to = (next ?? spineCount).clamp(from + 1, spineCount);
+    widget.onChapterEnd?.call(finished, from, to);
   }
 
   /// epub.js re-displays `rendition.location.start` whenever the view is
@@ -299,16 +341,123 @@ class _PagedTextViewState extends State<PagedTextView> {
     );
   }
 
+  /// `storySproutShow(cfi)`: displays [cfi], then turns pages until it's
+  /// really on screen. A display alone lands early, at the page where the
+  /// saved spot's paragraph starts (epub.js is still laying out the
+  /// sections before it), so a reopened book came back a page or two
+  /// behind, and displaying again lands in the same place. Turning pages
+  /// from there is exact. At most 20 turns, so a bad position can't loop.
+  static const _showHook = '''
+if (!window.storySproutShow) {
+  window.storySproutShowing = 0;
+  window.storySproutShow = function (target) {
+    // One at a time: a resize while opening started a second one heading
+    // for a page in between, and the two turned pages back and forth.
+    var id = ++window.storySproutShowing;
+    window.storySproutTarget = target;
+    var cfi = new ePub.CFI();
+    function done() {
+      if (id !== window.storySproutShowing) return;
+      window.storySproutTarget = null;
+      window.storySproutCfi = target;
+    }
+    function settle(turns) {
+      if (id !== window.storySproutShowing) return;
+      var at = rendition.currentLocation();
+      if (turns <= 0 || !at || !at.start || !at.end) return done();
+      var turn = cfi.compare(target, at.end.cfi) > 0 ? rendition.next()
+        : cfi.compare(target, at.start.cfi) < 0 ? rendition.prev() : null;
+      if (!turn) return done();
+      return Promise.resolve(turn).then(function () {
+        return new Promise(function (wait) { setTimeout(wait, 100); });
+      }).then(function () { return settle(turns - 1); });
+    }
+    return rendition.display(target).then(function () { return settle(20); });
+  };
+}''';
+
+  /// Shows a saved position exactly (see [_showHook]). Not a page turn, so
+  /// no chapter quiz while it settles.
+  void _showExactly(String cfi) {
+    _jumpSettlesAt = DateTime.now().add(const Duration(seconds: 6));
+    _epub.webViewController?.evaluateJavascript(
+      source: 'window.storySproutShow(${jsonEncode(cfi)});',
+    );
+  }
+
   static const _resizeHook = '''
 if (!window.storySproutResizeHook) {
   window.storySproutResizeHook = true;
   rendition.on('resized', function () {
     window.flutter_inappwebview.callHandler('storySproutResized');
-    var cfi = window.storySproutCfi;
-    // Queued after epub.js's own display of the stale location.
-    if (cfi) setTimeout(function () { rendition.display(cfi); }, 0);
+    // Mid-way through showing a saved spot, go back to that spot, not to
+    // a page passed on the way there.
+    var cfi = window.storySproutTarget || window.storySproutCfi;
+    if (!cfi) return;
+    function back() { window.storySproutShow(cfi); }
+    // Queued after epub.js's own display of the stale location...
+    setTimeout(back, 0);
+    // ...which can still land after it (seen when a resize follows opening a
+    // book), so go back once more when it does. Only just after the resize,
+    // so a page turn later on is never pulled back.
+    var at = Date.now();
+    rendition.once('relocated', function () {
+      if (Date.now() - at < 1500) setTimeout(back, 0);
+    });
   });
 }''';
+
+  /// The page within the current chapter, and how far through the book it is.
+  ///
+  /// The package's own progress is epub.js's `percentage`, which is worked
+  /// out when the page is shown; for the first page after opening that is
+  /// before the book has been measured, so it reads 0% until the next turn.
+  /// Ask the measured locations instead once they exist.
+  Future<({int page, int pages, double? progress})?> _pageInfo() async {
+    try {
+      final result = await _epub.webViewController?.evaluateJavascript(
+        source: '''(function () {
+  // currentLocation(), not rendition.location: on Android the package's
+  // own page turns don't update the latter, so after opening at a saved
+  // spot the page number read one too low.
+  var at = rendition.currentLocation();
+  var start = at && at.start;
+  if (!start || !start.displayed) return null;
+  var measured = book.locations && book.locations.length() > 0;
+  // epub.js rounds the scroll position down to a page, and after opening
+  // at a saved spot that's a hair short of the page boundary on a
+  // chapter's last page, so it read one page too low; round instead.
+  var page = start.displayed.page;
+  try {
+    var m = rendition.manager, delta = m.layout.delta;
+    var view = m.visible().filter(function (v) {
+      return v.section.index === start.index;
+    })[0];
+    if (view && delta > 0) {
+      page = Math.round((m.container.scrollLeft - view.offset().left) / delta) + 1;
+      page = Math.max(1, Math.min(start.displayed.total, page));
+    }
+  } catch (e) {}
+  return {
+    page: page,
+    pages: start.displayed.total,
+    progress: measured ? book.locations.percentageFromCfi(start.cfi) : null
+  };
+})()''',
+      );
+      if (result is! Map) return null;
+      final page = (result['page'] as num?)?.toInt();
+      final pages = (result['pages'] as num?)?.toInt();
+      if (page == null || pages == null || pages < 1) return null;
+      return (
+        page: page,
+        pages: pages,
+        progress: (result['progress'] as num?)?.toDouble(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// The spine index of the section filling most of the screen.
   ///
@@ -353,13 +502,17 @@ if (!window.storySproutResizeHook) {
   /// lays out its neighbour in front of it, which shifts the page after the
   /// scroll position was set, landing a few pages early (in the previous
   /// chapter); the second display, with layout settled, lands on the entry.
-  void _jumpTo(String href) {
+  void _jumpTo(String href) => _displaySettled(href);
+
+  /// Shows [target] (an href or CFI) where it really is; see [_jumpTo] for
+  /// why that takes two displays. Not a page turn, so no chapter quiz.
+  void _displaySettled(String target) {
     _jumpSettlesAt = DateTime.now().add(const Duration(seconds: 2));
-    final target = jsonEncode(href);
+    final where = jsonEncode(target);
     _epub.webViewController?.evaluateJavascript(
       source:
-          'rendition.display($target)'
-          '.then(function () { return rendition.display($target); });',
+          'rendition.display($where)'
+          '.then(function () { return rendition.display($where); });',
     );
   }
 
@@ -401,10 +554,18 @@ if (!window.storySproutResizeHook) {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _locationsReady
-                    ? '${(_progress * 100).round()}% read'
-                    : 'Preparing pages…',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                [
+                  if (_page != null) 'Page $_page of $_pages in this chapter',
+                  _locationsReady
+                      ? '${(_progress * 100).round()}% read'
+                      : 'Preparing pages…',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: widget.foreground,
+                ),
               ),
               const SizedBox(height: 6),
               ClipRRect(
@@ -425,6 +586,7 @@ if (!window.storySproutResizeHook) {
                 chapter?.title ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: widget.foreground),
               ),
             ],
           ),
@@ -435,12 +597,7 @@ if (!window.storySproutResizeHook) {
             child: paged.EpubViewer(
               epubController: _epub,
               epubSource: widget.book._source,
-              // Opening at a saved spot on the very first section (the cover)
-              // leaves epub.js's continuous layout unable to turn the page, so
-              // start from the beginning instead; it is the same place.
-              initialCfi: spineIndexOfCfi(widget.initialCfi ?? '') == 0
-                  ? null
-                  : widget.initialCfi,
+              initialCfi: _startCfi,
               displaySettings: paged.EpubDisplaySettings(
                 fontSize: widget.fontSize.round(),
                 flow: paged.EpubFlow.paginated,
@@ -450,10 +607,15 @@ if (!window.storySproutResizeHook) {
                 theme: _theme,
               ),
               onEpubLoaded: () {
-                if (!mounted) return;
+                // The package calls this on every section it displays, not
+                // once. Doing the setup again re-rendered the book, which on
+                // Android redraws epub.js's stale opening spot: back from a
+                // chapter quiz, the child was a page or more behind.
+                if (!mounted || _loaded) return;
                 // flutter_epub_viewer's loadBook() ends by re-registering the
                 // theme with only a text colour, which drops our background
-                // and line spacing; apply the full theme again.
+                // and line spacing; apply the full theme again. Once is
+                // enough: epub.js applies it to each section it adds.
                 _epub.updateTheme(theme: _theme);
                 // A resize makes epub.js jump away and back, which mustn't
                 // look like turning pages (and so finishing a chapter).
@@ -464,7 +626,16 @@ if (!window.storySproutResizeHook) {
                       const Duration(seconds: 2),
                     ),
                   )
+                  ..evaluateJavascript(source: _showHook)
                   ..evaluateJavascript(source: _resizeHook);
+                // The package opens the saved spot with a single display,
+                // which lands early, and the next page turn then saved that
+                // earlier spot: each reopen of a book crept back a few pages.
+                final start = _startCfi;
+                if (start != null) {
+                  _rememberPosition(start);
+                  _showExactly(start);
+                }
                 setState(() => _loaded = true);
               },
               onChaptersLoaded: (toc) {

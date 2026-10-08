@@ -4,6 +4,7 @@ import 'package:storysprout/screens/ai_story_screen.dart';
 import 'package:storysprout/screens/story/hero_config.dart';
 import 'package:storysprout/screens/story/story_config.dart';
 import 'package:storysprout/screens/story/story_theme.dart';
+import 'package:storysprout/services/story_generator.dart';
 
 void main() {
   Future<void> pumpReader(
@@ -26,10 +27,12 @@ void main() {
                 setting: 'Ocean',
               ),
           onNextPage: onNextPage,
+          // The offline story, so no test reaches for the AI.
+          generate: (config, {soFar, choice}) async => fallbackStory(config),
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
   }
 
   testWidgets('paints the shared ground colour', (tester) async {

@@ -12,6 +12,20 @@ import 'package:storysprout/services/rewards_store.dart';
 
 import 'test_helpers.dart';
 
+/// A two-question quiz to finish (chapter quizzes come from Gemini).
+const _questions = [
+  ComprehensionQuestion(
+    question: 'What did the little seed need to grow?',
+    answers: ['Water and sunlight', 'Snow and darkness', 'Wind and rocks'],
+    correctIndex: 0,
+  ),
+  ComprehensionQuestion(
+    question: 'Where did the story take place?',
+    answers: ['In a city', 'In a garden', 'In the ocean'],
+    correctIndex: 1,
+  ),
+];
+
 void main() {
   // ChildProfileStore.load checks local storage for legacy profiles.
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -47,6 +61,7 @@ void main() {
                       bookTitle: 'Alice',
                       chapterNumber: 1,
                       skippable: true,
+                      questions: _questions,
                     ),
                   ),
                 ),

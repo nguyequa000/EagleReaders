@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/coin_service.dart';
+import 'ai_story_screen.dart';
 import 'child_rewards_screen.dart';
-import 'reading_module_page.dart';
+import 'reading_library_screen.dart';
+import 'story/hero_config.dart';
+import 'story/story_config.dart';
 import 'story_flow_screen.dart';
+import 'live_refresh.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
   final String childId;
@@ -18,7 +22,8 @@ class ChildDashboardScreen extends StatefulWidget {
   State<ChildDashboardScreen> createState() => _ChildDashboardScreenState();
 }
 
-class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
+class _ChildDashboardScreenState extends State<ChildDashboardScreen>
+    with LiveRefresh {
   int _selectedTab = 0;
   int? _coins;
 
@@ -26,6 +31,11 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
   void initState() {
     super.initState();
     _loadBalance();
+    // Coins a parent gives back, or a redemption decided on their phone.
+    refreshOn(
+      () => [CoinService.instance.changes(widget.childId)],
+      _loadBalance,
+    );
   }
 
   /// Re-read after every pushed screen returns: quizzes and stories earn
@@ -53,12 +63,57 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
     {'title': 'Charlotte\'s Web', 'emoji': '🕷️'},
   ];
 
-  final List<Map<String, String>> _myStories = [
-    {'title': 'Dragon Adventure', 'emoji': '🐉'},
-    {'title': 'Space Explorer', 'emoji': '🚀'},
-    {'title': 'Magic Forest', 'emoji': '🌲'},
-    {'title': 'Ocean Quest', 'emoji': '🌊'},
+  // Ready-made story ideas; tapping one writes a fresh story from it.
+  static const _storyPresets = [
+    (
+      title: 'Dragon Adventure',
+      emoji: '🐉',
+      config: StoryConfig(
+        hero: HeroConfig(character: 'monster'),
+        mood: 'Adventurous',
+        setting: 'Forest',
+        idea: 'A friendly dragon goes looking for a lost treasure.',
+      ),
+    ),
+    (
+      title: 'Space Explorer',
+      emoji: '🚀',
+      config: StoryConfig(
+        hero: HeroConfig(character: 'explorer'),
+        mood: 'Adventurous',
+        setting: 'Outer Space',
+        idea: 'The explorer flies a rocket to visit a new planet.',
+      ),
+    ),
+    (
+      title: 'Magic Forest',
+      emoji: '🌲',
+      config: StoryConfig(
+        hero: HeroConfig(character: 'friend'),
+        mood: 'Calm',
+        setting: 'Forest',
+        idea: 'Helping the forest animals get ready for winter.',
+      ),
+    ),
+    (
+      title: 'Ocean Quest',
+      emoji: '🌊',
+      config: StoryConfig(
+        hero: HeroConfig(character: 'scout'),
+        mood: 'Funny',
+        setting: 'Ocean',
+        idea: 'Sailing off to find a singing sea turtle.',
+      ),
+    ),
   ];
+
+  void _openLibrary() => _push(
+    ReadingLibraryScreen(childId: widget.childId, childName: widget.childName),
+  );
+
+  void _createStory() => _push(
+    StoryFlowScreen(childId: widget.childId, childName: widget.childName),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -99,21 +154,8 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedTab,
         onTap: (index) {
-          if (index == 1) {
-            // Navigate directly to reading module
-            _push(
-              ReadingModulePage(
-                childId: widget.childId,
-                childName: widget.childName,
-              ),
-            );
-            return;
-          }
-          if (index == 2) {
-            // Navigate directly to story creation
-            _push(StoryFlowScreen(childId: widget.childId));
-            return;
-          }
+          if (index == 1) return _openLibrary();
+          if (index == 2) return _createStory();
           setState(() => _selectedTab = index);
         },
         selectedItemColor: Colors.amber,
@@ -141,11 +183,31 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
         children: [
           _buildSectionHeader('Continue Reading'),
           const SizedBox(height: 12),
-          _buildBookGrid(_continueReading),
+          _buildBookGrid([
+            for (final book in _continueReading)
+              _BookCard(
+                title: book['title']!,
+                emoji: book['emoji']!,
+                onTap: _openLibrary,
+              ),
+          ]),
           const SizedBox(height: 24),
           _buildSectionHeader('My Stories'),
           const SizedBox(height: 12),
-          _buildBookGrid(_myStories),
+          _buildBookGrid([
+            for (final preset in _storyPresets)
+              _BookCard(
+                title: preset.title,
+                emoji: preset.emoji,
+                onTap: () => _push(
+                  StoryReaderScreen(
+                    config: preset.config,
+                    childId: widget.childId,
+                    childName: widget.childName,
+                  ),
+                ),
+              ),
+          ]),
         ],
       ),
     );
@@ -164,29 +226,15 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen> {
     );
   }
 
-  Widget _buildBookGrid(List<Map<String, String>> books) {
-    return GridView.builder(
+  Widget _buildBookGrid(List<Widget> cards) {
+    return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
-      ),
-      itemCount: books.length,
-      itemBuilder: (context, index) {
-        return _BookCard(
-          title: books[index]['title']!,
-          emoji: books[index]['emoji']!,
-          onTap: () => _push(
-            ReadingModulePage(
-              childId: widget.childId,
-              childName: widget.childName,
-            ),
-          ),
-        );
-      },
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 0.75,
+      children: cards,
     );
   }
 

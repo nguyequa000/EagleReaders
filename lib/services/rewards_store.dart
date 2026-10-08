@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'firestore_changes.dart';
+
 /// A reward a parent defines for their children to redeem coins against
 /// (CR #2). Stored at `parents/{uid}/rewards/{rewardId}`.
 ///
@@ -89,6 +91,14 @@ class RewardStore {
       throw StateError('Cannot change rewards while signed out.');
     }
     return collection;
+  }
+
+  /// Fires whenever the parent adds, edits, retires or restores a reward,
+  /// from any device.
+  Stream<void> changes() {
+    final collection = _collection;
+    if (collection == null) return const Stream.empty();
+    return changesOf(collection.snapshots());
   }
 
   /// The catalog, cheapest first — so the child sees what is within reach

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import 'live_refresh.dart';
+import 'reading_library_screen.dart';
 
-/// Parent-facing, read-only view of one child's reading profile.
+/// Parent-facing view of one child's reading profile and book shelf.
 ///
 /// Activity is keyed by [childId] (see [ActivityService]); [childName] is
 /// only for display.
@@ -19,7 +21,8 @@ class ChildProfileScreen extends StatefulWidget {
   State<ChildProfileScreen> createState() => _ChildProfileScreenState();
 }
 
-class _ChildProfileScreenState extends State<ChildProfileScreen> {
+class _ChildProfileScreenState extends State<ChildProfileScreen>
+    with LiveRefresh {
   List<ActivityEvent> _events = [];
   ChildActivityStats? _stats;
   bool _loading = true;
@@ -28,6 +31,11 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   void initState() {
     super.initState();
     _load();
+    // Reading the child is doing right now, on their own device.
+    refreshOn(
+      () => [ActivityService.instance.changes(widget.childId)],
+      _load,
+    );
   }
 
   Future<void> _load() async {
@@ -76,6 +84,23 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.library_add, color: Colors.green),
+                    title: Text("Manage ${widget.childName}'s books"),
+                    subtitle: const Text('Add or remove EPUB books'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ReadingLibraryScreen(
+                          childId: widget.childId,
+                          childName: widget.childName,
+                          canManage: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 _tile(
                   Icons.menu_book,
                   'Books finished',
@@ -129,9 +154,17 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     child: ListTile(
       leading: Icon(icon, color: Colors.green),
       title: Text(label),
-      trailing: Text(
-        value,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      // Capped, because a long book file name would otherwise take the whole
+      // row and fail layout, blanking the screen.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 160),
+        child: Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.end,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
       ),
     ),
   );

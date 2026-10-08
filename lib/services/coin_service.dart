@@ -31,6 +31,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'activity_service.dart';
 import 'child_profiles.dart';
+import 'firestore_changes.dart';
 
 class CoinTransaction {
   final String id;
@@ -221,6 +222,18 @@ class CoinService {
 
   Future<int> awardStory(String childId, String storyTitle) =>
       earn(childId, reason: 'story', title: storyTitle, amount: coinsPerStory);
+
+  /// Fires whenever [childId]'s balance or ledger changes — coins earned,
+  /// spent, given or declined — on this device or another one.
+  Stream<void> changes(String childId) {
+    final child = _childDoc(childId);
+    final ledger = _ledger(childId);
+    if (child == null || ledger == null) return const Stream.empty();
+    return mergeChanges([
+      changesOf(child.snapshots()),
+      changesOf(ledger.snapshots()),
+    ]);
+  }
 
   /// The child's current balance; 0 when signed out or never earned.
   Future<int> balance(String childId) async {

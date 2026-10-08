@@ -24,6 +24,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'firestore_changes.dart';
+
 class ActivityEvent {
   final String type;
   final int ts;
@@ -129,6 +131,14 @@ class ActivityService {
       'type': type,
       'ts': DateTime.now().millisecondsSinceEpoch,
     });
+  }
+
+  /// Fires whenever a new event lands for [childId], whichever device wrote
+  /// it.
+  Stream<void> changes(String childId) {
+    final collection = _collectionFor(childId);
+    if (collection == null) return const Stream.empty();
+    return changesOf(collection.snapshots());
   }
 
   /// All of a child's events, oldest first. Empty when signed out.
