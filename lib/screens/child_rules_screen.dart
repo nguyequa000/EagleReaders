@@ -89,12 +89,12 @@ class _ChildRulesScreenState extends State<ChildRulesScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const _AgeGuide(),
+                const SizedBox(height: 12),
                 const Text(
-                  'Age sets how Sprout writes stories and quizzes (Spooky '
-                  'stories are hidden for ages 3–5). The daily limit counts '
-                  "today's reading time; when it's used up, reading and "
-                  'story making wait until tomorrow unless a grown-up '
-                  'unlocks them.',
+                  "The daily limit counts today's reading time. When it's "
+                  'used up, reading and story making wait until tomorrow '
+                  'unless a grown-up unlocks them with the parent PIN.',
                   style: TextStyle(color: Colors.black54),
                 ),
                 const SizedBox(height: 16),
@@ -148,6 +148,13 @@ class _ChildRulesScreenState extends State<ChildRulesScreen> {
               ),
             ],
           ),
+          // What the chosen band changes, right where it's chosen.
+          Text(
+            rules.ageBand.summary,
+            key: Key('age-summary-${child.id}'),
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
+          ),
+          const SizedBox(height: 4),
           Row(
             children: [
               const Expanded(child: Text('Daily reading limit')),
@@ -173,6 +180,46 @@ class _ChildRulesScreenState extends State<ChildRulesScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What each age band means, so a parent can pick one knowingly.
+class _AgeGuide extends StatelessWidget {
+  const _AgeGuide();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'What the ages mean',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'The age changes how Sprout writes stories and quiz questions '
+            'for that child.',
+            style: TextStyle(color: Colors.black54),
+          ),
+          for (final band in AgeBand.values) ...[
+            const SizedBox(height: 10),
+            Text(
+              band.label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(band.summary),
+          ],
         ],
       ),
     );

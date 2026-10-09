@@ -217,6 +217,15 @@ void main() {
 
     await tapText(tester, 'Age Restrictions');
     expect(find.byType(ChildRulesScreen), findsOneWidget);
+    // The guide spells out every band.
+    expect(find.text('What the ages mean'), findsOneWidget);
+    for (final band in AgeBand.values) {
+      expect(find.text(band.summary), findsWidgets);
+    }
+    expect(
+      tester.widget<Text>(find.byKey(const Key('age-summary-kid-1'))).data,
+      AgeBand.fallback.summary,
+    );
     expect(find.textContaining('Mika'), findsOneWidget);
     expect(find.textContaining('Salma'), findsOneWidget);
 
@@ -224,6 +233,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ages 3–5').last);
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('age-summary-kid-1'))).data,
+      AgeBand.ages3to5.summary,
+    );
 
     await tester.tap(find.byKey(const Key('limit-kid-2')));
     await tester.pumpAndSettle();
@@ -240,6 +253,11 @@ void main() {
     await tester.pumpAndSettle();
     await tapText(tester, 'Time Limit');
     expect(find.byType(ChildRulesScreen), findsOneWidget);
-    expect(find.text('Ages 3–5'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButton<AgeBand>>(find.byKey(const Key('age-kid-1')))
+          .value,
+      AgeBand.ages3to5,
+    );
   });
 }

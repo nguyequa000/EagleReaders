@@ -50,6 +50,21 @@ enum AgeBand {
     AgeBand.ages9to10 => 'Use clear words a 9-year-old reads easily.',
   };
 
+  /// What this band changes, in the parent's words, for Age Restrictions.
+  /// Keep in step with [readingLevel], [pageLength], [quizLevel] and
+  /// [allowsSpooky]: it describes exactly those.
+  String get summary => switch (this) {
+    AgeBand.ages3to5 =>
+      'Very short sentences and the simplest words, 1–2 sentences a page. '
+          'Quiz questions are extra short. Spooky stories are hidden.',
+    AgeBand.ages6to8 =>
+      'Short sentences and everyday words, 2–4 sentences a page. '
+          'Every story feeling is available. (Used until you choose an age.)',
+    AgeBand.ages9to10 =>
+      'Longer sentences with some richer words, 3–5 sentences a page. '
+          'Every story feeling is available.',
+  };
+
   /// Whether this child sees the Spooky feeling. Too much for the youngest.
   bool get allowsSpooky => this != AgeBand.ages3to5;
 }

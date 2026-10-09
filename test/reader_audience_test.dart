@@ -59,4 +59,21 @@ void main() {
     expect(AgeBand.ages6to8.allowsSpooky, isTrue);
     expect(AgeBand.ages9to10.allowsSpooky, isTrue);
   });
+
+  test("each band's summary describes what the band really does", () {
+    for (final band in AgeBand.values) {
+      // The page length shown to parents is the one Gemini is told.
+      final pages = RegExp(r'\d–\d').firstMatch(band.summary)!.group(0)!;
+      expect(
+        band.pageLength.replaceAll(' to ', '–').replaceAll(' or ', '–'),
+        contains(pages),
+        reason: band.label,
+      );
+      expect(
+        band.summary.contains('Spooky stories are hidden'),
+        !band.allowsSpooky,
+        reason: band.label,
+      );
+    }
+  });
 }
