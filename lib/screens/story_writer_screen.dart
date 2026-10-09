@@ -305,7 +305,12 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
           accent: palette.action,
           showArrow: false,
           filled: _mode == mode,
-          onPressed: () => setState(() => _mode = mode),
+          onPressed: () {
+            // The focused box may be the one this switch removes; without
+            // this the keyboard jumps to the title and covers the new boxes.
+            FocusScope.of(context).unfocus();
+            setState(() => _mode = mode);
+          },
         ),
       ),
     );
