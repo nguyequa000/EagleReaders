@@ -191,6 +191,16 @@ class FamilySettings {
     return (name == null || name.trim().isEmpty) ? null : name.trim();
   }
 
+  /// What the dashboards greet the parent as: the name they set, else the
+  /// start of their email, else null.
+  Future<String?> loadGreetingName() async {
+    final name = await loadDisplayName();
+    if (name != null) return name;
+    final email = _auth.currentUser?.email;
+    if (email == null || email.isEmpty) return null;
+    return email.split('@').first;
+  }
+
   Future<void> saveDisplayName(String name) async {
     await _require(
       'change your name',

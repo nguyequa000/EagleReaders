@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/child_profiles.dart';
 import '../services/coin_service.dart';
+import '../services/family_settings.dart';
 import 'child_profile_screen.dart';
 import 'live_refresh.dart';
 import 'parent_settings_screen.dart';
@@ -47,6 +48,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   ChildActivityStats? _stats;
   Map<String, ChildActivityStats> _statsByChild = {};
   bool _loading = true;
+
+  /// What the header greets the parent as (Parent Settings → Edit).
+  String? _name;
 
   @override
   void initState() {
@@ -141,8 +145,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       stories += stats.storiesCreated;
     }
     activity.sort((a, b) => a.$2.ts.compareTo(b.$2.ts));
+    String? name;
+    try {
+      name = await FamilySettings.instance.loadGreetingName();
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
+      _name = name;
       _children = children;
       _statsByChild = statsByChild;
       _balances = balances;
@@ -163,6 +172,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       refreshOn(
         () => [
           _store.changes(),
+          FamilySettings.instance.changes(),
           for (final c in children) ...[
             ActivityService.instance.changes(c.id),
             _coins.changes(c.id),
@@ -325,25 +335,35 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
             child: Icon(Icons.person, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hello, User',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Parent Account',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _name == null ? 'Hello!' : 'Hello, $_name',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'Parent Account',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.grey),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ParentSettingsScreen()),
-            ),
+            tooltip: 'Settings',
+            // Reload on return: the name may have changed.
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentSettingsScreen()),
+              );
+              if (mounted) await _load();
+            },
           ),
         ],
       ),
