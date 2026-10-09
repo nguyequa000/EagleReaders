@@ -43,6 +43,10 @@ class StoryWriterScreen extends StatefulWidget {
   /// Settings → Sprout's writing ideas).
   final bool showIdeas;
 
+  /// A draft to carry on with: its text and mode come back, and saving
+  /// (draft or finished) updates that same story.
+  final StoredStory? resume;
+
   const StoryWriterScreen({
     super.key,
     required this.config,
@@ -50,6 +54,7 @@ class StoryWriterScreen extends StatefulWidget {
     this.ideas,
     this.store,
     this.showIdeas = true,
+    this.resume,
   });
 
   @override
@@ -94,6 +99,25 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
   bool _leaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    final draft = widget.resume;
+    if (draft == null) return;
+    _draftId = draft.id;
+    // A blank title was saved as the default; show it blank again.
+    _title.text = draft.title == StoryDraft.defaultTitle ? '' : draft.title;
+    _ideasShown = draft.ideasShown;
+    if (draft.mode == 'guided') {
+      _mode = _WriteMode.guided;
+      _guided[StoryStage.beginning]!.text = draft.beginning;
+      _guided[StoryStage.middle]!.text = draft.middle;
+      _guided[StoryStage.end]!.text = draft.end;
+    } else {
+      _free.text = draft.text;
+    }
+  }
+
+  @override
   void dispose() {
     _title.dispose();
     _free.dispose();
@@ -123,6 +147,7 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
             mood: config.mood,
             setting: config.setting,
             ideasShown: _ideasShown,
+            config: storyConfigToMap(config),
           )
         : StoryDraft.guided(
             title: _title.text,
@@ -134,6 +159,7 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
             mood: config.mood,
             setting: config.setting,
             ideasShown: _ideasShown,
+            config: storyConfigToMap(config),
           );
   }
 

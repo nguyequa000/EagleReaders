@@ -4,6 +4,8 @@ import '../services/book_library.dart';
 import '../services/coin_service.dart';
 import '../services/family_settings.dart';
 import '../services/reader_audience.dart';
+import '../services/story_generator.dart';
+import '../services/story_store.dart';
 import 'ai_story_screen.dart';
 import 'book_cover.dart';
 import 'child_rewards_screen.dart';
@@ -12,6 +14,10 @@ import 'story/hero_config.dart';
 import 'story/story_config.dart';
 import 'story_flow_screen.dart';
 import 'live_refresh.dart';
+import 'comprehension_screen.dart';
+import 'my_story_screen.dart';
+import 'story_saving.dart';
+import 'story_writer_screen.dart';
 import 'parent_pin_screen.dart';
 import 'reading_module_page.dart';
 
@@ -48,6 +54,10 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
   /// How many books the home tab shows before "See all".
   static const _homeBooks = 4;
 
+  /// The child's saved stories (written by them or with Sprout), most
+  /// recently changed first. Null until loaded.
+  List<StoredStory>? _stories;
+
   /// Parent Settings, and this child's age band and daily limit.
   AiSettings _ai = const AiSettings();
   ChildRules _rules = const ChildRules();
@@ -66,13 +76,86 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
       () => [
         CoinService.instance.changes(widget.childId),
         FamilySettings.instance.changes(childId: widget.childId),
+        StoryStore.instance.changes(widget.childId),
       ],
       _refresh,
     );
   }
 
   Future<void> _refresh() =>
-      Future.wait([_loadBalance(), _loadRules(), _loadBooks()]);
+      Future.wait([_loadBalance(), _loadRules(), _loadBooks(), _loadStories()]);
+
+  Future<void> _loadStories() async {
+    List<StoredStory> stories;
+    try {
+      stories = await StoryStore.instance.loadStories(widget.childId);
+    } catch (_) {
+      stories = const [];
+    }
+    if (mounted) setState(() => _stories = stories);
+  }
+
+  /// A finished story, to read again.
+  void _readStory(StoredStory story) =>
+      _push(MyStoryScreen(title: story.title, text: story.text));
+
+  /// An unfinished story, back where the child left it.
+  Future<void> _resumeStory(StoredStory story) async {
+    if (_locked) return _showDoneForToday();
+    if (story.byAi) {
+      final questions = <ComprehensionQuestion>[];
+      for (final q in story.questions) {
+        try {
+          questions.add(ComprehensionQuestion.fromJson(q));
+        } catch (_) {}
+      }
+      return _push(
+        StoryReaderScreen(
+          config: story.config,
+          childId: widget.childId,
+          childName: widget.childName,
+          initialStory: Story(
+            title: story.title,
+            pages: story.pages,
+            choices: story.choices,
+            questions: questions,
+          ),
+          initialPage: story.page,
+          initialChapters: story.chapters,
+          onProgress: AiStorySaver(
+            childId: widget.childId,
+            config: story.config,
+            id: story.id,
+          ).save,
+        ),
+      );
+    }
+    final saved = await Navigator.of(context).push<SavedStory>(
+      MaterialPageRoute(
+        builder: (_) => StoryWriterScreen(
+          config: story.config,
+          childId: widget.childId,
+          showIdeas: _ai.sproutIdeas,
+          resume: story,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (saved != null) {
+      // Finished now: logged and paid like a story finished in one go.
+      final typed = saved.title.trim();
+      recordStoryCreated(
+        context,
+        widget.childId,
+        typed.isEmpty || typed == StoryDraft.defaultTitle
+            ? storyTitle(story.config)
+            : typed,
+      );
+      await _push(MyStoryScreen(title: saved.title, text: saved.text));
+    } else {
+      await _refresh();
+    }
+  }
 
   /// Books a grown-up added in Child Profile → Manage books. They live on this
   /// device, so they show up as soon as the dashboard opens.
@@ -332,10 +415,18 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
           _buildSectionHeader('My Books'),
           const SizedBox(height: 12),
           ..._buildMyBooks(),
-          // The presets are written by AI, so they go when AI stories do.
+          const SizedBox(height: 24),
+          _buildSectionHeader('My Stories'),
+          const SizedBox(height: 12),
+          ..._buildFinishedStories(),
+          const SizedBox(height: 24),
+          _buildSectionHeader('Still Working On'),
+          const SizedBox(height: 12),
+          ..._buildUnfinishedStories(),
+          // The ideas are written by AI, so they go when AI stories do.
           if (_ai.aiStories) ...[
             const SizedBox(height: 24),
-            _buildSectionHeader('My Stories'),
+            _buildSectionHeader('Story Ideas'),
             const SizedBox(height: 12),
             _buildBookGrid([
               for (final preset in _storyPresets)
@@ -347,6 +438,11 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
                       config: preset.config,
                       childId: widget.childId,
                       childName: widget.childName,
+                      // Kept like any story Sprout writes with them.
+                      onProgress: AiStorySaver(
+                        childId: widget.childId,
+                        config: preset.config,
+                      ).save,
                     ),
                   ),
                 ),
@@ -356,6 +452,76 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
       ),
     );
   }
+
+  /// Finished stories only; with none yet, a card that starts one.
+  List<Widget> _buildFinishedStories() {
+    final stories = _stories;
+    if (stories == null) return const [];
+    final finished = stories.where((s) => s.completed).toList()
+      ..sort(
+        (a, b) => (b.completedAt ?? DateTime(0)).compareTo(
+          a.completedAt ?? DateTime(0),
+        ),
+      );
+    return [
+      _storyRow([
+        for (final story in finished)
+          _StoryCard(
+            title: story.title,
+            emoji: _settingEmoji(story.config.setting),
+            caption: story.byAi ? 'With Sprout' : 'By you',
+            onTap: () => _readStory(story),
+          ),
+        if (finished.isEmpty) _NewStoryCard(onTap: _createStory),
+      ]),
+    ];
+  }
+
+  /// Stories begun and not finished: tap to carry on.
+  List<Widget> _buildUnfinishedStories() {
+    final stories = _stories;
+    if (stories == null) return const [];
+    final unfinished = stories.where((s) => !s.completed).toList();
+    if (unfinished.isEmpty) {
+      return const [
+        Text(
+          "Stories you start but don't finish will wait for you here.",
+          key: Key('no-unfinished-stories'),
+          style: TextStyle(color: Colors.black54),
+        ),
+      ];
+    }
+    return [
+      _storyRow([
+        for (final story in unfinished)
+          _StoryCard(
+            title: story.title,
+            emoji: _settingEmoji(story.config.setting),
+            caption: story.byAi ? 'Keep reading' : 'Keep writing',
+            unfinished: true,
+            onTap: () => _resumeStory(story),
+          ),
+      ]),
+    ];
+  }
+
+  Widget _storyRow(List<Widget> cards) => SizedBox(
+    height: 190,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: cards.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 12),
+      itemBuilder: (_, i) => SizedBox(width: 140, child: cards[i]),
+    ),
+  );
+
+  static String _settingEmoji(String? setting) => switch (setting) {
+    'Forest' => '🌲',
+    'Ocean' => '🌊',
+    'City' => '🏙️',
+    'Outer Space' => '🚀',
+    _ => '📖',
+  };
 
   List<Widget> _buildMyBooks() {
     final books = _books;
@@ -443,6 +609,126 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
   // Placeholder tabs — bottom nav navigates away for read/create
   Widget _buildReadTab() => const SizedBox.shrink();
   Widget _buildMyStoriesTab() => const SizedBox.shrink();
+}
+
+/// One of the child's stories in a row on the home tab.
+class _StoryCard extends StatelessWidget {
+  final String title;
+  final String emoji;
+  final String caption;
+  final bool unfinished;
+  final VoidCallback onTap;
+
+  const _StoryCard({
+    required this.title,
+    required this.emoji,
+    required this.caption,
+    required this.onTap,
+    this.unfinished = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '$title. $caption',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: unfinished
+                      ? Colors.amber.shade50
+                      : Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.amber.shade300,
+                    width: unfinished ? 1 : 2,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Text(emoji, style: const TextStyle(fontSize: 44)),
+                    ),
+                    if (unfinished)
+                      const Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Icon(Icons.edit_note, color: Colors.black45),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            Text(
+              caption,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Where the finished stories go before there are any: a grey card with a
+/// plus that starts one.
+class _NewStoryCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _NewStoryCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Create a story',
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        key: const Key('new-story-card'),
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Icon(Icons.add, size: 56, color: Colors.grey.shade600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Create a story',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            const Text(' ', style: TextStyle(fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A card across the top of the home tab: the reading reminder, or the

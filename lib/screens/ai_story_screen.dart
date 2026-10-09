@@ -8,6 +8,25 @@ import 'story/story_button.dart';
 import 'story/story_config.dart';
 import 'story/story_theme.dart';
 
+/// Where a story stands, for whoever saves it (see [StoryReaderScreen.onProgress]).
+class StoryProgress {
+  final Story story;
+
+  /// The page the child is on, from 0.
+  final int page;
+  final int chapters;
+
+  /// The child reached the end ("The End" or "Quiz time!").
+  final bool finished;
+
+  const StoryProgress({
+    required this.story,
+    required this.page,
+    required this.chapters,
+    required this.finished,
+  });
+}
+
 /// Reads the story Sprout writes from the child's choices, a chapter at a
 /// time: the child picks (or types) what happens next, can have each page
 /// read aloud, and answers a short quiz once the story ends.
@@ -33,6 +52,17 @@ class StoryReaderScreen extends StatefulWidget {
   })?
   generate;
 
+  /// A story already begun, to carry on from [initialPage] instead of
+  /// writing a new one (a story the child left unfinished).
+  final Story? initialStory;
+  final int initialPage;
+  final int initialChapters;
+
+  /// Called when a chapter is written, when the child reaches the end, and
+  /// when the reader closes, so the story can be saved. The reader itself
+  /// doesn't save anything.
+  final ValueChanged<StoryProgress>? onProgress;
+
   const StoryReaderScreen({
     super.key,
     required this.config,
@@ -40,6 +70,10 @@ class StoryReaderScreen extends StatefulWidget {
     this.childName = '',
     this.onNextPage,
     this.generate,
+    this.initialStory,
+    this.initialPage = 0,
+    this.initialChapters = 1,
+    this.onProgress,
   });
 
   @override
@@ -53,7 +87,9 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
   static const _maxChapters = 5;
 
   final FlutterTts _tts = FlutterTts();
-  final PageController _pageController = PageController();
+  late final PageController _pageController = PageController(
+    initialPage: _startPage,
+  );
   final _ownIdea = TextEditingController();
   bool _typingOwn = false;
 
@@ -64,20 +100,56 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
   int _chapters = 1;
   bool _writing = false;
   bool _finishing = false;
+
+  /// The child got to "The End"; what [_report] says from then on.
+  bool _reachedEnd = false;
   int _page = 0;
   bool _speaking = false;
   int? _wordStart;
   int? _wordEnd;
 
+  /// Where a resumed story opens: its saved page, kept within the story.
+  int get _startPage {
+    final story = widget.initialStory;
+    if (story == null || story.pages.isEmpty) return 0;
+    return widget.initialPage.clamp(0, story.pages.length - 1);
+  }
+
   @override
   void initState() {
     super.initState();
     _initTts();
-    _load();
+    final resumed = widget.initialStory;
+    if (resumed != null && resumed.pages.isNotEmpty) {
+      _story = resumed;
+      _page = _startPage;
+      _chapters = widget.initialChapters;
+    } else {
+      _load();
+    }
+  }
+
+  /// Hands the story to [StoryReaderScreen.onProgress]. Not for the offline
+  /// classic, which isn't the child's story.
+  void _report({bool finished = false}) {
+    final story = _story;
+    if (story == null || _offline || _safetyStop) return;
+    // Once they've reached the end it stays finished, closing included.
+    if (finished) _reachedEnd = true;
+    widget.onProgress?.call(
+      StoryProgress(
+        story: story,
+        page: _page,
+        chapters: _chapters,
+        finished: _reachedEnd,
+      ),
+    );
   }
 
   @override
   void dispose() {
+    // Remember the page they stopped on.
+    _report();
     _tts.stop();
     _pageController.dispose();
     _ownIdea.dispose();
@@ -140,6 +212,7 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
       _offline = offline;
       _resting = resting;
     });
+    _report();
   }
 
   // Writes the next chapter from the child's [choice], or the ending when null.
@@ -161,6 +234,7 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
         _ownIdea.clear();
         _typingOwn = false;
       });
+      _report();
       // Wait for the PageView to know about the new pages before turning.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _pageController.nextPage(
@@ -217,6 +291,7 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
     if (_finishing) return;
     _finishing = true;
     _tts.stop();
+    _report(finished: true);
     final story = _story!;
     final childId = widget.childId;
     // Parent Settings → AI reading quizzes.
