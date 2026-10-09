@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import '../services/family_settings.dart';
 import '../services/story_generator.dart';
 import 'comprehension_screen.dart';
 import 'story/story_button.dart';
@@ -218,7 +219,9 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
     _tts.stop();
     final story = _story!;
     final childId = widget.childId;
-    if (story.questions.isNotEmpty && childId != null) {
+    // Parent Settings → AI reading quizzes.
+    final quizzes = FamilySettings.instance.ai.aiQuizzes;
+    if (story.questions.isNotEmpty && childId != null && quizzes) {
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => ComprehensionScreen(
@@ -267,7 +270,8 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
           foregroundColor: palette.headerInk,
           elevation: 0,
           actions: [
-            if (story != null)
+            // Parent Settings → Read Aloud.
+            if (story != null && FamilySettings.instance.ai.readAloud)
               IconButton(
                 tooltip: _speaking ? 'Stop reading' : 'Read aloud',
                 icon: Icon(_speaking ? Icons.stop : Icons.volume_up),
@@ -422,7 +426,11 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
                   ? const SizedBox(width: 48)
                   : isLast
                   ? StoryButton(
-                      label: story.questions.isEmpty ? 'The End' : 'Quiz time!',
+                      label:
+                          story.questions.isEmpty ||
+                              !FamilySettings.instance.ai.aiQuizzes
+                          ? 'The End'
+                          : 'Quiz time!',
                       accent: palette.action,
                       onPressed: _finish,
                     )

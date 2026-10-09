@@ -6,17 +6,17 @@ class ParentPinScreen extends StatefulWidget {
 
   @override
   State<ParentPinScreen> createState() => _ParentPinScreenState();
+
+  // DEMO: hardcoded pin for testing. Also unlocks a child's daily time limit.
+  static const String parentPin = '1234';
 }
 
 class _ParentPinScreenState extends State<ParentPinScreen> {
   final TextEditingController _pin = TextEditingController();
   String? _error;
 
-  // DEMO: hardcoded pin for testing
-  static const String _demoPin = '1234';
-
   void _submit() {
-    if (_pin.text == _demoPin) {
+    if (_pin.text == ParentPinScreen.parentPin) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
       );

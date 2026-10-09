@@ -39,12 +39,17 @@ class StoryWriterScreen extends StatefulWidget {
   /// Defaults to [StoryStore.instance].
   final StoryStore? store;
 
+  /// False hides "Need an idea?" and "Ask Sprout" (Parent Settings → AI
+  /// Settings → Sprout's writing ideas).
+  final bool showIdeas;
+
   const StoryWriterScreen({
     super.key,
     required this.config,
     this.childId,
     this.ideas,
     this.store,
+    this.showIdeas = true,
   });
 
   @override
@@ -397,7 +402,7 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
           tint: palette.tintForIndex(i),
           controller: _guided[_parts[i]]!,
           idea: _sprout[_parts[i]],
-          onAskSprout: () => _askSprout(_parts[i]),
+          onAskSprout: widget.showIdeas ? () => _askSprout(_parts[i]) : null,
           onChanged: _changed,
         ),
       ],
@@ -411,6 +416,7 @@ class _StoryWriterScreenState extends State<StoryWriterScreen> {
       showArrow: false,
       onPressed: _canFinish ? _finish : null,
     );
+    if (!widget.showIdeas && _mode == _WriteMode.free) return done;
     if (_mode == _WriteMode.guided) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -517,7 +523,9 @@ class _PartCard extends StatelessWidget {
   final Color tint;
   final TextEditingController controller;
   final String? idea;
-  final VoidCallback onAskSprout;
+
+  /// Null hides the Ask Sprout chip.
+  final VoidCallback? onAskSprout;
   final VoidCallback onChanged;
 
   const _PartCard({
@@ -592,7 +600,7 @@ class _PartCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _AskSproutChip(onTap: onAskSprout),
+              if (onAskSprout != null) _AskSproutChip(onTap: onAskSprout!),
             ],
           ),
           const SizedBox(height: 6),

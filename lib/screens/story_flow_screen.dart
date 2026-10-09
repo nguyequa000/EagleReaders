@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/coin_service.dart';
+import '../services/family_settings.dart';
+import '../services/reader_audience.dart';
 import '../services/story_store.dart';
 import 'ai_story_screen.dart';
 import 'coins_earned_snack_bar.dart';
@@ -16,6 +18,7 @@ import 'story_writer_screen.dart';
 import 'story/hero_catalog.dart';
 import 'story/story_config.dart';
 import 'story/story_finished_screen.dart';
+import 'story/story_option.dart';
 
 class StoryFlowScreen extends StatefulWidget {
   final void Function(StoryConfig config)? onComplete;
@@ -181,7 +184,11 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
     final childName = widget.childName;
     final saved = await Navigator.of(context).push<SavedStory>(
       MaterialPageRoute(
-        builder: (_) => StoryWriterScreen(config: config, childId: childId),
+        builder: (_) => StoryWriterScreen(
+          config: config,
+          childId: childId,
+          showIdeas: FamilySettings.instance.ai.sproutIdeas,
+        ),
       ),
     );
     _writing = false;
@@ -230,6 +237,12 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
       case 3:
         return StoryMoodScreen(
           config: _config,
+          options: ReaderAudience.current.allowsSpooky
+              ? StoryOptions.moods
+              : [
+                  for (final mood in StoryOptions.moods)
+                    if (mood.label != 'Spooky') mood,
+                ],
           onBack: () => _goToStep(2, _config),
           onNext: (config) => _goToStep(4, config),
         );
@@ -241,8 +254,17 @@ class _StoryFlowScreenState extends State<StoryFlowScreen> {
           onEditHero: () => _goToStep(1, _config),
           // Kept so going back and returning doesn't lose what they typed.
           onIdeaChanged: (idea) => _config = _config.copyWith(idea: idea),
-          // Writer level first; the reader opens from the chooser.
-          onStartReading: (config) => _goToStep(5, config),
+          // Writer level first; the reader opens from the chooser. With AI
+          // stories turned off in Parent Settings there is nothing to choose,
+          // so the child goes straight to writing (Back returns here).
+          onStartReading: (config) {
+            if (FamilySettings.instance.ai.aiStories) {
+              _goToStep(5, config);
+            } else {
+              _config = config;
+              _startAdvanced(config);
+            }
+          },
         );
       case 5:
         return StoryModeScreen(

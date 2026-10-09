@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/activity_service.dart';
 import '../services/coin_service.dart';
+import '../services/family_settings.dart';
+import '../services/reader_audience.dart';
 import 'ai_story_screen.dart';
 import 'child_rewards_screen.dart';
 import 'reading_library_screen.dart';
@@ -7,6 +10,7 @@ import 'story/hero_config.dart';
 import 'story/story_config.dart';
 import 'story_flow_screen.dart';
 import 'live_refresh.dart';
+import 'parent_pin_screen.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
   final String childId;
@@ -27,15 +31,87 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
   int _selectedTab = 0;
   int? _coins;
 
+  /// Parent Settings, and this child's age band and daily limit.
+  AiSettings _ai = const AiSettings();
+  ChildRules _rules = const ChildRules();
+  int _minutesToday = 0;
+
+  /// Assumed until the activity loads, so no reminder flashes up first.
+  bool _readToday = true;
+
   @override
   void initState() {
     super.initState();
-    _loadBalance();
-    // Coins a parent gives back, or a redemption decided on their phone.
+    _refresh();
+    // Coins a parent gives back, a redemption decided on their phone, or a
+    // setting changed in Parent Settings.
     refreshOn(
-      () => [CoinService.instance.changes(widget.childId)],
-      _loadBalance,
+      () => [
+        CoinService.instance.changes(widget.childId),
+        FamilySettings.instance.changes(childId: widget.childId),
+      ],
+      _refresh,
     );
+  }
+
+  Future<void> _refresh() => Future.wait([_loadBalance(), _loadRules()]);
+
+  Future<void> _loadRules() async {
+    AiSettings ai;
+    ChildRules rules;
+    List<ActivityEvent> events;
+    try {
+      ai = await FamilySettings.instance.load();
+      rules = await FamilySettings.instance.loadChild(widget.childId);
+      events = await ActivityService.instance.getEvents(widget.childId);
+    } catch (_) {
+      return;
+    }
+    // Everything Gemini writes from here on is pitched at this child.
+    ReaderAudience.current = rules.ageBand;
+    final now = DateTime.now();
+    if (!mounted) return;
+    setState(() {
+      _ai = ai;
+      _rules = rules;
+      _minutesToday = minutesReadToday(events, now);
+      _readToday = readToday(events, now);
+    });
+  }
+
+  /// The daily reading limit is used up and no grown-up has lifted it.
+  bool get _locked => _rules.limitReached(_minutesToday, DateTime.now());
+
+  /// Opens [screen] unless today's time is used up.
+  void _guarded(Widget screen) => _locked ? _showDoneForToday() : _push(screen);
+
+  Future<void> _showDoneForToday() => showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) => _DoneForTodaySheet(
+      onUnlock: () {
+        Navigator.pop(sheetContext);
+        _unlock();
+      },
+    ),
+  );
+
+  Future<void> _unlock() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _GrownUpPinDialog(),
+    );
+    if (ok != true) return;
+    try {
+      await FamilySettings.instance.unlockToday(widget.childId);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't unlock. Try again.")),
+        );
+      }
+      return;
+    }
+    await _loadRules();
   }
 
   /// Re-read after every pushed screen returns: quizzes and stories earn
@@ -52,7 +128,8 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
 
   Future<void> _push(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-    await _loadBalance();
+    // Coins earned, and reading time used, while it was open.
+    await _refresh();
   }
 
   // DEMO data
@@ -107,11 +184,11 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     ),
   ];
 
-  void _openLibrary() => _push(
+  void _openLibrary() => _guarded(
     ReadingLibraryScreen(childId: widget.childId, childName: widget.childName),
   );
 
-  void _createStory() => _push(
+  void _createStory() => _guarded(
     StoryFlowScreen(childId: widget.childId, childName: widget.childName),
   );
 
@@ -181,6 +258,29 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_locked) ...[
+            _Banner(
+              key: const Key('done-for-today'),
+              emoji: '🌙',
+              title: 'All done for today!',
+              message:
+                  'You read for $_minutesToday minutes. Great job! '
+                  'Come back tomorrow for more stories.',
+              action: 'Grown-up unlock',
+              onAction: _unlock,
+            ),
+            const SizedBox(height: 16),
+          ] else if (_ai.readingReminder && !_readToday) ...[
+            _Banner(
+              key: const Key('reading-reminder'),
+              emoji: '📚',
+              title: "You haven't read today",
+              message: "Let's read a story together!",
+              action: 'Read now',
+              onAction: _openLibrary,
+            ),
+            const SizedBox(height: 16),
+          ],
           _buildSectionHeader('Continue Reading'),
           const SizedBox(height: 12),
           _buildBookGrid([
@@ -191,23 +291,26 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
                 onTap: _openLibrary,
               ),
           ]),
-          const SizedBox(height: 24),
-          _buildSectionHeader('My Stories'),
-          const SizedBox(height: 12),
-          _buildBookGrid([
-            for (final preset in _storyPresets)
-              _BookCard(
-                title: preset.title,
-                emoji: preset.emoji,
-                onTap: () => _push(
-                  StoryReaderScreen(
-                    config: preset.config,
-                    childId: widget.childId,
-                    childName: widget.childName,
+          // The presets are written by AI, so they go when AI stories do.
+          if (_ai.aiStories) ...[
+            const SizedBox(height: 24),
+            _buildSectionHeader('My Stories'),
+            const SizedBox(height: 12),
+            _buildBookGrid([
+              for (final preset in _storyPresets)
+                _BookCard(
+                  title: preset.title,
+                  emoji: preset.emoji,
+                  onTap: () => _guarded(
+                    StoryReaderScreen(
+                      config: preset.config,
+                      childId: widget.childId,
+                      childName: widget.childName,
+                    ),
                   ),
                 ),
-              ),
-          ]),
+            ]),
+          ],
         ],
       ),
     );
@@ -241,6 +344,175 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
   // Placeholder tabs — bottom nav navigates away for read/create
   Widget _buildReadTab() => const SizedBox.shrink();
   Widget _buildMyStoriesTab() => const SizedBox.shrink();
+}
+
+/// A card across the top of the home tab: the reading reminder, or the
+/// daily limit being used up.
+class _Banner extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String message;
+  final String action;
+  final VoidCallback onAction;
+
+  const _Banner({
+    super.key,
+    required this.emoji,
+    required this.title,
+    required this.message,
+    required this.action,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade300, width: 2),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 36)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(message),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: onAction,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.amber.shade700,
+                  ),
+                  child: Text(action),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the child taps Read or Create after today's time is used up.
+class _DoneForTodaySheet extends StatelessWidget {
+  final VoidCallback onUnlock;
+
+  const _DoneForTodaySheet({required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🌙', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 8),
+            const Text(
+              'All done for today!',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "You've used today's reading time. Come back tomorrow!",
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onUnlock,
+                    child: const Text('Grown-up unlock'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.amber.shade700,
+                    ),
+                    child: const Text('OK'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The parent PIN, to lift today's limit.
+class _GrownUpPinDialog extends StatefulWidget {
+  const _GrownUpPinDialog();
+
+  @override
+  State<_GrownUpPinDialog> createState() => _GrownUpPinDialogState();
+}
+
+class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
+  final _pin = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _pin.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_pin.text == ParentPinScreen.parentPin) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _error = 'Incorrect PIN. Try again.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Grown-up unlock'),
+      content: TextField(
+        controller: _pin,
+        autofocus: true,
+        obscureText: true,
+        keyboardType: TextInputType.number,
+        maxLength: 4,
+        decoration: InputDecoration(
+          labelText: 'Parent PIN',
+          errorText: _error,
+          counterText: '',
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _submit, child: const Text('Unlock')),
+      ],
+    );
+  }
 }
 
 /// The child's coin balance in the app bar; tapping it opens My Rewards.

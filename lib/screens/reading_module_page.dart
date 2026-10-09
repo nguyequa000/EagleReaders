@@ -12,6 +12,7 @@ import 'package:flutter/rendering.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/activity_service.dart';
+import '../services/family_settings.dart';
 import '../services/book_library.dart';
 import '../services/device_memory.dart';
 import '../services/story_generator.dart';
@@ -329,19 +330,22 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
       for (final chapter in _document?.Chapters ?? <EpubChapter>[])
         chapter.HtmlContent ?? '',
     ];
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ComprehensionScreen(
-          childId: widget.childId,
-          childName: widget.childName,
-          bookTitle: title,
-          chapterNumber: _chapterIndex + 1,
-          generateQuestions: () =>
-              ReadingModulePage.generateQuestions(title, chapterHtml),
+    // Parent Settings → AI reading quizzes.
+    if (FamilySettings.instance.ai.aiQuizzes) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ComprehensionScreen(
+            childId: widget.childId,
+            childName: widget.childName,
+            bookTitle: title,
+            chapterNumber: _chapterIndex + 1,
+            generateQuestions: () =>
+                ReadingModulePage.generateQuestions(title, chapterHtml),
+          ),
         ),
-      ),
-    );
-    if (!mounted) return;
+      );
+      if (!mounted) return;
+    }
     setState(() => _busy = false);
     _sessionStart = ActivityService.instance.startSession();
   }
@@ -359,6 +363,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     // and the few pixels it takes resize the paged reader's web view, which
     // makes epub.js jump back to where the book was opened.
     if (!mounted || _busy || _chapterQuizOpen) return;
+    // Parent Settings → AI reading quizzes.
+    if (!FamilySettings.instance.ai.aiQuizzes) return;
     _chapterQuizOpen = true;
     _savePosition();
     await _endReadingSession();

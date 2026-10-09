@@ -231,8 +231,16 @@ class FamilySettings {
   }
 
   /// Fires when the switches or [childId]'s rules change on any device.
+  ///
+  /// Empty when Firebase can't be reached, rather than throwing: screens list
+  /// this beside other services' streams, and one throw would cost them all.
   Stream<void> changes({String? childId}) {
-    final parent = _parent;
+    final DocumentReference<Map<String, dynamic>>? parent;
+    try {
+      parent = _parent;
+    } catch (_) {
+      return const Stream.empty();
+    }
     if (parent == null) return const Stream.empty();
     return mergeChanges([
       changesOf(parent.snapshots()),
