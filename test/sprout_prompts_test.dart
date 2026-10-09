@@ -10,7 +10,12 @@ void main() {
   final heroes = [for (final h in HeroCatalog.heroes) h.value!];
   final settings = [for (final s in StoryOptions.settings) s.label];
   final moods = [for (final m in StoryOptions.moods) m.label];
-  const stages = [StoryStage.beginning, StoryStage.middle, StoryStage.end];
+  const stages = [
+    StoryStage.beginning,
+    StoryStage.middle,
+    StoryStage.end,
+    StoryStage.any,
+  ];
 
   SproutRequest request(
     String hero,

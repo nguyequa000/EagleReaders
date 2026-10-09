@@ -34,7 +34,10 @@ class SproutPrompt {
       characters.isNotEmpty || settings.isNotEmpty || moods.isNotEmpty;
 
   bool fits(SproutRequest request) =>
-      (stage == StoryStage.any || stage == request.stage) &&
+      // Free writing asks with `any`, and every stage's questions fit it.
+      (stage == StoryStage.any ||
+          request.stage == StoryStage.any ||
+          stage == request.stage) &&
       (characters.isEmpty || characters.contains(request.character)) &&
       (settings.isEmpty || settings.contains(request.setting)) &&
       (moods.isEmpty || moods.contains(request.mood));
