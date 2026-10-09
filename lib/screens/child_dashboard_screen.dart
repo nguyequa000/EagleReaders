@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
+import '../services/book_library.dart';
 import '../services/coin_service.dart';
 import '../services/family_settings.dart';
 import '../services/reader_audience.dart';
@@ -11,15 +14,20 @@ import 'story/story_config.dart';
 import 'story_flow_screen.dart';
 import 'live_refresh.dart';
 import 'parent_pin_screen.dart';
+import 'reading_module_page.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
   final String childId;
   final String childName;
 
+  /// The child's shelf; defaults to their [BookLibrary] on this device.
+  final BookLibrary? library;
+
   const ChildDashboardScreen({
     super.key,
     required this.childId,
     required this.childName,
+    this.library,
   });
 
   @override
@@ -30,6 +38,16 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     with LiveRefresh {
   int _selectedTab = 0;
   int? _coins;
+
+  late final BookLibrary _library =
+      widget.library ?? BookLibrary(widget.childId);
+
+  /// The child's books, most recently opened (or added) first. Null until
+  /// loaded.
+  List<Book>? _books;
+
+  /// How many books the home tab shows before "See all".
+  static const _homeBooks = 4;
 
   /// Parent Settings, and this child's age band and daily limit.
   AiSettings _ai = const AiSettings();
@@ -54,7 +72,34 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     );
   }
 
-  Future<void> _refresh() => Future.wait([_loadBalance(), _loadRules()]);
+  Future<void> _refresh() =>
+      Future.wait([_loadBalance(), _loadRules(), _loadBooks()]);
+
+  /// Books a grown-up added in Child Profile → Manage books. They live on this
+  /// device, so they show up as soon as the dashboard opens.
+  Future<void> _loadBooks() async {
+    List<Book> books;
+    try {
+      books = await _library.load();
+    } catch (_) {
+      books = [];
+    }
+    // Same order as the shelf: the book they were last in comes first.
+    books.sort(
+      (a, b) =>
+          (b.lastOpenedAt ?? b.addedAt).compareTo(a.lastOpenedAt ?? a.addedAt),
+    );
+    if (mounted) setState(() => _books = books);
+  }
+
+  void _openBook(Book book) => _guarded(
+    ReadingModulePage(
+      childId: widget.childId,
+      childName: widget.childName,
+      book: book,
+      library: _library,
+    ),
+  );
 
   Future<void> _loadRules() async {
     AiSettings ai;
@@ -131,14 +176,6 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     // Coins earned, and reading time used, while it was open.
     await _refresh();
   }
-
-  // DEMO data
-  final List<Map<String, String>> _continueReading = [
-    {'title': 'The Tiny Seed', 'emoji': '🌱'},
-    {'title': 'Paddington Bear', 'emoji': '🐻'},
-    {'title': 'The Very Hungry Caterpillar', 'emoji': '🐛'},
-    {'title': 'Charlotte\'s Web', 'emoji': '🕷️'},
-  ];
 
   // Ready-made story ideas; tapping one writes a fresh story from it.
   static const _storyPresets = [
@@ -281,16 +318,9 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
             ),
             const SizedBox(height: 16),
           ],
-          _buildSectionHeader('Continue Reading'),
+          _buildSectionHeader('My Books'),
           const SizedBox(height: 12),
-          _buildBookGrid([
-            for (final book in _continueReading)
-              _BookCard(
-                title: book['title']!,
-                emoji: book['emoji']!,
-                onTap: _openLibrary,
-              ),
-          ]),
+          ..._buildMyBooks(),
           // The presets are written by AI, so they go when AI stories do.
           if (_ai.aiStories) ...[
             const SizedBox(height: 24),
@@ -314,6 +344,61 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
         ],
       ),
     );
+  }
+
+  List<Widget> _buildMyBooks() {
+    final books = _books;
+    if (books == null) return const [];
+    if (books.isEmpty) {
+      return [
+        Container(
+          key: const Key('no-books'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Column(
+            children: [
+              Text('📚', style: TextStyle(fontSize: 40)),
+              SizedBox(height: 8),
+              Text(
+                'No books yet',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Ask a grown-up to add some books for you.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    return [
+      _buildBookGrid([
+        for (final book in books.take(_homeBooks))
+          _BookCard(
+            title: book.title,
+            emoji: '📖',
+            coverPath: book.coverPath,
+            caption: book.chapter == 0
+                ? 'Ready to read'
+                : 'Chapter ${book.chapter} of ${book.chaptersTotal}',
+            onTap: () => _openBook(book),
+          ),
+      ]),
+      if (books.length > _homeBooks)
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _openLibrary,
+            child: Text('See all ${books.length} books'),
+          ),
+        ),
+    ];
   }
 
   Widget _buildSectionHeader(String title) {
@@ -554,13 +639,23 @@ class _CoinChip extends StatelessWidget {
 
 class _BookCard extends StatelessWidget {
   final String title;
+
+  /// Shown when there is no cover, or it can't be read.
   final String emoji;
+
+  /// The book's cover image on this device, if it has one.
+  final String? coverPath;
+
+  /// A line under the title, such as how far through the book they are.
+  final String? caption;
   final VoidCallback onTap;
 
   const _BookCard({
     required this.title,
     required this.emoji,
     required this.onTap,
+    this.coverPath,
+    this.caption,
   });
 
   @override
@@ -584,9 +679,14 @@ class _BookCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 48)),
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: coverPath == null
+                  ? _emojiCover()
+                  : Image.file(
+                      File(coverPath!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _emojiCover(),
+                    ),
             ),
           ),
           const SizedBox(height: 6),
@@ -597,8 +697,19 @@ class _BookCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
+          if (caption != null)
+            Text(
+              caption!,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
         ],
       ),
     );
   }
+
+  Widget _emojiCover() =>
+      Center(child: Text(emoji, style: const TextStyle(fontSize: 48)));
 }
