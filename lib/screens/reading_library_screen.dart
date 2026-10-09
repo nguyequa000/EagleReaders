@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../reading_theme.dart';
 import '../services/book_library.dart';
+import 'book_cover.dart';
 import 'reading_module_page.dart';
 
 class ReadingLibraryScreen extends StatefulWidget {
@@ -315,13 +316,10 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen>
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox.expand(
-                        child: book.coverPath == null
-                            ? _cover(book)
-                            : Image.file(
-                                File(book.coverPath!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => _cover(book),
-                              ),
+                        child: BookCover(
+                          path: book.coverPath,
+                          fallback: _cover(book),
+                        ),
                       ),
                     ),
                   ),

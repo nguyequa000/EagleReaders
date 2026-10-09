@@ -9,6 +9,7 @@ import 'package:image/image.dart' as image;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'epub_cover.dart';
 import 'lighter_epub.dart';
 
 class Book {
@@ -74,6 +75,11 @@ class BookLibrary {
   String quizKey(Book book, int chapter) => '${_quizPrefix(book)}$chapter';
 
   String _quizPrefix(Book book) => 'chapter_quiz_${childId}_${book.id}_';
+
+  /// Set once [fillMissingCovers] has looked in [book] for a cover, found or
+  /// not, so a book with none isn't opened again on every load.
+  String _coverCheckedKey(Book book) =>
+      'book_cover_checked_${childId}_${book.id}';
 
   Future<List<Book>> load() async {
     await _pending;
@@ -225,21 +231,32 @@ class BookLibrary {
     ).create(recursive: true);
     final stem = sha256.convert(utf8.encode(id));
     final file = File('${directory.path}/$stem.epub');
-    final cover = File('${directory.path}/$stem.png');
+    var cover = File('${directory.path}/$stem.png');
     try {
       await file.writeAsBytes(bytes, flush: true);
+      var hasCover = false;
       if (document.CoverImage != null) {
         await cover.writeAsBytes(
           image.encodePng(document.CoverImage!),
           flush: true,
         );
+        hasCover = true;
+      } else {
+        // epubx misses most EPUB 3 covers; find it in the parsed manifest.
+        final found = coverFromDocument(document);
+        if (found != null) {
+          cover = File('${directory.path}/$stem.cover.${found.extension}');
+          // Small, and synchronous so no file handle outlives the add.
+          cover.writeAsBytesSync(found.bytes, flush: true);
+          hasCover = true;
+        }
       }
       final book = Book(
         id: id,
         title: title.trim(),
         author: author.trim(),
         filePath: file.path,
-        coverPath: document.CoverImage == null ? null : cover.path,
+        coverPath: hasCover ? cover.path : null,
         addedAt: DateTime.now().millisecondsSinceEpoch,
       );
       await _write([...books, book]);
@@ -250,6 +267,83 @@ class BookLibrary {
       rethrow;
     }
   });
+
+  /// The cover of an already parsed book, when epubx didn't find one.
+  ///
+  /// epubx only follows `<meta name="cover">`, which it drops from EPUB 3
+  /// metadata, so this looks for the manifest item EPUB 3 marks
+  /// `cover-image`, then for an image called "cover". The bytes are the
+  /// image as the book holds it, so nothing is re-encoded.
+  static EpubCover? coverFromDocument(EpubBook document) {
+    final items = document.Schema?.Package?.Manifest?.Items ?? const [];
+    final images = document.Content?.Images ?? const {};
+    EpubCover? fromItem(bool Function(EpubManifestItem) test) {
+      for (final item in items) {
+        if (!(item.MediaType ?? '').startsWith('image/') || !test(item)) {
+          continue;
+        }
+        final bytes = images[item.Href]?.Content;
+        if (bytes == null || bytes.isEmpty) continue;
+        final href = item.Href!;
+        final dot = href.lastIndexOf('.');
+        return EpubCover(
+          Uint8List.fromList(bytes),
+          dot < 0 ? 'img' : href.substring(dot + 1).toLowerCase(),
+        );
+      }
+      return null;
+    }
+
+    return fromItem(
+          (item) => (item.Properties ?? '').split(' ').contains('cover-image'),
+        ) ??
+        fromItem(
+          (item) => '${item.Id} ${item.Href}'.toLowerCase().contains('cover'),
+        );
+  }
+
+  /// [readEpubCover] on another isolate. Static on purpose: a closure made
+  /// inside an instance method captures `this`, and a library's pending
+  /// Future can't be sent between isolates.
+  static Future<EpubCover?> _readCoverOffThread(String path) =>
+      Isolate.run(() => readEpubCover(path));
+
+  /// Gives books added without a cover one, looking in each book once.
+  ///
+  /// Shelves filled before EPUB 3 covers were found, like the Alice sample,
+  /// have no cover saved. The files are read outside [_serial], off the UI
+  /// thread, so a big book doesn't hold up the shelf; only the save waits its
+  /// turn. Returns the shelf, updated.
+  Future<List<Book>> fillMissingCovers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final found = <String, String>{};
+    for (final book in await load()) {
+      if (book.coverPath != null) continue;
+      if (prefs.getBool(_coverCheckedKey(book)) ?? false) continue;
+      final epub = book.filePath;
+      if (!await File(epub).exists()) continue;
+      final cover = await _readCoverOffThread(epub);
+      await prefs.setBool(_coverCheckedKey(book), true);
+      if (cover == null) continue;
+      final file = File(
+        '${epub.replaceFirst(RegExp(r'\.epub$'), '')}.cover.${cover.extension}',
+      );
+      await file.writeAsBytes(cover.bytes, flush: true);
+      found[book.id] = file.path;
+    }
+    if (found.isEmpty) return load();
+    return _serial(() async {
+      // Re-read: the shelf may have changed while the files were read.
+      final books = [
+        for (final book in await _read())
+          found.containsKey(book.id) && book.coverPath == null
+              ? Book.fromJson({...book.toJson(), 'coverPath': found[book.id]})
+              : book,
+      ];
+      await _write(books);
+      return books;
+    });
+  }
 
   Future<void> markOpened(
     Book book, {
@@ -299,6 +393,7 @@ class BookLibrary {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(positionKey(book));
     await prefs.remove(cfiKey(book));
+    await prefs.remove(_coverCheckedKey(book));
     for (final key in prefs.getKeys().toList()) {
       if (key.startsWith(_quizPrefix(book))) await prefs.remove(key);
     }

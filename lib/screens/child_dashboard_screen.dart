@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/book_library.dart';
@@ -7,6 +5,7 @@ import '../services/coin_service.dart';
 import '../services/family_settings.dart';
 import '../services/reader_audience.dart';
 import 'ai_story_screen.dart';
+import 'book_cover.dart';
 import 'child_rewards_screen.dart';
 import 'reading_library_screen.dart';
 import 'story/hero_config.dart';
@@ -84,13 +83,25 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     } catch (_) {
       books = [];
     }
-    // Same order as the shelf: the book they were last in comes first.
-    books.sort(
+    if (!mounted) return;
+    setState(() => _books = _byRecent(books));
+    // Books added before EPUB 3 covers were read get theirs, once, without
+    // holding up the shelf: the cards show now and the covers follow. The
+    // result is used as is, not reloaded, so a book with no cover at all
+    // can't send this round again.
+    if (books.any((b) => b.coverPath == null)) {
+      _library.fillMissingCovers().then((filled) {
+        if (mounted) setState(() => _books = _byRecent(filled));
+      }, onError: (_) {});
+    }
+  }
+
+  /// Same order as the shelf: the book they were last in comes first.
+  static List<Book> _byRecent(List<Book> books) => [...books]
+    ..sort(
       (a, b) =>
           (b.lastOpenedAt ?? b.addedAt).compareTo(a.lastOpenedAt ?? a.addedAt),
     );
-    if (mounted) setState(() => _books = books);
-  }
 
   void _openBook(Book book) => _guarded(
     ReadingModulePage(
@@ -389,7 +400,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
                 : 'Chapter ${book.chapter} of ${book.chaptersTotal}',
             onTap: () => _openBook(book),
           ),
-      ]),
+      ], aspectRatio: 0.58),
       if (books.length > _homeBooks)
         Align(
           alignment: Alignment.centerRight,
@@ -414,14 +425,17 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     );
   }
 
-  Widget _buildBookGrid(List<Widget> cards) {
+  /// [aspectRatio] is a card's width over its height. Books use a taller
+  /// card so the whole cover shows: most covers are about 2:3, and with the
+  /// title and progress line under it, 0.58 leaves the picture close to that.
+  Widget _buildBookGrid(List<Widget> cards, {double aspectRatio = 0.75}) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 0.75,
+      childAspectRatio: aspectRatio,
       children: cards,
     );
   }
@@ -680,13 +694,7 @@ class _BookCard extends StatelessWidget {
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: coverPath == null
-                  ? _emojiCover()
-                  : Image.file(
-                      File(coverPath!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _emojiCover(),
-                    ),
+              child: BookCover(path: coverPath, fallback: _emojiCover()),
             ),
           ),
           const SizedBox(height: 6),
