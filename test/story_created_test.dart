@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storysprout/screens/ai_story_screen.dart';
+import 'package:storysprout/screens/my_story_screen.dart';
 import 'package:storysprout/screens/story/hero_catalog.dart';
+import 'package:storysprout/screens/story_mode_screen.dart';
+import 'package:storysprout/screens/story_summary_screen.dart';
+import 'package:storysprout/screens/story_writer_screen.dart';
 import 'package:storysprout/screens/story_flow_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/coin_service.dart';
+import 'package:storysprout/services/story_store.dart';
 
 import 'test_helpers.dart';
 
@@ -39,6 +45,7 @@ void main() {
     await tapVisible(tester, 'Funny');
     await tapVisible(tester, 'Next');
     await tapVisible(tester, 'Start Reading!');
+    await tapVisible(tester, 'Beginning writer');
   }
 
   testWidgets('Finishing the story flow records story_created for the child', (
@@ -132,5 +139,162 @@ void main() {
     final coins = await ledgerDocs(fb.firestore, '1');
     expect(coins, hasLength(2));
     expect(await fb.coins.balance('1'), CoinService.coinsPerStory * 2);
+  });
+
+  group('Beginning or Advanced writer', () {
+    /// Opens the flow from a stand-in dashboard, with every service on fakes.
+    Future<({dynamic fb})> openFlow(WidgetTester tester) async {
+      usePhone(tester);
+      final fb = signedIn();
+      ActivityService.instance = fb.activity;
+      CoinService.instance = fb.coins;
+      StoryStore.instance = StoryStore(firestore: fb.firestore, auth: fb.auth);
+      addTearDown(() => StoryStore.instance = StoryStore());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const StoryFlowScreen(childId: '1'),
+                  ),
+                ),
+                child: const Text('DASHBOARD'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('DASHBOARD'));
+      await tester.pumpAndSettle();
+      return (fb: fb);
+    }
+
+    Future<void> toChooser(WidgetTester tester) async {
+      await tapVisible(tester, 'Next');
+      await tapVisible(tester, 'Forest');
+      await tapVisible(tester, 'Next');
+      await tapVisible(tester, 'Funny');
+      await tapVisible(tester, 'Next');
+      await tester.enterText(find.byType(TextField), 'Robin');
+      await tester.pumpAndSettle();
+      await tapVisible(tester, 'Start Reading!');
+    }
+
+    Future<void> typeInto(WidgetTester tester, String key, String text) async {
+      final field = find.descendant(
+        of: find.byKey(Key(key)),
+        matching: find.byType(TextField),
+      );
+      await tester.ensureVisible(field);
+      await tester.enterText(field, text);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('"Start Reading!" asks which writer, and Back keeps the name', (
+      tester,
+    ) async {
+      final (:fb) = await openFlow(tester);
+      await toChooser(tester);
+
+      expect(find.byType(StoryModeScreen), findsOneWidget);
+      expect(find.byType(StoryReaderScreen), findsNothing);
+      // Nothing is logged until a writer is picked.
+      expect(await activityDocs(fb.firestore, '1'), isEmpty);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      expect(find.byType(StorySummaryScreen), findsOneWidget);
+      expect(find.text('Robin'), findsWidgets);
+    });
+
+    testWidgets('backing out of Advanced still lets them pick Beginning', (
+      tester,
+    ) async {
+      final (:fb) = await openFlow(tester);
+      await toChooser(tester);
+
+      await tapVisible(tester, 'Advanced writer');
+      expect(find.byType(StoryWriterScreen), findsOneWidget);
+      await typeInto(tester, 'story-free', 'Half a story');
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StoryModeScreen), findsOneWidget);
+      // The draft was kept, but it is not a finished story.
+      final drafts = await fb.firestore
+          .collection('parents/parent-1/children/1/stories')
+          .get();
+      expect(drafts.docs.single['completedAt'], isNull);
+      expect(await activityDocs(fb.firestore, '1'), isEmpty);
+
+      await tapVisible(tester, 'Beginning writer');
+      expect(find.byType(StoryReaderScreen), findsOneWidget);
+      final docs = await activityDocs(fb.firestore, '1');
+      expect(docs.single['type'], 'story_created');
+      await tester.pumpAndSettle();
+      expect(await ledgerDocs(fb.firestore, '1'), hasLength(1));
+    });
+
+    testWidgets('a finished Advanced story is saved, logged, paid and shown', (
+      tester,
+    ) async {
+      final (:fb) = await openFlow(tester);
+      await toChooser(tester);
+      await tapVisible(tester, 'Advanced writer');
+
+      await typeInto(tester, 'story-title', 'Forest Fun');
+      await typeInto(tester, 'story-free', 'Robin found a giggling tree.');
+      await tapVisible(tester, "I'm done!");
+      await tester.pumpAndSettle();
+
+      final stories = await fb.firestore
+          .collection('parents/parent-1/children/1/stories')
+          .get();
+      expect(stories.docs, hasLength(1));
+      final story = stories.docs.single.data();
+      expect(story['completedAt'], isNotNull);
+      expect(story['heroName'], 'Robin');
+      expect(story['setting'], 'Forest');
+      expect(story['mood'], 'Funny');
+
+      final docs = await activityDocs(fb.firestore, '1');
+      expect(docs, hasLength(1));
+      expect(docs.single['type'], 'story_created');
+      expect(docs.single['title'], 'Forest Fun');
+      final coins = await ledgerDocs(fb.firestore, '1');
+      expect(coins.single['reason'], 'story');
+      expect(coins.single['title'], 'Forest Fun');
+      expect(find.text('🪙 +5 coins!'), findsOneWidget);
+
+      expect(find.byType(MyStoryScreen), findsOneWidget);
+      expect(find.text('Robin found a giggling tree.'), findsOneWidget);
+
+      // The coin toast is still up; the button must not be under it.
+      expect(find.text('🪙 +5 coins!'), findsOneWidget);
+      await tapVisible(tester, 'The End');
+      // The finished screen's buttons are under the toast until it goes.
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+      await tapVisible(tester, 'Return Home');
+      expect(find.text('DASHBOARD'), findsOneWidget);
+      expect(find.byType(MyStoryScreen), findsNothing);
+    });
+
+    testWidgets('an untitled Advanced story is logged under the picks', (
+      tester,
+    ) async {
+      final (:fb) = await openFlow(tester);
+      await toChooser(tester);
+      await tapVisible(tester, 'Advanced writer');
+      await typeInto(tester, 'story-free', 'A short one.');
+      await tapVisible(tester, "I'm done!");
+
+      final docs = await activityDocs(fb.firestore, '1');
+      expect(docs.single['title'], 'Robin in Forest');
+      expect(find.text(StoryDraft.defaultTitle), findsWidgets);
+    });
   });
 }

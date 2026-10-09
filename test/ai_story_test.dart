@@ -410,6 +410,7 @@ void main() {
     await tapVisible('Use this idea');
     // No Firebase in tests, so generation fails and the offline story shows.
     await tapVisible('Start Reading!');
+    await tapVisible('Beginning writer');
     expect(find.text('Try again'), findsOneWidget);
     while (find.text('The End').evaluate().isEmpty) {
       await tester.tap(find.byTooltip('Next page'));
