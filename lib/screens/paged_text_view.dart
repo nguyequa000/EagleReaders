@@ -232,9 +232,8 @@ class _PagedTextViewState extends State<PagedTextView> {
   /// Where the book opens. Opening at a saved spot on the very first section
   /// (the cover) leaves epub.js's continuous layout unable to turn the page,
   /// so start from the beginning instead; it is the same place.
-  String? get _startCfi => spineIndexOfCfi(widget.initialCfi ?? '') == 0
-      ? null
-      : widget.initialCfi;
+  String? get _startCfi =>
+      spineIndexOfCfi(widget.initialCfi ?? '') == 0 ? null : widget.initialCfi;
 
   bool get _atEnd => _locationsReady && _progress >= 0.995;
   bool get _canTurn => widget.enabled && _loaded;

@@ -25,7 +25,7 @@ void main() {
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
     await tester.enterText(find.byType(TextField).first, 'parent@example.com');
     await tester.enterText(find.byType(TextField).last, 'wrongpass');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Log In'));
+    await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();
 
     expect(find.text('Incorrect email or password.'), findsOneWidget);
@@ -40,7 +40,7 @@ void main() {
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
     await tester.enterText(find.byType(TextField).first, 'parent@example.com');
     await tester.enterText(find.byType(TextField).last, 'hunter2');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Log In'));
+    await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();
 
     expect(auth.currentUser, isNotNull);
@@ -51,7 +51,7 @@ void main() {
     final auth = MockFirebaseAuth();
 
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Log In'));
+    await tester.tap(find.text('Log In'));
     await tester.pump();
 
     expect(find.text('Enter your email and password.'), findsOneWidget);
@@ -65,7 +65,7 @@ void main() {
         'parent@example.com',
       );
       await tester.enterText(find.byType(TextField).last, 'hunter2');
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Log In'));
+      await tester.tap(find.text('Log In'));
       await tester.pumpAndSettle();
     }
 

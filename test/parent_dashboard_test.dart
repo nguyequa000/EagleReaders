@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/child_profile_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
-import 'package:storysprout/screens/reading_library_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/child_profiles.dart';
 
@@ -89,7 +89,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Only the parent profile view can add books', (tester) async {
+  testWidgets('The child profile picks their books from the family shelf', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     ActivityService.instance = signedIn().activity;
     await tester.pumpWidget(
@@ -98,14 +100,33 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text("Manage Alex's books"));
+    await tester.tap(find.text("Choose Alex's books"));
     await tester.pumpAndSettle();
-    final library = tester.widget<ReadingLibraryScreen>(
-      find.byType(ReadingLibraryScreen),
+    final shelf = tester.widget<ChildShelfScreen>(
+      find.byType(ChildShelfScreen),
     );
-    expect(library.childId, '1');
-    expect(library.childName, 'Alex');
-    expect(library.canManage, isTrue);
-    expect(find.text('Add Book'), findsOneWidget);
+    expect(shelf.childId, '1');
+    expect(shelf.childName, 'Alex');
+    expect(find.text('The family shelf is empty.'), findsOneWidget);
+    expect(find.text('Manage Shelf'), findsOneWidget);
+  });
+
+  testWidgets('Manage Shelf opens from the dashboard', (tester) async {
+    final fb = signedIn();
+    ActivityService.instance = fb.activity;
+    await fb.store.save([
+      ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(home: ParentDashboardScreen(store: fb.store)),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Manage Shelf'), 200);
+    await tester.tap(find.text('Manage Shelf'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BookShelfScreen), findsOneWidget);
+    expect(find.text('Your next adventure starts here'), findsOneWidget);
+    expect(find.text('Import'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

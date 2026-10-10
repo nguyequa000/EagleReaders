@@ -9,20 +9,21 @@ import 'package:image/image.dart' as image;
 import '../screens/comprehension_screen.dart';
 import '../screens/story/hero_catalog.dart';
 import '../screens/story/story_config.dart';
+import 'reader_audience.dart';
 
 // Flash-Lite: higher free-tier rate limit than Flash (5 RPM hit in testing).
 const _modelName = 'gemini-3.5-flash-lite';
 
 const _systemPrompt = '''
-You are Sprout, a warm children's book author writing for kids aged 4 to 8.
+You are Sprout, a warm children's book author writing for {audience}.
 
 Rules:
-- Use short sentences and simple, everyday words a 6-year-old can read.
+- {readingLevel}
 - Keep everything gentle and kind: no violence, injury, death, weapons used to hurt,
   romance, bullying, scary monsters that harm anyone, brand names, or real people.
 - "Spooky" means playful mystery (friendly ghosts, creaky doors), never frightening.
 - The story is told in chapters and the child decides what happens next.
-- Each page is 2 to 4 sentences.
+- {pageLength}
 - Unless told to end the story, stop the chapter at an exciting moment, not
   at an ending, and give "choices": short (under 8 words), different, kind
   things the main character could do next.
@@ -281,17 +282,26 @@ bool hasBadWords(String s) {
     (m) => m[0]!.replaceAll(RegExp(r'[^a-z]'), ''),
   );
   // "fuuuck", "shiiit" -> "fuck", "shit" (kept separate: "ass" needs its ss).
-  final squeezed = joined.replaceAllMapped(
-    RegExp(r'([a-z])\1+'),
-    (m) => m[1]!,
-  );
+  final squeezed = joined.replaceAllMapped(RegExp(r'([a-z])\1+'), (m) => m[1]!);
   return [s, plain, joined, squeezed].any(_badWords.hasMatch) ||
       _hiddenWords.hasMatch(squeezed.replaceAll(RegExp(r'[^a-z]'), ''));
 }
 
 const _leet = {
-  '@': 'a', r'$': 's', '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e',
-  '4': 'a', '5': 's', '7': 't', '8': 'b', '9': 'g', '+': 't', '*': 'u',
+  '@': 'a',
+  r'$': 's',
+  '0': 'o',
+  '1': 'i',
+  '!': 'i',
+  '|': 'i',
+  '3': 'e',
+  '4': 'a',
+  '5': 's',
+  '7': 't',
+  '8': 'b',
+  '9': 'g',
+  '+': 't',
+  '*': 'u',
   'ph': 'f',
 };
 
@@ -361,7 +371,8 @@ Future<Story> generateStory(
   final schema = _schemaFor(ending: ending);
   final text = await _generate(prompt, schema);
   final chapter = Story.fromJson(jsonDecode(text) as Map<String, dynamic>);
-  if (needsGrownUp(chapter.title) || chapter.pages.any(needsGrownUp) ||
+  if (needsGrownUp(chapter.title) ||
+      chapter.pages.any(needsGrownUp) ||
       chapter.choices.any(needsGrownUp)) {
     throw const SafetyStopException();
   }
@@ -375,6 +386,24 @@ Future<Story> generateStory(
   );
 }
 
+/// Fills a system prompt's `{audience}`, `{readingLevel}`, `{pageLength}` and
+/// `{quizLevel}` for [band].
+@visibleForTesting
+String forAudience(String system, AgeBand band) => system
+    .replaceAll('{audience}', band.audience)
+    .replaceAll('{readingLevel}', band.readingLevel)
+    .replaceAll('{pageLength}', band.pageLength)
+    .replaceAll('{quizLevel}', band.quizLevel);
+
+/// The story and quiz system prompts, before [forAudience].
+@visibleForTesting
+const systemPromptsForTest = [
+  _systemPrompt,
+  _quizSystemPrompt,
+  _chapterQuizSystemPrompt,
+  _pictureQuizSystemPrompt,
+];
+
 Future<String> _generate(
   String prompt,
   Schema schema, {
@@ -382,6 +411,8 @@ Future<String> _generate(
   double temperature = 0.9,
   List<Uint8List> images = const [],
 }) async {
+  // Every prompt is written for the child using the app (Age Restrictions).
+  system = forAudience(system, ReaderAudience.current);
   if (images.isNotEmpty && _localUrl.isNotEmpty) {
     // The local text model can't see pictures; the quiz shows its error.
     throw UnsupportedError('The local model cannot read pictures');
@@ -415,7 +446,7 @@ Future<String> _generate(
 }
 
 const _quizSystemPrompt = '''
-You are Sprout, a friendly reading buddy for kids aged 4 to 8.
+You are Sprout, a friendly reading buddy for {audience}.
 
 You get excerpts from a book a child just finished. Write 3 multiple-choice
 comprehension questions about the story: its characters, what happens, and
@@ -424,7 +455,7 @@ where it happens.
 $_quizRules''';
 
 const _chapterQuizSystemPrompt = '''
-You are Sprout, a friendly reading buddy for kids aged 4 to 8.
+You are Sprout, a friendly reading buddy for {audience}.
 
 You get one chapter of a book a child just read. Write 3 multiple-choice
 comprehension questions about that chapter only: who is in it, what happens,
@@ -433,7 +464,7 @@ and where it happens. Don't ask about anything that comes later.
 $_quizRules''';
 
 const _pictureQuizSystemPrompt = '''
-You are Sprout, a friendly reading buddy for kids aged 4 to 8.
+You are Sprout, a friendly reading buddy for {audience}.
 
 You get the pages of one chapter of a picture book or comic a child just
 read, as pictures, in order. Write 3 multiple-choice comprehension questions
@@ -444,7 +475,7 @@ $_quizRules''';
 
 const _quizRules = '''
 Rules:
-- Use short, simple words a 6-year-old can read.
+- {quizLevel}
 - Each question has 3 short answers; exactly one is right and is clearly
   supported by the excerpts. "correct" is the 0-based index of the right answer.
 - Never ask about copyright, licenses, publishers or the ebook itself.

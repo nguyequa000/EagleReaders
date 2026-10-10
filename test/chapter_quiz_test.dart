@@ -123,7 +123,10 @@ void main() {
     trigger.moveTo(0, pageTurn: false);
 
     final six = trigger.moveTo(2, pageTurn: true);
-    expect((six?.title, six?.entry, six?.end), ('VI The Captain’s Papers', 0, 1));
+    expect(
+      (six?.title, six?.entry, six?.end),
+      ('VI The Captain’s Papers', 0, 1),
+    );
     // Skipping a whole chapter (VII to IX) is still a jump, not reading on.
     expect(trigger.moveTo(4, pageTurn: true), isNull);
   });

@@ -70,6 +70,11 @@ void main() {
       await next();
 
       expectFits(4);
+      await tester.tap(find.text('Start Reading!'));
+      await tester.pumpAndSettle();
+
+      // The Beginning / Advanced writer chooser.
+      expectFits(5);
     });
   }
 }

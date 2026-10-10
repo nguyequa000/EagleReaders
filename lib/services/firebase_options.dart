@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'story-sprout-test-project.firebasestorage.app',
     measurementId: 'G-QTRDFBZ915',
   );
-
 }

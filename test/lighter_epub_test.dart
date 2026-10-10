@@ -27,8 +27,10 @@ List<int> _bigJpeg() {
 
 Uint8List _epub(List<int> picture) {
   final archive = Archive()
-    ..addFile(ArchiveFile('mimetype', 20, 'application/epub+zip'.codeUnits)
-      ..compress = false)
+    ..addFile(
+      ArchiveFile('mimetype', 20, 'application/epub+zip'.codeUnits)
+        ..compress = false,
+    )
     ..addFile(ArchiveFile('OEBPS/text.xhtml', 11, 'hello world'.codeUnits))
     ..addFile(ArchiveFile('OEBPS/picture.jpg', picture.length, picture));
   return Uint8List.fromList(ZipEncoder().encode(archive)!);
@@ -53,41 +55,45 @@ void main() {
     ]);
     // The EPUB spec wants the mimetype first and stored, not deflated.
     expect(files.first.compress, isFalse);
-    expect(String.fromCharCodes(files.first.content as List<int>),
-        'application/epub+zip');
+    expect(
+      String.fromCharCodes(files.first.content as List<int>),
+      'application/epub+zip',
+    );
     expect(String.fromCharCodes(files[1].content as List<int>), 'hello world');
     final resized = image.decodeJpg(files[2].content as List<int>)!;
     expect(resized.width, 800);
     expect(resized.height, 533);
   });
 
-  test('the lighter copy is made once, reused and removed with the book',
-      () async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    SharedPreferences.setMockInitialValues({});
-    final root = Directory.systemTemp.createTempSync('lighter-epub-test-');
-    addTearDown(() => root.deleteSync(recursive: true));
-    final library = BookLibrary('1', root: root);
-    final bytes = File('test/fixtures/illustrated.epub').readAsBytesSync();
-    final book = await library.add(
-      fileName: 'illustrated.epub',
-      bytes: bytes,
-      title: 'Illustrated',
-    );
+  test(
+    'the lighter copy is made once, reused and removed with the book',
+    () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+      final root = Directory.systemTemp.createTempSync('lighter-epub-test-');
+      addTearDown(() => root.deleteSync(recursive: true));
+      final library = BookLibrary('1', root: root);
+      final bytes = File('test/fixtures/illustrated.epub').readAsBytesSync();
+      final book = await library.add(
+        fileName: 'illustrated.epub',
+        bytes: bytes,
+        title: 'Illustrated',
+      );
 
-    final path = await BookLibrary.lighterCopy(book, maxBytes: 1024 * 1024);
-    expect(path, BookLibrary.lighterPath(book));
-    expect(File(path!).existsSync(), isTrue);
+      final path = await BookLibrary.lighterCopy(book, maxBytes: 1024 * 1024);
+      expect(path, BookLibrary.lighterPath(book));
+      expect(File(path!).existsSync(), isTrue);
 
-    // Reused: a second call doesn't redo the work.
-    final made = File(path).lastModifiedSync();
-    expect(await BookLibrary.lighterCopy(book, maxBytes: 1024 * 1024), path);
-    expect(File(path).lastModifiedSync(), made);
+      // Reused: a second call doesn't redo the work.
+      final made = File(path).lastModifiedSync();
+      expect(await BookLibrary.lighterCopy(book, maxBytes: 1024 * 1024), path);
+      expect(File(path).lastModifiedSync(), made);
 
-    // Still too big for the reader: say so rather than hand it over.
-    expect(await BookLibrary.lighterCopy(book, maxBytes: 10), isNull);
+      // Still too big for the reader: say so rather than hand it over.
+      expect(await BookLibrary.lighterCopy(book, maxBytes: 10), isNull);
 
-    await library.remove(book);
-    expect(File(path).existsSync(), isFalse);
-  });
+      await library.remove(book);
+      expect(File(path).existsSync(), isFalse);
+    },
+  );
 }

@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
-import 'package:storysprout/screens/reading_library_screen.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/story_generator.dart';
@@ -57,8 +57,8 @@ void main() {
         ),
       );
       final library = testLibrary();
-      await showLibrary(tester, library, canManage: true);
-      await tester.tap(find.text('Add Book'));
+      await showShelf(tester, library);
+      await tester.tap(find.text('Import'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Choose File'));
       await tester.pumpAndSettle();
@@ -101,6 +101,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final library = testLibrary();
+      final store = await testStore(tester, library);
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(
@@ -109,16 +110,11 @@ void main() {
             ).copyWith(textScaler: TextScaler.linear(1.5)),
             child: child!,
           ),
-          home: ReadingLibraryScreen(
-            childId: 'Alex',
-            childName: 'Alex',
-            library: library,
-            canManage: true,
-          ),
+          home: BookShelfScreen(shelf: library.shelf, store: store),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add Book'));
+      await tester.tap(find.text('Import'));
       await tester.pumpAndSettle();
       final sample = find.text("Try sample: Alice's Adventures in Wonderland");
       await tester.ensureVisible(sample);
@@ -182,8 +178,8 @@ void main() {
         null,
       ),
     );
-    await showLibrary(tester, testLibrary(), canManage: true);
-    await tester.tap(find.text('Add Book'));
+    await showShelf(tester, testLibrary());
+    await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
     expect(find.textContaining('.txt'), findsNothing);
     await tester.tap(find.text('Choose File'));
@@ -247,66 +243,69 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Reading out of a chapter brings up a quiz Gemini wrote from it', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    MethodChannelFilePicker.registerWith();
-    final bytes = File(
-      'assets/books/alice_in_wonderland.epub',
-    ).readAsBytesSync();
-    const channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (_) async => [
-        {'name': 'alice.epub', 'size': bytes.length, 'bytes': bytes},
-      ],
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+  testWidgets(
+    'Reading out of a chapter brings up a quiz Gemini wrote from it',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      MethodChannelFilePicker.registerWith();
+      final bytes = File(
+        'assets/books/alice_in_wonderland.epub',
+      ).readAsBytesSync();
+      const channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         channel,
-        null,
-      ),
-    );
-    final asked = <(String, String)>[];
-    ReadingModulePage.writeChapterQuiz = (book, chapter, html) async {
-      asked.add((chapter, bookExcerpt(html)));
-      return const [
-        ComprehensionQuestion(
-          question: 'What did Alice follow?',
-          answers: ['A White Rabbit', 'A cat', 'A dog'],
-          correctIndex: 0,
+        (_) async => [
+          {'name': 'alice.epub', 'size': bytes.length, 'bytes': bytes},
+        ],
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
         ),
-      ];
-    };
-    addTearDown(
-      () => ReadingModulePage.writeChapterQuiz = generateChapterQuestions,
-    );
-    await importBook(tester, testLibrary(), 'My Alice book');
-    await openShelfBook(tester, 'My Alice book');
+      );
+      final asked = <(String, String)>[];
+      ReadingModulePage.writeChapterQuiz = (book, chapter, html) async {
+        asked.add((chapter, bookExcerpt(html)));
+        return const [
+          ComprehensionQuestion(
+            question: 'What did Alice follow?',
+            answers: ['A White Rabbit', 'A cat', 'A dog'],
+            correctIndex: 0,
+          ),
+        ];
+      };
+      addTearDown(
+        () => ReadingModulePage.writeChapterQuiz = generateChapterQuestions,
+      );
+      await importBook(tester, testLibrary(), 'My Alice book');
+      await openShelfBook(tester, 'My Alice book');
 
-    final controller = tester.widget<EpubView>(find.byType(EpubView)).controller;
-    final toc = controller.tableOfContents();
-    final one = toc.indexWhere((c) => c.title!.startsWith('CHAPTER I.'));
-    // Read into Chapter I, then on into Chapter II.
-    for (final chapter in [one, one + 1]) {
-      controller.jumpTo(index: toc[chapter].startIndex);
+      final controller = tester
+          .widget<EpubView>(find.byType(EpubView))
+          .controller;
+      final toc = controller.tableOfContents();
+      final one = toc.indexWhere((c) => c.title!.startsWith('CHAPTER I.'));
+      // Read into Chapter I, then on into Chapter II.
+      for (final chapter in [one, one + 1]) {
+        controller.jumpTo(index: toc[chapter].startIndex);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(ComprehensionScreen), findsOneWidget);
+      expect(find.text('What did Alice follow?'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+      final (title, text) = asked.single;
+      expect(title, startsWith('CHAPTER I.'));
+      // Chapter I's own text, not the next chapter's.
+      expect(text, contains('White Rabbit'));
+      expect(text, isNot(contains('Pool of Tears')));
+
+      await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-    }
-
-    expect(find.byType(ComprehensionScreen), findsOneWidget);
-    expect(find.text('What did Alice follow?'), findsOneWidget);
-    expect(find.text('Skip'), findsOneWidget);
-    final (title, text) = asked.single;
-    expect(title, startsWith('CHAPTER I.'));
-    // Chapter I's own text, not the next chapter's.
-    expect(text, contains('White Rabbit'));
-    expect(text, isNot(contains('Pool of Tears')));
-
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
-    expect(find.byType(EpubView), findsOneWidget);
-  });
+      expect(find.byType(EpubView), findsOneWidget);
+    },
+  );
 
   testWidgets('Renders EPUB markup and embedded images, not flattened text', (
     tester,
@@ -365,7 +364,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final library = testLibrary();
     await showLibrary(tester, library);
-    expect(find.text('Add Book'), findsNothing);
+    expect(find.text('Import'), findsNothing);
     expect(
       find.text('Ask a grown-up to add books to your shelf.'),
       findsOneWidget,
@@ -383,8 +382,8 @@ void main() {
     expect(find.text('Alice'), findsOneWidget);
     expect(find.byTooltip('Remove Alice'), findsNothing);
 
-    await showLibrary(tester, library, canManage: true);
-    expect(find.text('Add Book'), findsOneWidget);
+    await showShelf(tester, library);
+    expect(find.text('Import'), findsOneWidget);
     expect(find.byTooltip('Remove Alice'), findsOneWidget);
   });
 }

@@ -29,17 +29,46 @@ void main() {
   });
 
   test('hasBadWords catches swearing and slurs but not kid words', () {
-    for (final s in ['a fox says shit', 'F*CK', 'sh1t happens', 'bitches',
-        'a racist nigga joke', 'Kill your self', 'kys', 'KILL YOURSELF',
-        'go die', 'i will kill you', 'k1ll urself', 'f u c k', 'f.u.c.k',
-        's-h-i-t', 'fuuuuck', 'sh!t', 'phuck', 'youfuckingidiot',
-        'k i l l y o u r s e l f', 'killurself', 'frick', 'kms']) {
+    for (final s in [
+      'a fox says shit',
+      'F*CK',
+      'sh1t happens',
+      'bitches',
+      'a racist nigga joke',
+      'Kill your self',
+      'kys',
+      'KILL YOURSELF',
+      'go die',
+      'i will kill you',
+      'k1ll urself',
+      'f u c k',
+      'f.u.c.k',
+      's-h-i-t',
+      'fuuuuck',
+      'sh!t',
+      'phuck',
+      'youfuckingidiot',
+      'k i l l y o u r s e l f',
+      'killurself',
+      'frick',
+      'kms',
+    ]) {
       expect(hasBadWords(s), isTrue, reason: s);
     }
-    for (final s in ['a cockatoo in a prickly bush', 'hello class',
-        'Dickens wrote books', 'a scary assassin? no, a pass', 'raccoon', 'the dragon will die',
-        'a big glass of milk', 'a phone call', 'I am 7 years old',
-        'a fox, a cat, and a dog', 'the shiny sheep', 'Scotland']) {
+    for (final s in [
+      'a cockatoo in a prickly bush',
+      'hello class',
+      'Dickens wrote books',
+      'a scary assassin? no, a pass',
+      'raccoon',
+      'the dragon will die',
+      'a big glass of milk',
+      'a phone call',
+      'I am 7 years old',
+      'a fox, a cat, and a dog',
+      'the shiny sheep',
+      'Scotland',
+    ]) {
       expect(hasBadWords(s), isFalse, reason: s);
     }
   });

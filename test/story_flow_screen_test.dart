@@ -142,6 +142,8 @@ void main() {
 
     // Step 4
     await tapLabel(tester, 'Start Reading!');
+    await tester.pumpAndSettle();
+    await tapLabel(tester, 'Beginning writer');
 
     expect(result?.hero, isNotNull);
     expect(result?.mood, 'Spooky');
@@ -196,6 +198,8 @@ void main() {
     await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     await tapLabel(tester, 'Start Reading!');
+    await tester.pumpAndSettle();
+    await tapLabel(tester, 'Beginning writer');
 
     expect(result?.hero, isNotNull);
     expect(result?.mood, 'Calm');
@@ -241,6 +245,8 @@ void main() {
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('Start Reading!'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Beginning writer'));
       await tester.pumpAndSettle();
     }
 

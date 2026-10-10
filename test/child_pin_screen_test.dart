@@ -12,7 +12,7 @@ void main() {
   testWidgets('correct PIN opens the child dashboard', (tester) async {
     await tester.pumpWidget(wrap(ChildPinScreen(child: child)));
     await tester.enterText(find.byType(TextField), '4321');
-    await tester.tap(find.widgetWithText(ElevatedButton, "Let's Go! 🚀"));
+    await tester.tap(find.text("Let's Go! 🚀"));
     await tester.pumpAndSettle();
 
     expect(find.byType(ChildDashboardScreen), findsOneWidget);
@@ -21,7 +21,7 @@ void main() {
   testWidgets('wrong PIN shows an error and does not navigate', (tester) async {
     await tester.pumpWidget(wrap(ChildPinScreen(child: child)));
     await tester.enterText(find.byType(TextField), '0000');
-    await tester.tap(find.widgetWithText(ElevatedButton, "Let's Go! 🚀"));
+    await tester.tap(find.text("Let's Go! 🚀"));
     await tester.pump();
 
     expect(find.text('Incorrect PIN. Try again.'), findsOneWidget);
