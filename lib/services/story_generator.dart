@@ -282,17 +282,26 @@ bool hasBadWords(String s) {
     (m) => m[0]!.replaceAll(RegExp(r'[^a-z]'), ''),
   );
   // "fuuuck", "shiiit" -> "fuck", "shit" (kept separate: "ass" needs its ss).
-  final squeezed = joined.replaceAllMapped(
-    RegExp(r'([a-z])\1+'),
-    (m) => m[1]!,
-  );
+  final squeezed = joined.replaceAllMapped(RegExp(r'([a-z])\1+'), (m) => m[1]!);
   return [s, plain, joined, squeezed].any(_badWords.hasMatch) ||
       _hiddenWords.hasMatch(squeezed.replaceAll(RegExp(r'[^a-z]'), ''));
 }
 
 const _leet = {
-  '@': 'a', r'$': 's', '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e',
-  '4': 'a', '5': 's', '7': 't', '8': 'b', '9': 'g', '+': 't', '*': 'u',
+  '@': 'a',
+  r'$': 's',
+  '0': 'o',
+  '1': 'i',
+  '!': 'i',
+  '|': 'i',
+  '3': 'e',
+  '4': 'a',
+  '5': 's',
+  '7': 't',
+  '8': 'b',
+  '9': 'g',
+  '+': 't',
+  '*': 'u',
   'ph': 'f',
 };
 
@@ -362,7 +371,8 @@ Future<Story> generateStory(
   final schema = _schemaFor(ending: ending);
   final text = await _generate(prompt, schema);
   final chapter = Story.fromJson(jsonDecode(text) as Map<String, dynamic>);
-  if (needsGrownUp(chapter.title) || chapter.pages.any(needsGrownUp) ||
+  if (needsGrownUp(chapter.title) ||
+      chapter.pages.any(needsGrownUp) ||
       chapter.choices.any(needsGrownUp)) {
     throw const SafetyStopException();
   }

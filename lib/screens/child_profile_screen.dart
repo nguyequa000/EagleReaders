@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import 'live_refresh.dart';
-import 'reading_library_screen.dart';
+import 'book_shelf_screen.dart';
 
-/// Parent-facing view of one child's reading profile and book shelf.
+/// Parent-facing view of one child's reading profile, and which of the
+/// family's books they have.
 ///
 /// Activity is keyed by [childId] (see [ActivityService]); [childName] is
 /// only for display.
@@ -32,10 +33,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
     super.initState();
     _load();
     // Reading the child is doing right now, on their own device.
-    refreshOn(
-      () => [ActivityService.instance.changes(widget.childId)],
-      _load,
-    );
+    refreshOn(() => [ActivityService.instance.changes(widget.childId)], _load);
   }
 
   Future<void> _load() async {
@@ -87,15 +85,14 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.library_add, color: Colors.green),
-                    title: Text("Manage ${widget.childName}'s books"),
-                    subtitle: const Text('Add or remove EPUB books'),
+                    title: Text("Choose ${widget.childName}'s books"),
+                    subtitle: const Text('Pick books from the family shelf'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ReadingLibraryScreen(
+                        builder: (_) => ChildShelfScreen(
                           childId: widget.childId,
                           childName: widget.childName,
-                          canManage: true,
                         ),
                       ),
                     ),

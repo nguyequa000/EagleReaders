@@ -152,15 +152,20 @@ void main() {
 
   group('safety', () {
     test('redactPII leaves ordinary story text alone', () {
-      const text = '3 little pigs walked down the road.\n\n'
+      const text =
+          '3 little pigs walked down the road.\n\n'
           '5 friends met Dr Owl and went to school.';
       expect(redactPII(text), text);
       expect(redactPII('I go to Lincoln Elementary'), 'I go to [removed]');
     });
 
     test('needsGrownUp catches common variants', () {
-      for (final s in ['he hit me', 'I was abused', 'kill my self',
-          "I don't want to live"]) {
+      for (final s in [
+        'he hit me',
+        'I was abused',
+        'kill my self',
+        "I don't want to live",
+      ]) {
         expect(needsGrownUp(s), isTrue, reason: s);
       }
     });
@@ -195,14 +200,15 @@ void main() {
   test('isQuotaError recognises quota and rate-limit errors', () {
     expect(isQuotaError(Exception('You exceeded your current quota')), isTrue);
     expect(isQuotaError(Exception('Gemini 429: Too Many Requests')), isTrue);
-    expect(isQuotaError(Exception('Local model 500: http://10.0.2.2:4290')), isFalse);
+    expect(
+      isQuotaError(Exception('Local model 500: http://10.0.2.2:4290')),
+      isFalse,
+    );
     expect(isQuotaError(Exception('RESOURCE_EXHAUSTED')), isTrue);
     expect(isQuotaError(Exception('network down')), isFalse);
   });
 
-  testWidgets('generated story pages through to its quiz', (
-    tester,
-  ) async {
+  testWidgets('generated story pages through to its quiz', (tester) async {
     final completer = Completer<Story>();
     await tester.pumpWidget(
       MaterialApp(
@@ -228,9 +234,7 @@ void main() {
     expect(find.text('What did Fox find?'), findsOneWidget);
   });
 
-  testWidgets('generation failure shows the offline story', (
-    tester,
-  ) async {
+  testWidgets('generation failure shows the offline story', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: StoryReaderScreen(
@@ -282,7 +286,8 @@ void main() {
         home: StoryReaderScreen(
           config: _config,
           childName: 'Mia',
-          generate: (_, {soFar, choice}) async => throw Exception('network down'),
+          generate: (_, {soFar, choice}) async =>
+              throw Exception('network down'),
         ),
       ),
     );
@@ -399,7 +404,10 @@ void main() {
     await tapVisible('Funny');
     await tapVisible('Next');
     await tapVisible('Add an idea');
-    await tester.enterText(find.byType(TextField).last, 'Fox builds a treehouse.');
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Fox builds a treehouse.',
+    );
     await tapVisible('Use this idea');
     // Back a step and forward again keeps what they typed.
     await tester.tap(find.byIcon(Icons.arrow_back).first);

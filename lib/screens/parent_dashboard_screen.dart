@@ -5,6 +5,7 @@ import '../services/activity_service.dart';
 import '../services/child_profiles.dart';
 import '../services/coin_service.dart';
 import '../services/family_settings.dart';
+import 'book_shelf_screen.dart';
 import 'child_profile_screen.dart';
 import 'live_refresh.dart';
 import 'parent_settings_screen.dart';
@@ -239,6 +240,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                     ..._buildChildProfiles(),
                     const SizedBox(height: 20),
 
+                    const Text(
+                      'Books',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildShelfEntry(context),
+                    const SizedBox(height: 20),
+
                     // Rewards (CR #2)
                     const Text(
                       'Rewards',
@@ -276,6 +288,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
             ),
     );
   }
+
+  /// Manage Shelf: the family's books, imported once and given to children.
+  Widget _buildShelfEntry(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+    ),
+    child: ListTile(
+      leading: const CircleAvatar(
+        backgroundColor: Colors.green,
+        child: Icon(Icons.local_library, color: Colors.white),
+      ),
+      title: const Text('Manage Shelf'),
+      subtitle: const Text('Import books and choose who reads them'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => BookShelfScreen(store: _store))),
+    ),
+  );
 
   Widget _buildRewardsEntry(BuildContext context) {
     final pending = _pending.length;

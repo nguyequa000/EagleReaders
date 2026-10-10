@@ -3,8 +3,12 @@ import 'dart:io';
 import 'package:epub_view/epub_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/reading_library_screen.dart';
 import 'package:storysprout/services/book_library.dart';
+import 'package:storysprout/services/child_profiles.dart';
+
+import 'test_helpers.dart';
 
 BookLibrary testLibrary({String child = 'Alex', Directory? root}) {
   final directory =
@@ -31,11 +35,7 @@ Future<void> readingWork(
   await tester.pumpAndSettle();
 }
 
-Future<void> showLibrary(
-  WidgetTester tester,
-  BookLibrary library, {
-  bool canManage = false,
-}) async {
+Future<void> showLibrary(WidgetTester tester, BookLibrary library) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pumpAndSettle();
   await tester.pumpWidget(
@@ -45,7 +45,6 @@ Future<void> showLibrary(
         childId: library.childId,
         childName: library.childId,
         library: library,
-        canManage: canManage,
       ),
     ),
   );
@@ -55,19 +54,56 @@ Future<void> showLibrary(
   );
 }
 
-/// Adds a book as the parent, then reopens the shelf as the child.
+/// An account whose only child is [library]'s, named by their id.
+Future<ChildProfileStore> testStore(
+  WidgetTester tester,
+  BookLibrary library,
+) async {
+  final store = signedIn().store;
+  await tester.runAsync(
+    () => store.save([
+      ChildProfile.withPin(
+        id: library.childId,
+        name: library.childId,
+        pin: '1234',
+      ),
+    ]),
+  );
+  return store;
+}
+
+/// Manage Shelf, on [library]'s storage, with its child on the account.
+Future<void> showShelf(WidgetTester tester, BookLibrary library) async {
+  final store = await testStore(tester, library);
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pumpAndSettle();
+  await tester.pumpWidget(
+    MaterialApp(
+      home: BookShelfScreen(shelf: library.shelf, store: store),
+    ),
+  );
+  await readingWork(
+    tester,
+    () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
+  );
+}
+
+/// Adds a book as the parent, for [library]'s child, then reopens the shelf
+/// as the child.
 Future<void> importBook(
   WidgetTester tester,
   BookLibrary library,
   String title, {
   String? author,
 }) async {
-  await showLibrary(tester, library, canManage: true);
-  await tester.tap(find.text('Add Book'));
+  await showShelf(tester, library);
+  await tester.tap(find.text('Import'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Choose File'));
-  await tester.pumpAndSettle();
-  expect(find.byType(TextFormField), findsNWidgets(2));
+  await readingWork(
+    tester,
+    () => find.byType(TextFormField).evaluate().length == 2,
+    action: () => tester.tap(find.text('Choose File')),
+  );
   await tester.enterText(find.byType(TextFormField).first, title);
   if (author != null) {
     await tester.enterText(find.byType(TextFormField).last, author);

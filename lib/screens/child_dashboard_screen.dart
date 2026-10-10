@@ -9,7 +9,6 @@ import '../services/story_store.dart';
 import 'ai_story_screen.dart';
 import 'book_cover.dart';
 import 'child_rewards_screen.dart';
-import 'reading_library_screen.dart';
 import 'story/hero_config.dart';
 import 'story/story_config.dart';
 import 'story_flow_screen.dart';
@@ -20,6 +19,10 @@ import 'story_saving.dart';
 import 'story_writer_screen.dart';
 import 'parent_pin_screen.dart';
 import 'reading_module_page.dart';
+import 'sticker_kit.dart';
+import 'story/paper_background.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 class ChildDashboardScreen extends StatefulWidget {
   final String childId;
@@ -51,7 +54,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
   /// loaded.
   List<Book>? _books;
 
-  /// How many books the home tab shows before "See all".
+  /// How many books Currently Reading shows before "See all".
   static const _homeBooks = 4;
 
   /// The child's saved stories (written by them or with Sprout), most
@@ -157,7 +160,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     }
   }
 
-  /// Books a grown-up added in Child Profile → Manage books. They live on this
+  /// Books a grown-up gave this child in Manage Shelf. They live on this
   /// device, so they show up as soon as the dashboard opens.
   Future<void> _loadBooks() async {
     List<Book> books;
@@ -315,77 +318,76 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     ),
   ];
 
-  void _openLibrary() => _guarded(
-    ReadingLibraryScreen(childId: widget.childId, childName: widget.childName),
-  );
+  /// My Library is a tab of its own; the books in it are what the daily
+  /// limit guards, not looking at them.
+  void _showLibrary() => setState(() => _selectedTab = 1);
 
   void _createStory() => _guarded(
     StoryFlowScreen(childId: widget.childId, childName: widget.childName),
   );
 
+  void _openRewards() => _push(
+    ChildRewardsScreen(childId: widget.childId, childName: widget.childName),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: Text('Hi ${widget.childName}! 🌱'),
-        backgroundColor: Colors.amber,
-        foregroundColor: Colors.white,
-        actions: [
-          if (_coins != null)
-            _CoinChip(
-              coins: _coins!,
-              onTap: () => _push(
-                ChildRewardsScreen(
-                  childId: widget.childId,
-                  childName: widget.childName,
+    final palette = StoryTheme.of(context);
+    // Back from My Library goes Home rather than leaving the dashboard.
+    return PopScope(
+      canPop: _selectedTab == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _selectedTab = 0);
+      },
+      child: Scaffold(
+        backgroundColor: palette.ground,
+        body: PaperBackground(
+          child: Column(
+            children: [
+              StickerHeader(
+                title: 'Hi ${widget.childName}! 🌱',
+                trailing: [
+                  if (_coins != null)
+                    _CoinChip(coins: _coins!, onTap: _openRewards),
+                  StickerIconButton(
+                    icon: Icons.redeem,
+                    tooltip: 'My Rewards',
+                    onTap: _openRewards,
+                  ),
+                  StickerIconButton(icon: Icons.search, onTap: () {}),
+                  const ThemeSticker(),
+                ],
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedTab,
+                  children: [
+                    _buildHomeTab(),
+                    _buildLibraryTab(),
+                    // Create a Story opens the story flow instead.
+                    const SizedBox.shrink(),
+                  ],
                 ),
               ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.redeem),
-            tooltip: 'My Rewards',
-            onPressed: () => _push(
-              ChildRewardsScreen(
-                childId: widget.childId,
-                childName: widget.childName,
-              ),
-            ),
+            ],
           ),
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-        ],
-      ),
-      body: IndexedStack(
-        index: _selectedTab,
-        children: [_buildHomeTab(), _buildReadTab(), _buildMyStoriesTab()],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedTab,
-        onTap: (index) {
-          if (index == 1) return _openLibrary();
-          if (index == 2) return _createStory();
-          setState(() => _selectedTab = index);
-        },
-        selectedItemColor: Colors.amber,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: 'Read a Story',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.edit),
-            label: 'Create a Story',
-          ),
-        ],
+        ),
+        bottomNavigationBar: _StickerNavBar(
+          currentIndex: _selectedTab,
+          onTap: (index) {
+            if (index == 2) return _createStory();
+            setState(() => _selectedTab = index);
+          },
+        ),
       ),
     );
   }
 
   Widget _buildHomeTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      // The extra room at the bottom keeps the last row's hard shadows clear
+      // of the nav bar's edge.
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -408,13 +410,13 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
               title: "You haven't read today",
               message: "Let's read a story together!",
               action: 'Read now',
-              onAction: _openLibrary,
+              onAction: _showLibrary,
             ),
             const SizedBox(height: 16),
           ],
-          _buildSectionHeader('My Books'),
+          _buildSectionHeader('Currently Reading'),
           const SizedBox(height: 12),
-          ..._buildMyBooks(),
+          ..._buildCurrentlyReading(),
           const SizedBox(height: 24),
           _buildSectionHeader('My Stories'),
           const SizedBox(height: 12),
@@ -429,8 +431,10 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
             _buildSectionHeader('Story Ideas'),
             const SizedBox(height: 12),
             _buildBookGrid([
-              for (final preset in _storyPresets)
+              for (final (i, preset) in _storyPresets.indexed)
                 _BookCard(
+                  index: i,
+                  tinted: true,
                   title: preset.title,
                   emoji: preset.emoji,
                   onTap: () => _guarded(
@@ -465,8 +469,9 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
       );
     return [
       _storyRow([
-        for (final story in finished)
+        for (final (i, story) in finished.indexed)
           _StoryCard(
+            index: i,
             title: story.title,
             emoji: _settingEmoji(story.config.setting),
             caption: story.byAi ? 'With Sprout' : 'By you',
@@ -483,18 +488,19 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     if (stories == null) return const [];
     final unfinished = stories.where((s) => !s.completed).toList();
     if (unfinished.isEmpty) {
-      return const [
+      return [
         Text(
           "Stories you start but don't finish will wait for you here.",
-          key: Key('no-unfinished-stories'),
-          style: TextStyle(color: Colors.black54),
+          key: const Key('no-unfinished-stories'),
+          style: StoryTheme.body(color: StoryTheme.of(context).inkMuted),
         ),
       ];
     }
     return [
       _storyRow([
-        for (final story in unfinished)
+        for (final (i, story) in unfinished.indexed)
           _StoryCard(
+            index: i,
             title: story.title,
             emoji: _settingEmoji(story.config.setting),
             caption: story.byAi ? 'Keep reading' : 'Keep writing',
@@ -505,12 +511,16 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     ];
   }
 
+  /// A sideways-scrolling row. The padding gives the tilted cards and their
+  /// hard shadows room, so the list's edges don't shave their corners off.
   Widget _storyRow(List<Widget> cards) => SizedBox(
-    height: 190,
+    height: 200,
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      padding: const EdgeInsets.fromLTRB(4, 4, 8, 8),
       itemCount: cards.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 12),
+      separatorBuilder: (_, _) => const SizedBox(width: 16),
       itemBuilder: (_, i) => SizedBox(width: 140, child: cards[i]),
     ),
   );
@@ -523,70 +533,183 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     _ => '📖',
   };
 
-  List<Widget> _buildMyBooks() {
+  /// The books the child has opened, the one they were last in first. A book
+  /// they haven't started yet waits in My Library.
+  List<Widget> _buildCurrentlyReading() {
     final books = _books;
     if (books == null) return const [];
-    if (books.isEmpty) {
+    if (books.isEmpty) return [_buildNoBooks()];
+    final palette = StoryTheme.of(context);
+    final reading = books.where((b) => b.lastOpenedAt != null).toList();
+    if (reading.isEmpty) {
       return [
-        Container(
-          key: const Key('no-books'),
-          width: double.infinity,
+        StickerCard(
+          key: const Key('nothing-being-read'),
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Column(
-            children: [
-              Text('📚', style: TextStyle(fontSize: 40)),
-              SizedBox(height: 8),
-              Text(
-                'No books yet',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Ask a grown-up to add some books for you.',
-                textAlign: TextAlign.center,
-              ),
-            ],
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              children: [
+                const Text('📚', style: TextStyle(fontSize: 40)),
+                const SizedBox(height: 8),
+                Text(
+                  'Pick a book to start',
+                  style: StoryTheme.display(
+                    size: 18,
+                    color: palette.ink,
+                    weight: 700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Your books are waiting in My Library.',
+                  textAlign: TextAlign.center,
+                  style: StoryTheme.body(color: palette.inkMuted),
+                ),
+                const SizedBox(height: 12),
+                StoryButton(
+                  label: 'Open My Library',
+                  accent: palette.action,
+                  onPressed: _showLibrary,
+                ),
+              ],
+            ),
           ),
         ),
       ];
     }
+    final shown = reading.take(_homeBooks).toList();
     return [
-      _buildBookGrid([
-        for (final book in books.take(_homeBooks))
-          _BookCard(
-            title: book.title,
-            emoji: '📖',
-            coverPath: book.coverPath,
-            caption: book.chapter == 0
-                ? 'Ready to read'
-                : 'Chapter ${book.chapter} of ${book.chaptersTotal}',
-            onTap: () => _openBook(book),
-          ),
-      ], aspectRatio: 0.58),
-      if (books.length > _homeBooks)
+      _buildBooks(shown),
+      if (books.length > shown.length) ...[
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: _openLibrary,
-            child: Text('See all ${books.length} books'),
+          child: StickerPill(
+            onTap: _showLibrary,
+            color: palette.action,
+            child: Text(
+              'See all ${books.length} books',
+              style: StoryTheme.display(
+                size: 14,
+                color: palette.onAction,
+                weight: 700,
+              ),
+            ),
           ),
         ),
+      ],
     ];
   }
 
+  /// Every book a grown-up has added for this child, A to Z.
+  Widget _buildLibraryTab() {
+    final books = _books;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('My Library'),
+          const SizedBox(height: 12),
+          if (books != null)
+            books.isEmpty
+                ? _buildNoBooks()
+                : _buildBooks(
+                    [...books]..sort(
+                      (a, b) => a.title.toLowerCase().compareTo(
+                        b.title.toLowerCase(),
+                      ),
+                    ),
+                  ),
+        ],
+      ),
+    );
+  }
+
+  /// [books] as a grid of covers, each opening its book.
+  Widget _buildBooks(List<Book> books) => _buildBookGrid([
+    for (final (i, book) in books.indexed)
+      _BookCard(
+        index: i,
+        title: book.title,
+        emoji: '📖',
+        coverPath: book.coverPath,
+        caption: book.chapter == 0
+            ? 'Ready to read'
+            : 'Chapter ${book.chapter} of ${book.chaptersTotal}',
+        onTap: () => _openBook(book),
+      ),
+  ], aspectRatio: 0.58);
+
+  Widget _buildNoBooks() {
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      key: const Key('no-books'),
+      padding: const EdgeInsets.all(20),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          children: [
+            const Text('📚', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 8),
+            Text(
+              'No books yet',
+              style: StoryTheme.display(
+                size: 18,
+                color: palette.ink,
+                weight: 700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ask a grown-up to add some books for you.',
+              textAlign: TextAlign.center,
+              style: StoryTheme.body(color: palette.inkMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Which tint each section's title tag wears, so the page reads as a run
+  /// of different stickers rather than one repeated label.
+  static const _sectionTints = {
+    'Currently Reading': 1,
+    'My Library': 1,
+    'My Stories': 2,
+    'Still Working On': 3,
+    'Story Ideas': 4,
+  };
+
   Widget _buildSectionHeader(String title) {
+    final palette = StoryTheme.of(context);
+    final index = _sectionTints[title] ?? 0;
     return Row(
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        StickerPill(
+          color: palette.tintForIndex(index),
+          tilt: stickerTilt(index),
+          child: Text(
+            title,
+            style: StoryTheme.display(
+              size: 18,
+              color: palette.ink,
+              weight: 700,
+            ),
+          ),
         ),
-        const SizedBox(width: 8),
-        const Expanded(child: Divider(thickness: 1.5, color: Colors.black26)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: StoryTheme.outlineWidthThin,
+            decoration: BoxDecoration(
+              color: palette.outline,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -598,21 +721,23 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      // Room for the tilted corners and hard shadows on the outer cards.
+      clipBehavior: Clip.none,
+      padding: const EdgeInsets.fromLTRB(2, 4, 6, 8),
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      crossAxisSpacing: 18,
+      mainAxisSpacing: 18,
       childAspectRatio: aspectRatio,
       children: cards,
     );
   }
-
-  // Placeholder tabs — bottom nav navigates away for read/create
-  Widget _buildReadTab() => const SizedBox.shrink();
-  Widget _buildMyStoriesTab() => const SizedBox.shrink();
 }
 
-/// One of the child's stories in a row on the home tab.
+/// One of the child's stories in a row on the home tab: a tinted sticker,
+/// tipped like the story tiles. An unfinished one is plain paper with a
+/// pencil badge, so the two rows don't read the same.
 class _StoryCard extends StatelessWidget {
+  final int index;
   final String title;
   final String emoji;
   final String caption;
@@ -620,6 +745,7 @@ class _StoryCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _StoryCard({
+    required this.index,
     required this.title,
     required this.emoji,
     required this.caption,
@@ -629,6 +755,7 @@ class _StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return Semantics(
       button: true,
       label: '$title. $caption',
@@ -640,45 +767,28 @@ class _StoryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: unfinished
-                      ? Colors.amber.shade50
-                      : Colors.amber.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.amber.shade300,
-                    width: unfinished ? 1 : 2,
-                  ),
-                ),
+              child: StickerCard(
+                color: unfinished
+                    ? palette.surface
+                    : palette.tintForIndex(index),
+                tilt: stickerTilt(index),
                 child: Stack(
                   children: [
                     Center(
                       child: Text(emoji, style: const TextStyle(fontSize: 44)),
                     ),
                     if (unfinished)
-                      const Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Icon(Icons.edit_note, color: Colors.black45),
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: _Badge(icon: Icons.edit, color: palette.action),
                       ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            Text(
-              caption,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Colors.black54),
-            ),
+            const SizedBox(height: 8),
+            _CardTitle(title: title, caption: caption),
           ],
         ),
       ),
@@ -686,8 +796,72 @@ class _StoryCard extends StatelessWidget {
   }
 }
 
-/// Where the finished stories go before there are any: a grey card with a
-/// plus that starts one.
+/// A small round sticker in a card's corner.
+class _Badge extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+
+  const _Badge({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.outline,
+          width: StoryTheme.outlineWidthThin,
+        ),
+      ),
+      child: Icon(icon, size: 14, color: palette.onAction),
+    );
+  }
+}
+
+/// The title and caption under a card.
+class _CardTitle extends StatelessWidget {
+  final String title;
+  final String? caption;
+
+  const _CardTitle({required this.title, this.caption});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: StoryTheme.display(size: 14, color: palette.ink, weight: 700),
+        ),
+        if (caption != null)
+          Text(
+            caption!,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: StoryTheme.body(
+              size: 12,
+              color: palette.inkMuted,
+              weight: 600,
+              height: 1.3,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Where the finished stories go before there are any: a paper sticker with
+/// a plus that starts one.
 class _NewStoryCard extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -695,6 +869,7 @@ class _NewStoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return Semantics(
       button: true,
       label: 'Create a story',
@@ -707,23 +882,15 @@ class _NewStoryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              child: StickerCard(
+                tilt: stickerTilt(0),
                 child: Center(
-                  child: Icon(Icons.add, size: 56, color: Colors.grey.shade600),
+                  child: Icon(Icons.add, size: 56, color: palette.ink),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Create a story',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            const Text(' ', style: TextStyle(fontSize: 11)),
+            const SizedBox(height: 8),
+            const _CardTitle(title: 'Create a story', caption: ' '),
           ],
         ),
       ),
@@ -751,38 +918,37 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      color: palette.tintYellow,
+      tilt: stickerTilt(4),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade100,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade300, width: 2),
-      ),
       child: Row(
         children: [
           Text(emoji, style: const TextStyle(fontSize: 36)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  style: StoryTheme.display(
+                    size: 18,
+                    color: palette.ink,
+                    weight: 700,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(message),
-                const SizedBox(height: 8),
-                FilledButton(
+                Text(
+                  message,
+                  style: StoryTheme.body(color: palette.ink, weight: 500),
+                ),
+                const SizedBox(height: 12),
+                StoryButton(
+                  label: action,
+                  accent: palette.action,
                   onPressed: onAction,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.amber.shade700,
-                  ),
-                  child: Text(action),
                 ),
               ],
             ),
@@ -801,45 +967,65 @@ class _DoneForTodaySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('🌙', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 8),
-            const Text(
-              'All done for today!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "You've used today's reading time. Come back tomorrow!",
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onUnlock,
-                    child: const Text('Grown-up unlock'),
-                  ),
+    final palette = StoryTheme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.ground,
+        border: Border(
+          top: BorderSide(
+            color: palette.outline,
+            width: StoryTheme.outlineWidth,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🌙', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 8),
+              Text(
+                'All done for today!',
+                style: StoryTheme.display(
+                  size: 22,
+                  color: palette.ink,
+                  weight: 700,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.amber.shade700,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "You've used today's reading time. Come back tomorrow!",
+                textAlign: TextAlign.center,
+                style: StoryTheme.body(color: palette.ink),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: StoryButton(
+                      key: const Key('sheet-unlock'),
+                      label: 'Grown-up unlock',
+                      accent: palette.action,
+                      filled: false,
+                      showArrow: false,
+                      onPressed: onUnlock,
                     ),
-                    child: const Text('OK'),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StoryButton(
+                      label: 'OK',
+                      accent: palette.action,
+                      showArrow: false,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -874,16 +1060,34 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    final actionStyle = TextButton.styleFrom(
+      foregroundColor: palette.ink,
+      textStyle: StoryTheme.display(size: 16, color: palette.ink, weight: 700),
+    );
     return AlertDialog(
-      title: const Text('Grown-up unlock'),
+      backgroundColor: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+        side: BorderSide(
+          color: palette.outline,
+          width: StoryTheme.outlineWidth,
+        ),
+      ),
+      title: Text(
+        'Grown-up unlock',
+        style: StoryTheme.display(size: 20, color: palette.ink, weight: 700),
+      ),
       content: TextField(
         controller: _pin,
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
         maxLength: 4,
-        decoration: InputDecoration(
-          labelText: 'Parent PIN',
+        style: StoryTheme.body(color: palette.ink),
+        decoration: stickerInputDecoration(
+          palette,
+          label: 'Parent PIN',
           errorText: _error,
           counterText: '',
         ),
@@ -891,16 +1095,21 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
       ),
       actions: [
         TextButton(
+          style: actionStyle,
           onPressed: () => Navigator.pop(context, false),
           child: const Text('Cancel'),
         ),
-        TextButton(onPressed: _submit, child: const Text('Unlock')),
+        TextButton(
+          style: actionStyle,
+          onPressed: _submit,
+          child: const Text('Unlock'),
+        ),
       ],
     );
   }
 }
 
-/// The child's coin balance in the app bar; tapping it opens My Rewards.
+/// The child's coin balance in the header; tapping it opens My Rewards.
 class _CoinChip extends StatelessWidget {
   final int coins;
   final VoidCallback onTap;
@@ -909,35 +1118,27 @@ class _CoinChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Center(
-              child: Text(
-                '🪙 $coins',
-                key: const Key('coinBalance'),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber.shade900,
-                ),
-              ),
-            ),
-          ),
-        ),
+    final palette = StoryTheme.of(context);
+    return StickerPill(
+      onTap: onTap,
+      child: Text(
+        '🪙 $coins',
+        key: const Key('coinBalance'),
+        style: StoryTheme.display(size: 16, color: palette.ink, weight: 700),
       ),
     );
   }
 }
 
 class _BookCard extends StatelessWidget {
+  /// Position in the grid, which picks the card's tilt (and tint, when
+  /// [tinted]).
+  final int index;
+
+  /// Fills the card with a sticker tint rather than paper — for story ideas,
+  /// which have an emoji where a book has its cover.
+  final bool tinted;
+
   final String title;
 
   /// Shown when there is no cover, or it can't be read.
@@ -951,54 +1152,35 @@ class _BookCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _BookCard({
+    required this.index,
     required this.title,
     required this.emoji,
     required this.onTap,
+    this.tinted = false,
     this.coverPath,
     this.caption,
   });
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+            child: StickerCard(
+              color: tinted ? palette.tintForIndex(index) : palette.surface,
+              tilt: stickerTilt(index),
+              radius: StoryTheme.radiusButton,
+              child: SizedBox.expand(
+                child: BookCover(path: coverPath, fallback: _emojiCover()),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: BookCover(path: coverPath, fallback: _emojiCover()),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          if (caption != null)
-            Text(
-              caption!,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Colors.black54),
-            ),
+          const SizedBox(height: 8),
+          _CardTitle(title: title, caption: caption),
         ],
       ),
     );
@@ -1006,4 +1188,79 @@ class _BookCard extends StatelessWidget {
 
   Widget _emojiCover() =>
       Center(child: Text(emoji, style: const TextStyle(fontSize: 48)));
+}
+
+/// Home, My Library and Create as three stickers on a yellow band, cut off from
+/// the page with the ink line like the header. The current tab is the one in
+/// the action colour; each is tipped a little, like the story tiles.
+class _StickerNavBar extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _StickerNavBar({required this.currentIndex, required this.onTap});
+
+  static const _items = [
+    (icon: Icons.home, label: 'Home'),
+    (icon: Icons.local_library, label: 'My Library'),
+    (icon: Icons.edit, label: 'Create a Story'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.header,
+        border: Border(
+          top: BorderSide(
+            color: palette.outline,
+            width: StoryTheme.outlineWidth,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 12),
+          child: Row(
+            children: [
+              for (final (i, item) in _items.indexed) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: _navTab(palette, i, item.icon, item.label)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navTab(StoryPalette palette, int i, IconData icon, String label) {
+    final current = i == currentIndex;
+    final ink = current ? palette.onAction : palette.ink;
+    return StickerCard(
+      color: current ? palette.action : palette.surface,
+      tilt: stickerTilt(i + 2),
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      semanticLabel: label,
+      onTap: () => onTap(i),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 22, color: ink),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: StoryTheme.display(size: 13, color: ink, weight: 700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

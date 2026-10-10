@@ -1,10 +1,13 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import '../services/coin_service.dart';
 import '../services/story_generator.dart' show isQuotaError;
 import 'coins_earned_snack_bar.dart';
+import 'sticker_kit.dart';
+import 'story/paper_background.dart';
+import 'story/story_button.dart';
+import 'story/story_sprout_bubble.dart';
+import 'story/story_theme.dart';
 
 // Data model
 class ComprehensionQuestion {
@@ -91,16 +94,6 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-
-  // Story Sprout brand colours
-  static const Color _darkBg = Color(0xFF1A1F1A);
-  static const Color _cardBg = Color(0xFF252B25);
-  static const Color _green = Color(0xFF4CAF50);
-  static const Color _greenDark = Color(0xFF2E7D32);
-  static const Color _cream = Color(0xFFF5F0E8);
-  static const Color _textMuted = Color(0xFF8A9A8A);
-  static const Color _correctGreen = Color(0xFF66BB6A);
-  static const Color _wrongRed = Color(0xFFEF5350);
 
   // lifecycle
   @override
@@ -214,337 +207,337 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     } catch (_) {}
   }
 
-  //answer tile colour
-  Color _tileColor(int index) {
-    if (!_answered) return _cardBg;
-    if (index == _current.correctIndex) return _correctGreen.withOpacity(0.25);
-    if (index == _selectedAnswer) return _wrongRed.withOpacity(0.20);
-    return _cardBg;
-  }
-
-  Color _tileBorderColor(int index) {
-    if (!_answered) {
-      return index == _selectedAnswer ? _green : Colors.transparent;
-    }
-    if (index == _current.correctIndex) return _correctGreen;
-    if (index == _selectedAnswer) return _wrongRed;
-    return Colors.transparent;
-  }
-
   // build
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return Scaffold(
-      backgroundColor: _darkBg,
-      appBar: _buildAppBar(),
-      body: _loading
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: _green),
-                  SizedBox(height: 16),
-                  Text(
-                    'Sprout is thinking of questions…',
-                    style: TextStyle(color: _cream, fontSize: 16),
-                  ),
-                ],
-              ),
-            )
-          : _error != null
-          ? _buildError()
-          : _questions.isEmpty
-          ? _buildEmpty()
-          : _buildBody(),
+      backgroundColor: palette.ground,
+      body: PaperBackground(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: _loading
+                  ? _buildLoading(palette)
+                  : _error != null
+                  ? _buildMessage(
+                      palette,
+                      _error!,
+                      retry: () {
+                        setState(() {
+                          _error = null;
+                          _loading = true;
+                        });
+                        _loadQuestions();
+                      },
+                    )
+                  : _questions.isEmpty
+                  ? _buildMessage(palette, 'No questions for this chapter yet.')
+                  : _buildBody(palette),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: _darkBg,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: _cream),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: Text(
-        widget.chapterTitle ?? 'End of Chapter ${widget.chapterNumber}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: _cream,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-      ),
-      centerTitle: true,
-      actions: [
+  Widget _buildHeader() {
+    final palette = StoryTheme.of(context);
+    return StickerHeader(
+      title: widget.chapterTitle ?? 'End of Chapter ${widget.chapterNumber}',
+      showBack: true,
+      onBack: () => Navigator.of(context).pop(),
+      trailing: [
         if (widget.skippable)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Skip', style: TextStyle(color: _cream)),
+          StickerPill(
+            onTap: () => Navigator.of(context).pop(),
+            child: Text(
+              'Skip',
+              style: StoryTheme.display(
+                size: 15,
+                color: palette.ink,
+                weight: 700,
+              ),
+            ),
           ),
       ],
+    );
+  }
+
+  Widget _buildLoading(StoryPalette palette) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sproutSticker(palette),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              color: palette.action,
+              strokeWidth: 4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sprout is thinking of questions…',
+            style: StoryTheme.display(
+              size: 17,
+              color: palette.ink,
+              weight: 600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sproutSticker(StoryPalette palette) {
+    return Transform.rotate(
+      angle: stickerTilt(0),
+      child: Container(
+        width: 84,
+        height: 84,
+        decoration: BoxDecoration(
+          color: palette.tintGreen,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: palette.outline,
+            width: StoryTheme.outlineWidth,
+          ),
+          boxShadow: palette.cardShadow(),
+        ),
+        child: const Center(child: Text('🌱', style: TextStyle(fontSize: 42))),
+      ),
     );
   }
 
   //  main body
-  Widget _buildBody() {
+  /// The question and answers scroll; the button stays pinned under them,
+  /// like the story steps, so a long answer list never pushes it out of reach.
+  Widget _buildBody(StoryPalette palette) {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildProgressIndicator(),
-              const SizedBox(height: 20),
-              _buildQuestionBubble(),
-              const SizedBox(height: 24),
-              ..._buildAnswerTiles(),
-              const Spacer(),
-              if (_answered) _buildKeepReadingButton(),
-              const SizedBox(height: 16),
-            ],
-          ),
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                // Bottom room for the last tile's hard shadow.
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildProgressIndicator(palette),
+                    const SizedBox(height: 20),
+                    StorySproutBubble(
+                      message: _current.question,
+                      accent: palette.action,
+                    ),
+                    const SizedBox(height: 24),
+                    ..._buildAnswerTiles(palette),
+                  ],
+                ),
+              ),
+            ),
+            // Laid out before an answer too (just hidden), so the tiles
+            // don't shift up and down as the button comes and goes.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+              child: Visibility(
+                visible: _answered,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: _buildKeepReadingButton(palette),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // progress dots
-  Widget _buildProgressIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_questions.length, (i) {
-        final active = i == _currentIndex;
-        final done = i < _currentIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: active ? 24 : 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: done || active ? _green : _textMuted.withOpacity(0.4),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-      }),
-    );
-  }
-
-  // question bubble
-  Widget _buildQuestionBubble() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  /// Chunky beads, one per question, like the story steps' progress bar.
+  Widget _buildProgressIndicator(StoryPalette palette) {
+    return Column(
       children: [
-        // Mascot avatar
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: _green.withOpacity(0.15),
-            shape: BoxShape.circle,
-            border: Border.all(color: _green, width: 1.5),
-          ),
-          child: const Center(
-            child: Text('🌱', style: TextStyle(fontSize: 22)),
+        Text(
+          'QUESTION ${_currentIndex + 1} OF ${_questions.length}',
+          style: StoryTheme.display(
+            size: 12,
+            color: palette.inkMuted,
+            weight: 700,
+            tracking: 1.6,
           ),
         ),
-        const SizedBox(width: 12),
-        // Question text bubble
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+        const SizedBox(height: 7),
+        Row(
+          children: List.generate(_questions.length, (i) {
+            final done = i < _currentIndex || (i == _currentIndex && _answered);
+            return Expanded(
+              child: Container(
+                height: 11,
+                margin: EdgeInsets.only(
+                  right: i < _questions.length - 1 ? 7 : 0,
+                ),
+                decoration: BoxDecoration(
+                  color: done ? palette.action : palette.track,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: palette.outline,
+                    width: StoryTheme.outlineWidthThin,
+                  ),
+                ),
               ),
-            ),
-            child: Text(
-              _current.question,
-              style: const TextStyle(color: _cream, fontSize: 15, height: 1.5),
-            ),
-          ),
+            );
+          }),
         ),
       ],
     );
   }
 
-  //answer tiles
-  List<Widget> _buildAnswerTiles() {
+  /// Each answer is a tinted sticker, tipped like the story tiles. Once one
+  /// is picked, the right answer turns green with a tick, a wrong pick turns
+  /// coral with a cross, and the rest fade back so the result stands out.
+  List<Widget> _buildAnswerTiles(StoryPalette palette) {
     return List.generate(_current.answers.length, (i) {
       final isCorrect = _answered && i == _current.correctIndex;
       final isWrong =
           _answered && i == _selectedAnswer && i != _current.correctIndex;
 
+      final Color fill;
+      if (isCorrect) {
+        fill = palette.tintGreen;
+      } else if (isWrong) {
+        fill = palette.tintCoral;
+      } else if (_answered) {
+        fill = palette.surface;
+      } else {
+        fill = palette.tintForIndex(i);
+      }
+
       return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          decoration: BoxDecoration(
-            color: _tileColor(i),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _tileBorderColor(i), width: 1.5),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: _answered ? null : () => _selectAnswer(i),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    // Radio circle
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isCorrect
-                              ? _correctGreen
-                              : isWrong
-                              ? _wrongRed
-                              : _textMuted,
-                          width: 2,
-                        ),
-                        color: (isCorrect || isWrong)
-                            ? Colors.transparent
-                            : Colors.transparent,
-                      ),
-                      child: isCorrect
-                          ? const Icon(
-                              Icons.check,
-                              size: 14,
-                              color: _correctGreen,
-                            )
-                          : isWrong
-                          ? const Icon(Icons.close, size: 14, color: _wrongRed)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    // Answer text
-                    Expanded(
-                      child: Text(
-                        _current.answers[i],
-                        style: TextStyle(
-                          color: isCorrect
-                              ? _correctGreen
-                              : isWrong
-                              ? _wrongRed
-                              : _cream,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+        padding: const EdgeInsets.only(bottom: 14),
+        child: StickerCard(
+          // Keyed by question too, so a tile held down as the question
+          // changed doesn't carry its pressed state onto the next one.
+          key: ValueKey('answer-$_currentIndex-$i'),
+          color: fill,
+          tilt: stickerTilt(i),
+          radius: StoryTheme.radiusButton,
+          selected: _selectedAnswer == i,
+          onTap: _answered ? null : () => _selectAnswer(i),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              _answerBadge(palette, i, isCorrect: isCorrect, isWrong: isWrong),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _current.answers[i],
+                  style: StoryTheme.body(
+                    size: 16,
+                    color: _answered && !isCorrect && !isWrong
+                        ? palette.inkMuted
+                        : palette.ink,
+                    weight: 700,
+                    height: 1.35,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       );
     });
   }
 
+  /// A round sticker with the answer's letter, or a tick or cross once the
+  /// question is answered.
+  Widget _answerBadge(
+    StoryPalette palette,
+    int i, {
+    required bool isCorrect,
+    required bool isWrong,
+  }) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: palette.surface,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.outline,
+          width: StoryTheme.outlineWidthThin,
+        ),
+      ),
+      child: Center(
+        child: isCorrect
+            ? Icon(Icons.check, size: 18, color: palette.ink)
+            : isWrong
+            ? Icon(Icons.close, size: 18, color: palette.ink)
+            : Text(
+                String.fromCharCode(0x41 + i),
+                style: StoryTheme.display(
+                  size: 15,
+                  color: palette.ink,
+                  weight: 700,
+                ),
+              ),
+      ),
+    );
+  }
+
   //keep reading button
-  Widget _buildKeepReadingButton() {
-    return ElevatedButton(
-      onPressed: _advance,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _isLastQuestion ? _greenDark : _cardBg,
-        foregroundColor: _cream,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: _isLastQuestion ? _green : _textMuted.withOpacity(0.4),
-          ),
-        ),
-        elevation: 0,
-      ),
-      child: Text(
-        _isLastQuestion ? 'Keep Reading →' : 'Next Question →',
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-          letterSpacing: 0.4,
-        ),
-      ),
+  Widget _buildKeepReadingButton(StoryPalette palette) {
+    return StoryButton(
+      label: _isLastQuestion ? 'Keep Reading →' : 'Next Question →',
+      accent: palette.action,
+      showArrow: false,
+      onPressed: _answered ? _advance : null,
     );
   }
 
   //error / empty states
-  Widget _buildError() {
+  /// Sprout saying what went wrong, with a way back to the book — no quiz
+  /// shouldn't mean no way back. [retry] adds a Retry button above it.
+  Widget _buildMessage(
+    StoryPalette palette,
+    String message, {
+    VoidCallback? retry,
+  }) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: _wrongRed, size: 48),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: _cream, fontSize: 16),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            StorySproutBubble(message: message, accent: palette.action),
+            const SizedBox(height: 24),
+            if (retry != null) ...[
+              StoryButton(
+                label: 'Retry',
+                accent: palette.action,
+                showArrow: false,
+                onPressed: retry,
+              ),
+              const SizedBox(height: 14),
+            ],
+            StoryButton(
+              label: 'Keep Reading →',
+              accent: palette.action,
+              filled: retry == null,
+              showArrow: false,
+              onPressed: () => Navigator.of(context).pop(),
             ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _error = null;
-                _loading = true;
-              });
-              _loadQuestions();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _green),
-            child: const Text('Retry'),
-          ),
-          // No quiz shouldn't mean no way back to the book.
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Keep Reading →',
-              style: TextStyle(color: _cream),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('🌱', style: TextStyle(fontSize: 48)),
-          const SizedBox(height: 12),
-          const Text(
-            'No questions for this chapter yet.',
-            style: TextStyle(color: _cream, fontSize: 16),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(backgroundColor: _green),
-            child: const Text('Keep Reading →'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -53,7 +53,10 @@ void main() {
     expect(chapterOne, isNonNegative);
     expect(
       bookExcerpt([paged.spineHtml[chapterOne]]),
-      allOf(contains('Down the Rabbit-Hole'), contains('burning with curiosity')),
+      allOf(
+        contains('Down the Rabbit-Hole'),
+        contains('burning with curiosity'),
+      ),
     );
   });
 }

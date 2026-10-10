@@ -43,11 +43,11 @@ void main() {
     return calls;
   }
 
-  /// Opens the parent's Add Book tab and picks a file; [done] says when the
+  /// Opens Manage Shelf's Import tab and picks a file; [done] says when the
   /// picker's result has been handled.
   Future<void> chooseFile(WidgetTester tester, bool Function() done) async {
-    await showLibrary(tester, testLibrary(), canManage: true);
-    await tester.tap(find.text('Add Book'));
+    await showShelf(tester, testLibrary());
+    await tester.tap(find.text('Import'));
     await tester.pumpAndSettle();
     // File IO needs the real async event loop.
     await readingWork(

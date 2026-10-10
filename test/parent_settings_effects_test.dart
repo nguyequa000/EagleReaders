@@ -189,15 +189,15 @@ void main() {
 
       expect(find.byKey(const Key('done-for-today')), findsOneWidget);
 
-      // Read a Story waits until tomorrow.
-      await tester.tap(find.text('Read a Story'));
+      // Create a Story waits until tomorrow.
+      await tester.tap(find.text('Create a Story'));
       await tester.pumpAndSettle();
       expect(
         find.text("You've used today's reading time. Come back tomorrow!"),
         findsOneWidget,
       );
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Grown-up unlock'));
+      await tester.tap(find.byKey(const Key('sheet-unlock')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '0000');
       await tester.tap(find.text('Unlock'));

@@ -406,8 +406,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     final html = _pagedText != null
         ? _pagedText!.spineHtml.sublist(from, to)
         : [
-            for (final section in (_document?.Chapters ?? <EpubChapter>[])
-                .sublist(from, to))
+            for (final section
+                in (_document?.Chapters ?? <EpubChapter>[]).sublist(from, to))
               section.HtmlContent ?? '',
           ];
     return () => ReadingModulePage.writeChapterQuiz(title, chapter.title, html);
