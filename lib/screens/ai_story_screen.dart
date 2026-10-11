@@ -81,7 +81,9 @@ class StoryReaderScreen extends StatefulWidget {
 }
 
 class _StoryReaderScreenState extends State<StoryReaderScreen> {
-  static const Color _highlight = Color(0xFFFFE08A);
+  /// The word being read aloud: the scheme's bright yellow under plum ink,
+  /// the same in both modes so it always stands out.
+  static final Color _highlight = StoryPalette.dark.headerInk;
   static const _timeout = Duration(seconds: 60);
   // Keeps the prompt (which carries the whole story so far) small.
   static const _maxChapters = 5;
@@ -681,9 +683,9 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
           TextSpan(text: text.substring(0, start)),
           TextSpan(
             text: text.substring(start, end),
-            style: const TextStyle(
+            style: TextStyle(
               backgroundColor: _highlight,
-              color: Color(0xFF2E2E2E),
+              color: StoryPalette.light.ink,
             ),
           ),
           TextSpan(text: text.substring(end)),

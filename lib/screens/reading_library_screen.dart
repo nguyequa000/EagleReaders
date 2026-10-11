@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../reading_theme.dart';
+import 'sticker_kit.dart';
+import 'story/story_theme.dart';
 import '../services/book_library.dart';
 import 'book_cover.dart';
 import 'book_shelf_screen.dart';
@@ -95,10 +96,10 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.auto_stories_rounded,
-                size: 72,
-                color: readingGreen,
+              StickerIconDisc(
+                icon: Icons.auto_stories_rounded,
+                color: StoryTheme.of(context).tintGreen,
+                size: 96,
               ),
               const SizedBox(height: 20),
               const Text(
@@ -129,11 +130,6 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> {
         final book = _books[index];
         return Card(
           clipBehavior: Clip.antiAlias,
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
           child: InkWell(
             onTap: () => _open(book),
             child: Padding(
@@ -193,11 +189,8 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: readingTheme(context),
-    child: Scaffold(
-      appBar: AppBar(title: const Text('Reading Library')),
-      body: SafeArea(child: _shelf()),
-    ),
+  Widget build(BuildContext context) => StickerPage(
+    title: 'Reading Library',
+    body: SafeArea(top: false, child: _shelf()),
   );
 }

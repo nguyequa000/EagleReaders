@@ -12,6 +12,7 @@ import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
+import 'package:storysprout/screens/story/story_theme.dart';
 import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/services/story_generator.dart';
 
@@ -128,7 +129,7 @@ void main() {
     style = (view().builders.options as DefaultBuilderOptions).textStyle;
     expect(style.fontSize, 26);
     expect(style.height, 2.0);
-    expect(style.color, const Color(0xFFF0F0F0));
+    expect(style.color, StoryPalette.dark.ink);
 
     await openReader();
     expect(view().controller.currentValue?.position.index, savedPosition);

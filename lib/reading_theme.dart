@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 
-const readingGreen = Color(0xFF2E7D32);
-const readingPaper = Color(0xFFF7F5F0);
-const readingDark = Color(0xFF1E1E1E);
+import 'screens/story/story_theme.dart';
+
+/// The reader's "Paper" page: the scheme's yellow, softened to something a
+/// child can read on for a whole chapter. Warmer than "White" (the palette's
+/// card white), so the two choices look different.
+const readingPaper = Color(0xFFFFF4DA);
+
+/// The palette for a reader page: the dark one for the "Dark" page, the light
+/// one for "Paper" and "White", whatever mode the rest of the app is in, so
+/// the toolbar and controls always agree with the page under them.
+StoryPalette readingPalette({bool dark = false}) =>
+    dark ? StoryPalette.dark : StoryPalette.light;
+
+/// The page colour for each of the reader's page choices.
+Color readingBackground(String readerTheme) => switch (readerTheme) {
+  'dark' => StoryPalette.dark.ground,
+  'white' => StoryPalette.light.surface,
+  _ => readingPaper,
+};
 
 ThemeData readingTheme(BuildContext context, {bool dark = false}) =>
-    Theme.of(context).copyWith(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: readingGreen,
-        brightness: dark ? Brightness.dark : Brightness.light,
-      ),
-      scaffoldBackgroundColor: dark ? readingDark : readingPaper,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: readingPaper,
-        foregroundColor: Color(0xFF243B28),
-        elevation: 0,
-      ),
-    );
+    StoryTheme.themeFor(readingPalette(dark: dark));

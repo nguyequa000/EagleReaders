@@ -17,6 +17,7 @@ import '../services/book_library.dart';
 import '../services/device_memory.dart';
 import '../services/story_generator.dart';
 import '../reading_theme.dart';
+import 'story/story_theme.dart';
 import 'chapter_quiz.dart';
 import 'comprehension_screen.dart';
 import 'paged_text_view.dart';
@@ -112,14 +113,9 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
   bool get _canNavigate => _ready && !_busy;
   bool get _isLast => _chapterIndex == _chapters.length - 1;
   String get _positionKey => widget.library.positionKey(widget.book);
-  Color get _background => switch (_readerTheme) {
-    'dark' => readingDark,
-    'white' => Colors.white,
-    _ => readingPaper,
-  };
-  Color get _foreground => _readerTheme == 'dark'
-      ? const Color(0xFFF0F0F0)
-      : const Color(0xFF2E2E2E);
+  StoryPalette get _palette => readingPalette(dark: _readerTheme == 'dark');
+  Color get _background => readingBackground(_readerTheme);
+  Color get _foreground => _palette.ink;
   String get _chapterLabel => _pagedText != null
       ? _pagedChapterTitle ?? ''
       : _pictureBook != null
@@ -485,9 +481,13 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Reading Settings',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: StoryTheme.display(
+                    size: 20,
+                    color: StoryTheme.of(context).ink,
+                    weight: 700,
+                  ),
                 ),
                 ListTile(
                   title: Text('Font Size: ${_fontSize.round()}'),
@@ -599,7 +599,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     initialPage: _chapterIndex,
     enabled: _canNavigate,
     background: _background,
-    accent: readingGreen,
+    accent: _palette.action,
     onPageChanged: (page) {
       setState(() => _chapterIndex = page);
       _savePosition();
@@ -617,7 +617,7 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     lineHeight: _lineHeight,
     background: _background,
     foreground: _foreground,
-    accent: readingGreen,
+    accent: _palette.action,
     enabled: _canNavigate,
     onRelocated: (cfi, chapterTitle) {
       _prefs?.setString(widget.library.cfiKey(widget.book), cfi);
@@ -712,8 +712,8 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
           child: LinearProgressIndicator(
             value: (_chapterIndex + 1) / _chapters.length,
             minHeight: 4,
-            color: readingGreen,
-            backgroundColor: readingGreen.withValues(alpha: 0.15),
+            color: _palette.action,
+            backgroundColor: _palette.action.withValues(alpha: 0.15),
             semanticsLabel: 'Reading progress',
           ),
         ),
@@ -772,11 +772,11 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
           '$_bookTitle\n$_chapterLabel',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 16,
-            height: 1.4,
-            fontWeight: FontWeight.w600,
-          ),
+          style: StoryTheme.display(
+            size: 16,
+            color: _foreground,
+            weight: 600,
+          ).copyWith(height: 1.3),
         ),
         actions: [
           if (_controller != null)

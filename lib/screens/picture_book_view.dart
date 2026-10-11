@@ -172,8 +172,9 @@ class PictureBookView extends StatefulWidget {
     this.onChapterEnd,
     this.initialPage = 0,
     this.enabled = true,
-    this.background = Colors.black,
-    this.accent = Colors.green,
+    // Palette values (StoryPalette); the reader always passes its own.
+    this.background = const Color(0xFF1B1523),
+    this.accent = const Color(0xFF0CC1E0),
   });
 
   final PictureBook book;
