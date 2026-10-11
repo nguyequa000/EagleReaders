@@ -41,7 +41,7 @@ class ChildProfile {
     required String pin,
     String emoji = '🧒',
   }) {
-    final salt = _newSalt();
+    final salt = newSalt();
     return ChildProfile(
       id: id,
       name: name,
@@ -56,7 +56,8 @@ class ChildProfile {
   static String hashPin(String pin, String salt) =>
       sha256.convert(utf8.encode('$salt:$pin')).toString();
 
-  static String _newSalt() {
+  /// A fresh random salt for [hashPin]. Shared with the parent PIN.
+  static String newSalt() {
     final rng = Random.secure();
     return base64Url.encode(List<int>.generate(16, (_) => rng.nextInt(256)));
   }

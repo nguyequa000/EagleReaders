@@ -7,6 +7,7 @@ import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_setup_screen.dart';
 import 'package:storysprout/screens/registration_screen.dart';
+import 'package:storysprout/screens/story/story_button.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,11 +25,20 @@ void main() {
       wrap(RegistrationScreen(auth: auth, firestore: firestore)),
     );
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const Key('register-email')),
       'newparent@example.com',
     );
-    await tester.enterText(find.byType(TextField).last, 'hunter2');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Register'));
+    await tester.enterText(
+      find.byKey(const Key('register-password')),
+      'hunter2',
+    );
+    await tester.enterText(find.byKey(const Key('register-pin')), '4821');
+    await tester.enterText(
+      find.byKey(const Key('register-pin-confirm')),
+      '4821',
+    );
+    await tester.ensureVisible(find.widgetWithText(StoryButton, 'Register'));
+    await tester.tap(find.widgetWithText(StoryButton, 'Register'));
     await tester.pumpAndSettle();
 
     final uid = auth.currentUser!.uid;
@@ -51,9 +61,21 @@ void main() {
     await tester.pumpWidget(
       wrap(RegistrationScreen(auth: auth, firestore: firestore)),
     );
-    await tester.enterText(find.byType(TextField).first, 'taken@example.com');
-    await tester.enterText(find.byType(TextField).last, 'hunter2');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Register'));
+    await tester.enterText(
+      find.byKey(const Key('register-email')),
+      'taken@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('register-password')),
+      'hunter2',
+    );
+    await tester.enterText(find.byKey(const Key('register-pin')), '4821');
+    await tester.enterText(
+      find.byKey(const Key('register-pin-confirm')),
+      '4821',
+    );
+    await tester.ensureVisible(find.widgetWithText(StoryButton, 'Register'));
+    await tester.tap(find.widgetWithText(StoryButton, 'Register'));
     await tester.pumpAndSettle();
 
     expect(
@@ -73,11 +95,12 @@ void main() {
       wrap(RegistrationScreen(auth: auth, firestore: firestore)),
     );
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const Key('register-email')),
       'newparent@example.com',
     );
-    await tester.enterText(find.byType(TextField).last, '123');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Register'));
+    await tester.enterText(find.byKey(const Key('register-password')), '123');
+    await tester.ensureVisible(find.widgetWithText(StoryButton, 'Register'));
+    await tester.tap(find.widgetWithText(StoryButton, 'Register'));
     await tester.pump();
 
     expect(

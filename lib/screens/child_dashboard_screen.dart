@@ -17,7 +17,7 @@ import 'comprehension_screen.dart';
 import 'my_story_screen.dart';
 import 'story_saving.dart';
 import 'story_writer_screen.dart';
-import 'parent_pin_screen.dart';
+import '../services/parent_pin.dart';
 import 'reading_module_page.dart';
 import 'sticker_kit.dart';
 import 'story/paper_background.dart';
@@ -1050,8 +1050,15 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_pin.text == ParentPinScreen.parentPin) {
+  Future<void> _submit() async {
+    bool ok;
+    try {
+      ok = await ParentPin.instance.verify(_pin.text);
+    } catch (_) {
+      ok = false;
+    }
+    if (!mounted) return;
+    if (ok) {
       Navigator.pop(context, true);
     } else {
       setState(() => _error = 'Incorrect PIN. Try again.');

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/parent_pin.dart';
 import '../services/session_prefs.dart';
 import 'child_setup_screen.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key, this.auth, this.firestore, this.prefs});
@@ -22,6 +26,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       widget.firestore ?? FirebaseFirestore.instance;
   late final TextEditingController _email;
   late final TextEditingController _password;
+  final TextEditingController _pin = TextEditingController();
+  final TextEditingController _pinConfirm = TextEditingController();
 
   bool _loading = false;
   String? _error;
@@ -37,6 +43,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _pin.dispose();
+    _pinConfirm.dispose();
     super.dispose();
   }
 
@@ -49,6 +57,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
     if (password.length < 6) {
       setState(() => _error = 'Password must be at least 6 characters.');
+      return;
+    }
+    final pin = _pin.text;
+    if (!ParentPin.isValid(pin)) {
+      setState(() => _error = 'Choose a 4-digit parent PIN.');
+      return;
+    }
+    if (_pinConfirm.text != pin) {
+      setState(() => _error = "The two PINs don't match.");
       return;
     }
 
@@ -67,6 +84,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           'email': cred.user!.email,
           'role': 'parent',
           'createdAt': FieldValue.serverTimestamp(),
+          // Hashed; the parent PIN screen checks against it.
+          ...ParentPin.fieldsFor(pin),
         });
       } on FirebaseException {
         // Firestore write failed after the account was created — roll back so
@@ -120,82 +139,102 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Register'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
-      // Scrollable so the form still fits when the on-screen keyboard is up
-      // and an error line is showing.
-      body: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Create an Account',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _password,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Password',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ],
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              'Register',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    final palette = StoryTheme.of(context);
+    Widget field({
+      required Key key,
+      required TextEditingController controller,
+      required String hint,
+      required IconData icon,
+      bool obscure = false,
+      bool pin = false,
+      TextInputType? keyboard,
+    }) {
+      return StickerFieldShadow(
+        child: TextField(
+          key: key,
+          controller: controller,
+          obscureText: obscure,
+          keyboardType: pin ? TextInputType.number : keyboard,
+          maxLength: pin ? 4 : null,
+          style: StoryTheme.body(color: palette.ink),
+          decoration: stickerInputDecoration(
+            palette,
+            hint: hint,
+            icon: icon,
+            counterText: pin ? '' : null,
           ),
         ),
-      ),
+      );
+    }
+
+    return StickerPromptPage(
+      title: 'Register',
+      emoji: '🌱',
+      emojiTint: palette.tintGreen,
+      prompt: 'Create an Account',
+      forParent: true,
+      children: [
+        // The form stays square: a caret and selection drawn on a tilt are
+        // hard to aim at.
+        field(
+          key: const Key('register-email'),
+          controller: _email,
+          hint: 'Email',
+          icon: Icons.email,
+          keyboard: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 16),
+        field(
+          key: const Key('register-password'),
+          controller: _password,
+          hint: 'Password',
+          icon: Icons.lock,
+          obscure: true,
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Choose a 4-digit parent PIN. You will use it to open the parent '
+          'side, so children can only reach their own.',
+          style: StoryTheme.body(color: palette.inkMuted),
+        ),
+        const SizedBox(height: 12),
+        field(
+          key: const Key('register-pin'),
+          controller: _pin,
+          hint: 'Parent PIN',
+          icon: Icons.pin,
+          obscure: true,
+          pin: true,
+        ),
+        const SizedBox(height: 16),
+        field(
+          key: const Key('register-pin-confirm'),
+          controller: _pinConfirm,
+          hint: 'Parent PIN again',
+          icon: Icons.pin,
+          obscure: true,
+          pin: true,
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 16),
+          StickerCard(
+            color: palette.tintCoral,
+            radius: StoryTheme.radiusButton,
+            depth: 3,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Text(
+              _error!,
+              style: StoryTheme.body(color: palette.ink, weight: 700),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        StoryButton(
+          label: _loading ? 'Registering…' : 'Register',
+          accent: palette.action,
+          onPressed: _loading ? null : _register,
+        ),
+      ],
     );
   }
 }

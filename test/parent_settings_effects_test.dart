@@ -14,6 +14,7 @@ import 'package:storysprout/screens/story_writer_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/coin_service.dart';
 import 'package:storysprout/services/family_settings.dart';
+import 'package:storysprout/services/parent_pin.dart';
 import 'package:storysprout/services/reader_audience.dart';
 import 'package:storysprout/services/story_generator.dart';
 
@@ -153,7 +154,7 @@ void main() {
   group('child dashboard', () {
     late ActivityService activity;
 
-    setUp(() {
+    setUp(() async {
       final fb = signedIn();
       activity = fb.activity;
       ActivityService.instance = fb.activity;
@@ -162,7 +163,11 @@ void main() {
         firestore: fb.firestore,
         auth: fb.auth,
       );
+      // The unlock checks the PIN the parent chose at registration.
+      ParentPin.instance = ParentPin(firestore: fb.firestore, auth: fb.auth);
+      await ParentPin.instance.set('1234');
     });
+    tearDown(() => ParentPin.instance = ParentPin());
 
     Future<void> pumpDashboard(WidgetTester tester) async {
       usePhone(tester);
