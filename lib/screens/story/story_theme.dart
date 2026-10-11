@@ -23,11 +23,17 @@ class StoryPalette {
   /// the name field.
   final Color surface;
 
-  /// The top bar. Child-facing, so it carries the yellow identity the child
-  /// dashboard uses; the parent screens are the pink ones.
+  /// The top bar on child-facing screens: yellow, the child dashboard's
+  /// identity.
   final Color header;
 
   final Color headerInk;
+
+  /// The top bar on grown-up screens — sign-in, the who's-reading picker, the
+  /// parent PIN. Pink, so a parent can tell at a glance which side they are on.
+  final Color headerParent;
+
+  final Color headerParentInk;
 
   final Color ink;
   final Color inkMuted;
@@ -60,7 +66,7 @@ class StoryPalette {
   /// Dark ink, not white. White on this cyan measures about 2.1:1, well under
   /// the 4.5:1 minimum, and it was sitting on the most important control in
   /// the flow for the youngest users in the app. Dark ink on the same cyan is
-  /// about 7.6:1 and suits the drawn style besides.
+  /// 6.5:1 or better and suits the drawn style besides.
   final Color onAction;
 
   final Color disabled;
@@ -68,8 +74,9 @@ class StoryPalette {
   /// The unfilled part of the progress bar.
   final Color track;
 
-  /// Sticker fills. Saturated enough to carry the ink line, and all of them
-  /// clear 6.5:1 against [ink] so the labels stay legible.
+  /// Sticker fills. Pastel, after the app's colour scheme, but a step deeper
+  /// than the mock-ups' card tints so the coral and magenta tiles stay apart
+  /// on the mood grid. All of them clear 10:1 against [ink].
   final Color tintBlue;
   final Color tintCoral;
   final Color tintMagenta;
@@ -82,6 +89,8 @@ class StoryPalette {
     required this.surface,
     required this.header,
     required this.headerInk,
+    required this.headerParent,
+    required this.headerParentInk,
     required this.ink,
     required this.inkMuted,
     required this.outline,
@@ -99,53 +108,59 @@ class StoryPalette {
     required this.tintGreen,
   });
 
-  /// Cream paper, dark ink.
+  /// Warm white paper, plum ink, pastel stickers.
   static const StoryPalette light = StoryPalette(
     brightness: Brightness.light,
-    ground: Color(0xFFFFF8E7),
-    surface: Color(0xFFFFFCF2),
-    header: Color(0xFFFFD23F),
-    headerInk: Color(0xFF2B2235),
-    ink: Color(0xFF2B2235),
-    inkMuted: Color(0xFF6B5F52),
-    outline: Color(0xFF2B2235),
-    shadowInk: Color(0xFF2B2235),
-    paperFleck: Color(0xFFE8D9B5),
-    line: Color(0xFFE4D6B8),
+    ground: Color(0xFFFFFDF6),
+    surface: Color(0xFFFFFFFF),
+    header: Color(0xFFFEEDB7),
+    headerInk: Color(0xFF382732),
+    headerParent: Color(0xFFFEDCED),
+    headerParentInk: Color(0xFF382732),
+    ink: Color(0xFF382732),
+    inkMuted: Color(0xFF756871),
+    outline: Color(0xFF382732),
+    shadowInk: Color(0xFF382732),
+    paperFleck: Color(0xFFF6DCE9),
+    line: Color(0xFFFFBFE2),
     action: Color(0xFF0CC1E0),
-    onAction: Color(0xFF2B2235),
-    disabled: Color(0xFFC9BDA6),
-    track: Color(0xFFFFFCF2),
-    tintBlue: Color(0xFF5BC8E8),
-    tintCoral: Color(0xFFFFA552),
-    tintMagenta: Color(0xFFFF8FA3),
-    tintYellow: Color(0xFFFFD23F),
-    tintGreen: Color(0xFF8ED081),
+    onAction: Color(0xFF382732),
+    disabled: Color(0xFFD8CCD3),
+    track: Color(0xFFFFFFFF),
+    tintBlue: Color(0xFFCDF2FB),
+    tintCoral: Color(0xFFFFDCD3),
+    tintMagenta: Color(0xFFFFD3EA),
+    tintYellow: Color(0xFFFFEDB0),
+    tintGreen: Color(0xFFD9F2CD),
   );
 
-  /// A dark desk, cream ink. The stickers keep their hues and lose their
-  /// lightness, so the page reads as the same book under a lamp.
+  /// A plum night, pale-pink ink. The headers go dark and keep their identity
+  /// in the title instead — yellow for the child, pink for the parent — and
+  /// the stickers keep their hues at low lightness, so the page reads as the
+  /// same book under a lamp.
   static const StoryPalette dark = StoryPalette(
     brightness: Brightness.dark,
-    ground: Color(0xFF221C2E),
-    surface: Color(0xFF2C2439),
-    header: Color(0xFF3B3119),
-    headerInk: Color(0xFFFFD23F),
-    ink: Color(0xFFF6EEDC),
-    inkMuted: Color(0xFFB3A48C),
-    outline: Color(0xFFF3E7CE),
-    shadowInk: Color(0xFF100B18),
-    paperFleck: Color(0xFF2F2740),
-    line: Color(0xFF3A3047),
+    ground: Color(0xFF1B1523),
+    surface: Color(0xFF271E2F),
+    header: Color(0xFF271E2F),
+    headerInk: Color(0xFFFBD65F),
+    headerParent: Color(0xFF271E2F),
+    headerParentInk: Color(0xFFFF6EBE),
+    ink: Color(0xFFFDF4F8),
+    inkMuted: Color(0xFFBBADBE),
+    outline: Color(0xFFF1E4EC),
+    shadowInk: Color(0xFF0E0A14),
+    paperFleck: Color(0xFF2A2134),
+    line: Color(0xFF392D43),
     action: Color(0xFF0CC1E0),
     onAction: Color(0xFF13202A),
-    disabled: Color(0xFF5A4F66),
-    track: Color(0xFF2C2439),
-    tintBlue: Color(0xFF15455A),
-    tintCoral: Color(0xFF5C3317),
-    tintMagenta: Color(0xFF5A2434),
-    tintYellow: Color(0xFF5A4412),
-    tintGreen: Color(0xFF234A2A),
+    disabled: Color(0xFF4A3F55),
+    track: Color(0xFF271E2F),
+    tintBlue: Color(0xFF17333F),
+    tintCoral: Color(0xFF46261F),
+    tintMagenta: Color(0xFF45203D),
+    tintYellow: Color(0xFF393220),
+    tintGreen: Color(0xFF1E3524),
   );
 
   bool get isDark => brightness == Brightness.dark;
@@ -248,7 +263,28 @@ class StoryTheme {
 
   /// The app-wide themes, so the story screens sit on a ground that agrees
   /// with them and [of] can tell which mode is active.
+  ///
+  /// It also dresses the stock Material pieces the screens still use —
+  /// dialogs, buttons, cards, chips, tabs, sliders, switches, checkboxes,
+  /// spinners, snack bars, app bars — in the palette, so a plain
+  /// [AlertDialog] or [FilledButton] anywhere in the app already belongs.
+  ///
+  /// Text fields are the exception: see [formsFor].
   static ThemeData themeFor(StoryPalette palette) {
+    final edge = BorderSide(color: palette.outline, width: outlineWidth);
+    final cutOut = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radiusTile),
+      side: edge,
+    );
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radiusButton),
+      side: edge,
+    );
+    final label = display(size: 16, color: palette.ink, weight: 700);
+    WidgetStateProperty<Color?> whenOn(Color on, Color? off) =>
+        WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? on : off,
+        );
     return ThemeData(
       brightness: palette.brightness,
       scaffoldBackgroundColor: palette.ground,
@@ -256,8 +292,136 @@ class StoryTheme {
         seedColor: palette.action,
         brightness: palette.brightness,
         surface: palette.surface,
+        primary: palette.action,
+        onPrimary: palette.onAction,
       ),
       useMaterial3: true,
+      appBarTheme: AppBarTheme(
+        backgroundColor: palette.ground,
+        foregroundColor: palette.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        titleTextStyle: display(size: 18, color: palette.ink, weight: 700),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: palette.action,
+        linearTrackColor: palette.track,
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: palette.action,
+        inactiveTrackColor: palette.line,
+        thumbColor: palette.action,
+        valueIndicatorColor: palette.ink,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: cutOut,
+        titleTextStyle: display(size: 20, color: palette.ink, weight: 700),
+        contentTextStyle: body(color: palette.ink),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(radiusTile),
+          ),
+          side: edge,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: palette.ink,
+          textStyle: label,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: palette.action,
+          foregroundColor: palette.onAction,
+          disabledBackgroundColor: palette.disabled,
+          shape: buttonShape,
+          textStyle: label,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: palette.ink,
+          backgroundColor: palette.surface,
+          side: edge,
+          shape: buttonShape,
+          textStyle: label,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: palette.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: cutOut,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: palette.surface,
+        selectedColor: palette.action,
+        checkmarkColor: palette.onAction,
+        labelStyle: body(color: palette.ink, weight: 700),
+        side: BorderSide(color: palette.outline, width: outlineWidthThin),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: palette.ink,
+        unselectedLabelColor: palette.inkMuted,
+        labelStyle: label,
+        unselectedLabelStyle: label,
+        indicatorColor: palette.action,
+        dividerColor: palette.outline,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: whenOn(palette.surface, palette.inkMuted),
+        trackColor: whenOn(palette.action, palette.track),
+        trackOutlineColor: WidgetStatePropertyAll(palette.outline),
+        trackOutlineWidth: const WidgetStatePropertyAll(outlineWidthThin),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: whenOn(palette.action, Colors.transparent),
+        checkColor: WidgetStatePropertyAll(palette.onAction),
+        side: BorderSide(color: palette.outline, width: outlineWidthThin),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: palette.ink,
+        contentTextStyle: body(color: palette.ground, weight: 600),
+        actionTextColor: palette.action,
+        behavior: SnackBarBehavior.floating,
+      ),
+      dividerTheme: DividerThemeData(color: palette.line, thickness: 1.5),
+    );
+  }
+
+  /// [base] with text fields cut out like stickers: paper fill, ink edge,
+  /// action-coloured when focused.
+  ///
+  /// Not part of [themeFor], because the story writer and summary draw their
+  /// fields without a border on purpose and a global default would box them
+  /// in. Applied with a [Theme] around screens built from plain
+  /// [TextFormField]s (Manage Shelf); elsewhere fields use
+  /// `stickerInputDecoration`.
+  static ThemeData formsFor(ThemeData base, StoryPalette palette) {
+    OutlineInputBorder field(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(radiusButton),
+      borderSide: BorderSide(color: color, width: outlineWidth),
+    );
+    return base.copyWith(
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: palette.surface,
+        labelStyle: body(color: palette.inkMuted),
+        border: field(palette.outline),
+        enabledBorder: field(palette.outline),
+        focusedBorder: field(palette.action),
+        errorBorder: field(palette.tintCoral),
+        focusedErrorBorder: field(palette.tintCoral),
+      ),
     );
   }
 }

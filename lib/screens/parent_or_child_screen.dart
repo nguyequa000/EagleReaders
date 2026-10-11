@@ -17,12 +17,13 @@ class ParentOrChildScreen extends StatelessWidget {
       prompt: 'Who is reading today?',
       // The first screen once signed in.
       allowBack: false,
+      forParent: true,
       children: [
         StickerChoiceCard(
           index: 0,
           emoji: '👨‍👩‍👧',
           label: 'Parent',
-          tint: palette.tintGreen,
+          tint: palette.tintBlue,
           onTap: () => Navigator.of(
             context,
           ).push(MaterialPageRoute(builder: (_) => const ParentPinScreen())),

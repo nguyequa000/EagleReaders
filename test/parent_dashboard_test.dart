@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/child_profile_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
@@ -54,12 +55,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Reading: alice.epub'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ElevatedButton, 'View'));
+    await tester.tap(find.widgetWithText(StoryButton, 'View'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ChildProfileScreen), findsOneWidget);
     expect(find.text("Alex's Profile"), findsOneWidget);
     expect(find.text('12'), findsOneWidget); // minutes this week
+    // The stat rows run below a phone-height screen.
+    await tester.scrollUntilVisible(find.text('50%'), 200);
     expect(find.text('50%'), findsOneWidget); // last quiz score
     expect(find.text('Currently reading'), findsOneWidget);
     expect(find.text('alice.epub'), findsOneWidget);
@@ -82,6 +85,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('No quiz yet'), 200);
     expect(find.text('No quiz yet'), findsOneWidget);
     expect(find.text('Nothing right now'), findsOneWidget);
     // Below the Manage books card, so it may be off screen.
@@ -108,7 +112,8 @@ void main() {
     expect(shelf.childId, '1');
     expect(shelf.childName, 'Alex');
     expect(find.text('The family shelf is empty.'), findsOneWidget);
-    expect(find.text('Manage Shelf'), findsOneWidget);
+    // The header sticker that opens it.
+    expect(find.byTooltip('Manage Shelf'), findsOneWidget);
   });
 
   testWidgets('Manage Shelf opens from the dashboard', (tester) async {

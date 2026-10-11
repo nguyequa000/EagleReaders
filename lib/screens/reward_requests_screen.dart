@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/child_profiles.dart';
 import '../services/coin_service.dart';
 import 'live_refresh.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 /// Parent-facing list of rewards the children have redeemed (CR #2).
 ///
@@ -119,26 +122,23 @@ class _RewardRequestsScreenState extends State<RewardRequestsScreen>
     final pending = [...?requests?.where((r) => r.tx.isPending)];
     final history = [...?requests?.where((r) => !r.tx.isPending)];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Reward Requests'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
+    return StickerPage(
+      title: 'Reward Requests',
+      forParent: true,
       body: requests == null
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                // Extra room right and below for the hard shadows.
+                padding: const EdgeInsets.fromLTRB(18, 18, 22, 28),
                 children: [
                   if (_error != null) ...[
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 12),
+                    StickerErrorNote(_error!),
+                    const SizedBox(height: 16),
                   ],
-                  const _Heading('Waiting for you'),
+                  const StickerSectionTitle('Waiting for you'),
                   if (pending.isEmpty)
                     const _Empty('No requests right now.')
                   else
@@ -150,8 +150,8 @@ class _RewardRequestsScreenState extends State<RewardRequestsScreen>
                         onDecline: () => _resolve(request, give: false),
                       ),
                   if (history.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const _Heading('History'),
+                    const SizedBox(height: 18),
+                    const StickerSectionTitle('History'),
                     for (final request in history)
                       _HistoryTile(request: request),
                   ],
@@ -168,36 +168,21 @@ String _when(DateTime time) {
   return '${local.month}/${local.day} ${local.hour}:$minute';
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-    ),
-  );
-}
-
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
 
   final String text;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(text, style: const TextStyle(color: Colors.black54)),
-  );
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Text(text, style: StoryTheme.body(color: palette.inkMuted)),
+    );
+  }
 }
 
 class _PendingCard extends StatelessWidget {
@@ -215,50 +200,67 @@ class _PendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final tx = request.tx;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: StickerCard(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Text(request.child.emoji, style: const TextStyle(fontSize: 24)),
-                const SizedBox(width: 10),
+                StickerEmoji(
+                  emoji: request.child.emoji,
+                  color: palette.tintYellow,
+                  size: 44,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    '${request.child.name} redeemed "${tx.title}"',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${request.child.name} redeemed "${tx.title}"',
+                        style: StoryTheme.display(
+                          size: 17,
+                          color: palette.ink,
+                          weight: 700,
+                        ),
+                      ),
+                      Text(
+                        '${tx.cost} coins · ${_when(tx.dateTime)}',
+                        style: StoryTheme.body(
+                          size: 13,
+                          color: palette.inkMuted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${tx.cost} coins · ${_when(tx.dateTime)}',
-              style: const TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: busy ? null : onDecline,
-                  child: const Text('Decline'),
+                Expanded(
+                  child: StoryButton(
+                    label: 'Decline',
+                    accent: palette.action,
+                    filled: false,
+                    showArrow: false,
+                    onPressed: busy ? null : onDecline,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: busy ? null : onGive,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Mark as given'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: StoryButton(
+                    label: 'Mark as given',
+                    accent: palette.action,
+                    showArrow: false,
+                    onPressed: busy ? null : onGive,
                   ),
                 ),
               ],
@@ -277,25 +279,28 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final tx = request.tx;
     final given = tx.status == 'given';
     final resolved = tx.resolvedAt;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          given ? Icons.check_circle : Icons.undo,
-          color: given ? Colors.green : Colors.black45,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: StickerRow(
+        leading: StickerIconDisc(
+          icon: given ? Icons.check_rounded : Icons.undo_rounded,
+          color: given ? palette.tintGreen : palette.surface,
+          size: 38,
         ),
-        title: Text('${request.child.name}: ${tx.title}'),
-        subtitle: Text(
-          [
-            given ? 'Given' : 'Declined, ${tx.cost} coins refunded',
-            if (resolved != null)
-              _when(DateTime.fromMillisecondsSinceEpoch(resolved)),
-          ].join(' · '),
+        title: '${request.child.name}: ${tx.title}',
+        subtitle: [
+          given ? 'Given' : 'Declined, ${tx.cost} coins refunded',
+          if (resolved != null)
+            _when(DateTime.fromMillisecondsSinceEpoch(resolved)),
+        ].join(' · '),
+        trailing: Text(
+          '${tx.cost} 🪙',
+          style: StoryTheme.display(size: 15, color: palette.ink, weight: 700),
         ),
-        trailing: Text('${tx.cost} 🪙'),
       ),
     );
   }

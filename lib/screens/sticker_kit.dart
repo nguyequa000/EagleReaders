@@ -149,8 +149,9 @@ class _StickerCardState extends State<StickerCard> {
   }
 }
 
-/// The yellow band across the top of a sticker-book screen, cut off from the
-/// page with the ink line — the same header the story steps have.
+/// The band across the top of a sticker-book screen, cut off from the page
+/// with the ink line — the same header the story steps have. Yellow on the
+/// child's screens, pink on the grown-ups'.
 class StickerHeader extends StatelessWidget {
   final String title;
 
@@ -160,12 +161,17 @@ class StickerHeader extends StatelessWidget {
 
   final List<Widget> trailing;
 
+  /// Draws the parent band ([StoryPalette.headerParent]) instead of the
+  /// child's.
+  final bool forParent;
+
   const StickerHeader({
     super.key,
     required this.title,
     this.showBack = false,
     this.onBack,
     this.trailing = const <Widget>[],
+    this.forParent = false,
   });
 
   @override
@@ -173,7 +179,7 @@ class StickerHeader extends StatelessWidget {
     final palette = StoryTheme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: palette.header,
+        color: forParent ? palette.headerParent : palette.header,
         border: Border(
           bottom: BorderSide(
             color: palette.outline,
@@ -208,7 +214,9 @@ class StickerHeader extends StatelessWidget {
                   maxLines: 1,
                   style: StoryTheme.display(
                     size: 21,
-                    color: palette.headerInk,
+                    color: forParent
+                        ? palette.headerParentInk
+                        : palette.headerInk,
                     weight: 700,
                     tracking: 0.2,
                   ),
@@ -413,6 +421,9 @@ class StickerPromptPage extends StatelessWidget {
   /// screen that is the start of the app once signed in.
   final bool allowBack;
 
+  /// Draws the parent's pink header band; see [StickerHeader.forParent].
+  final bool forParent;
+
   const StickerPromptPage({
     super.key,
     required this.title,
@@ -422,6 +433,7 @@ class StickerPromptPage extends StatelessWidget {
     this.caption,
     this.children = const <Widget>[],
     this.allowBack = true,
+    this.forParent = false,
   });
 
   @override
@@ -437,6 +449,7 @@ class StickerPromptPage extends StatelessWidget {
               // Opened straight after sign-in there is nothing to go back to.
               showBack: allowBack && Navigator.of(context).canPop(),
               trailing: const [ThemeSticker()],
+              forParent: forParent,
             ),
             // Scrollable so it still fits with the keyboard up, or with a
             // long list of children.
@@ -618,6 +631,9 @@ class StickerPinPage extends StatelessWidget {
   final VoidCallback onSubmit;
   final ValueChanged<String>? onChanged;
 
+  /// Draws the parent's pink header band; see [StickerHeader.forParent].
+  final bool forParent;
+
   const StickerPinPage({
     super.key,
     required this.title,
@@ -629,6 +645,7 @@ class StickerPinPage extends StatelessWidget {
     required this.onSubmit,
     this.error,
     this.onChanged,
+    this.forParent = false,
   });
 
   @override
@@ -639,6 +656,7 @@ class StickerPinPage extends StatelessWidget {
       emoji: emoji,
       emojiTint: emojiTint,
       prompt: prompt,
+      forParent: forParent,
       children: [
         StickerFieldShadow(
           child: TextField(
@@ -680,6 +698,204 @@ class StickerPinPage extends StatelessWidget {
           onPressed: onSubmit,
         ),
       ],
+    );
+  }
+}
+
+/// A whole sticker-book screen: the paper, the header band and [body] under
+/// it. For the list-shaped screens; prompt-shaped ones use
+/// [StickerPromptPage].
+class StickerPage extends StatelessWidget {
+  final String title;
+  final Widget body;
+
+  /// Draws the parent's pink header band; see [StickerHeader.forParent].
+  final bool forParent;
+
+  /// Shows the header's back sticker when the route can pop.
+  final bool allowBack;
+
+  /// Stickers at the right of the header; the day/night switch always ends
+  /// the row.
+  final List<Widget> actions;
+
+  final Widget? floatingActionButton;
+
+  const StickerPage({
+    super.key,
+    required this.title,
+    required this.body,
+    this.forParent = false,
+    this.allowBack = true,
+    this.actions = const <Widget>[],
+    this.floatingActionButton,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Scaffold(
+      backgroundColor: palette.ground,
+      floatingActionButton: floatingActionButton,
+      body: PaperBackground(
+        child: Column(
+          children: [
+            StickerHeader(
+              title: title,
+              showBack: allowBack && Navigator.of(context).canPop(),
+              forParent: forParent,
+              trailing: [...actions, const ThemeSticker()],
+            ),
+            Expanded(child: body),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The bold title over a group of cards: "Reading Stats", "Child Profiles".
+class StickerSectionTitle extends StatelessWidget {
+  final String text;
+
+  const StickerSectionTitle(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: StoryTheme.display(
+          size: 19,
+          color: StoryTheme.of(context).ink,
+          weight: 700,
+        ),
+      ),
+    );
+  }
+}
+
+/// An icon on a round tinted sticker with the ink line — the leading mark on
+/// a row, where the child screens put an emoji.
+class StickerIconDisc extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  const StickerIconDisc({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.outline,
+          width: StoryTheme.outlineWidthThin,
+        ),
+      ),
+      child: Icon(icon, color: palette.ink, size: size * 0.5),
+    );
+  }
+}
+
+/// One tappable line on a paper card: a leading mark, a title, an optional
+/// line under it and an arrow. Square, not tipped — these are the parent's
+/// lists, which want to scan as a column.
+class StickerRow extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  /// Replaces the arrow; null keeps the arrow when [onTap] is set.
+  final Widget? trailing;
+
+  const StickerRow({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      onTap: onTap,
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: StoryTheme.display(
+                    size: 17,
+                    color: palette.ink,
+                    weight: 700,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: StoryTheme.body(
+                      size: 13,
+                      color: palette.inkMuted,
+                      height: 1.35,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          trailing ??
+              (onTap == null
+                  ? const SizedBox.shrink()
+                  : Icon(Icons.chevron_right, color: palette.ink)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Something went wrong, said on a coral card rather than in red text, so it
+/// reads in both modes and sits in the same world as everything else.
+class StickerErrorNote extends StatelessWidget {
+  final String message;
+
+  const StickerErrorNote(this.message, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      color: palette.tintCoral,
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Text(
+        message,
+        style: StoryTheme.body(color: palette.ink, weight: 700),
+      ),
     );
   }
 }

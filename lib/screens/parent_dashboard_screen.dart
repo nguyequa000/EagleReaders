@@ -11,6 +11,9 @@ import 'live_refresh.dart';
 import 'parent_settings_screen.dart';
 import 'reward_requests_screen.dart';
 import 'rewards_manager_screen.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 /// Parent-facing dashboard: family reading stats + recent activity feed
 /// ([ActivityService]), real child profiles ([ChildProfileStore]) and rewards.
@@ -186,91 +189,53 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Parent Dashboard'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
+    final palette = StoryTheme.of(context);
+    return StickerPage(
+      title: 'Parent Dashboard',
+      forParent: true,
+      // The start of the parent side; back would only reach the PIN.
+      allowBack: false,
+      actions: [
+        Badge(
+          isLabelVisible: _pending.isNotEmpty,
+          label: Text('${_pending.length}'),
+          backgroundColor: palette.action,
+          textColor: palette.onAction,
+          offset: const Offset(-4, 4),
+          child: StickerIconButton(
+            icon: Icons.notifications,
             tooltip: 'Reward requests',
-            onPressed: _openRequests,
-            icon: Badge(
-              isLabelVisible: _pending.isNotEmpty,
-              label: Text('${_pending.length}'),
-              child: const Icon(Icons.notifications),
-            ),
+            onTap: _openRequests,
           ),
-        ],
-      ),
+        ),
+      ],
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                // Extra room right and below for the hard shadows.
+                padding: const EdgeInsets.fromLTRB(18, 18, 22, 28),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildProfileHeader(context),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Reading Stats',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
+                    const StickerSectionTitle('Reading Stats'),
                     _buildReadingStats(),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Child Profiles',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
+                    const StickerSectionTitle('Child Profiles'),
                     ..._buildChildProfiles(),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Books',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
+                    const StickerSectionTitle('Books'),
                     _buildShelfEntry(context),
-                    const SizedBox(height: 20),
-
+                    const SizedBox(height: 24),
                     // Rewards (CR #2)
-                    const Text(
-                      'Rewards',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const StickerSectionTitle('Rewards'),
                     _buildRewardsEntry(context),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Family\'s Recent Activity',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
+                    const StickerSectionTitle("Family's Recent Activity"),
                     if (_activity.isEmpty)
                       _buildActivityItem(
                         'No activity yet — start reading to see it here.',
@@ -279,8 +244,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                       for (final (name, event) in _activity.reversed.take(
                         12,
                       )) ...[
-                        _buildActivityItem(event.describe(name)),
-                        const SizedBox(height: 8),
+                        _buildActivityItem(event.describe(name), event.type),
+                        const SizedBox(height: 10),
                       ],
                   ],
                 ),
@@ -290,84 +255,66 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   }
 
   /// Manage Shelf: the family's books, imported once and given to children.
-  Widget _buildShelfEntry(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-    ),
-    child: ListTile(
-      leading: const CircleAvatar(
-        backgroundColor: Colors.green,
-        child: Icon(Icons.local_library, color: Colors.white),
+  Widget _buildShelfEntry(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return StickerRow(
+      leading: StickerIconDisc(
+        icon: Icons.local_library,
+        color: palette.tintGreen,
       ),
-      title: const Text('Manage Shelf'),
-      subtitle: const Text('Import books and choose who reads them'),
-      trailing: const Icon(Icons.chevron_right),
+      title: 'Manage Shelf',
+      subtitle: 'Import books and choose who reads them',
       onTap: () => Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => BookShelfScreen(store: _store))),
-    ),
-  );
+    );
+  }
 
   Widget _buildRewardsEntry(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final pending = _pending.length;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: pending > 0 ? Colors.orange : Colors.green,
-              child: const Icon(Icons.notifications, color: Colors.white),
-            ),
-            title: const Text('Reward Requests'),
-            subtitle: Text(
-              pending == 0
-                  ? 'No requests waiting'
-                  : '$pending waiting for you to hand over',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openRequests,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StickerRow(
+          leading: StickerIconDisc(
+            icon: Icons.notifications,
+            color: pending > 0 ? palette.tintCoral : palette.tintYellow,
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.green,
-              child: Icon(Icons.redeem, color: Colors.white),
-            ),
-            title: const Text('Manage Rewards'),
-            subtitle: const Text('Set what your children can spend coins on'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RewardsManagerScreen()),
-            ),
+          title: 'Reward Requests',
+          subtitle: pending == 0
+              ? 'No requests waiting'
+              : '$pending waiting for you to hand over',
+          onTap: _openRequests,
+        ),
+        const SizedBox(height: 10),
+        StickerRow(
+          leading: StickerIconDisc(
+            icon: Icons.redeem,
+            color: palette.tintMagenta,
           ),
-        ],
-      ),
+          title: 'Manage Rewards',
+          subtitle: 'Set what your children can spend coins on',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const RewardsManagerScreen()),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildProfileHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.green,
-            child: Icon(Icons.person, color: Colors.white, size: 28),
+          StickerIconDisc(
+            icon: Icons.people_alt_outlined,
+            color: palette.tintMagenta,
+            size: 56,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,20 +322,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                 Text(
                   _name == null ? 'Hello!' : 'Hello, $_name',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: StoryTheme.display(
+                    size: 20,
+                    color: palette.ink,
+                    weight: 700,
                   ),
                 ),
-                const Text(
+                Text(
                   'Parent Account',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                  style: StoryTheme.body(size: 13, color: palette.inkMuted),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.grey),
+            icon: Icon(Icons.settings, color: palette.ink),
             tooltip: 'Settings',
             // Reload on return: the name may have changed.
             onPressed: () async {
@@ -404,20 +352,28 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   }
 
   Widget _buildReadingStats() {
+    final palette = StoryTheme.of(context);
     final stats = _stats;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StatCard(
+          icon: Icons.menu_book,
+          color: palette.tintBlue,
           label: 'Books Read',
           value: (stats?.booksFinished ?? 0).toString(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         _StatCard(
+          icon: Icons.schedule,
+          color: palette.tintCoral,
           label: 'Minutes Read\nThis Week',
           value: (stats?.minutesThisWeek ?? 0).toString(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         _StatCard(
+          icon: Icons.star_outline,
+          color: palette.tintMagenta,
           label: 'Stories\nCreated',
           value: (stats?.storiesCreated ?? 0).toString(),
         ),
@@ -431,66 +387,52 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     final children = _children;
     if (children == null) return const [];
     if (children.isEmpty) {
-      return [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-          ),
-          child: const Text(
-            'No child profiles yet.',
-            style: TextStyle(fontSize: 14, color: Colors.black54),
-          ),
-        ),
-      ];
+      return [_buildActivityItem('No child profiles yet.')];
     }
     final rows = <Widget>[];
-    for (final child in children) {
-      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
-      rows.add(_buildChildProfile(child));
+    for (final (i, child) in children.indexed) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 10));
+      rows.add(_buildChildProfile(child, i));
     }
     return rows;
   }
 
-  Widget _buildChildProfile(ChildProfile child) {
+  Widget _buildChildProfile(ChildProfile child, int index) {
+    final palette = StoryTheme.of(context);
     final reading = _statsByChild[child.id]?.currentlyReading;
     final coins = _balances[child.id];
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
+    return StickerCard(
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.amber.withValues(alpha: 0.2),
-            child: Text(child.emoji, style: const TextStyle(fontSize: 20)),
+          StickerEmoji(
+            emoji: child.emoji,
+            // Yellow and blue alternate, as in the family list mock-up.
+            color: index.isEven ? palette.tintYellow : palette.tintBlue,
+            size: 46,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   child.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                  style: StoryTheme.display(
+                    size: 18,
+                    color: palette.ink,
+                    weight: 700,
                   ),
                 ),
                 if (coins != null)
                   Text(
                     '🪙 $coins ${coins == 1 ? 'coin' : 'coins'}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.amber.shade900,
+                    style: StoryTheme.body(
+                      size: 13,
+                      color: palette.ink,
+                      weight: 700,
                     ),
                   ),
                 if (reading != null)
@@ -498,81 +440,107 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                     'Reading: $reading',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: StoryTheme.body(size: 13, color: palette.inkMuted),
                   ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChildProfileScreen(
-                  childId: child.id,
-                  childName: child.name,
+          SizedBox(
+            width: 92,
+            child: StoryButton(
+              label: 'View',
+              accent: palette.action,
+              showArrow: false,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChildProfileScreen(
+                    childId: child.id,
+                    childName: child.name,
+                  ),
                 ),
               ),
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('View'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActivityItem(String activity) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+  /// One line of the family feed, marked with what kind of thing happened:
+  /// a book for reading, a pencil for a story, a gift for coins and rewards.
+  Widget _buildActivityItem(String activity, [String? type]) {
+    final palette = StoryTheme.of(context);
+    final (icon, tint) = switch (type) {
+      null => (Icons.info_outline, palette.surface),
+      'story_created' => (Icons.edit, palette.tintMagenta),
+      'comprehension_result' => (Icons.quiz_outlined, palette.tintGreen),
+      'coins_earned' ||
+      'reward_redeemed' ||
+      'coins_refunded' => (Icons.redeem, palette.tintYellow),
+      _ => (Icons.menu_book, palette.tintBlue),
+    };
+    return StickerCard(
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          StickerIconDisc(icon: icon, color: tint, size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              activity,
+              style: StoryTheme.body(size: 14, color: palette.ink),
+            ),
+          ),
+        ],
       ),
-      child: Text(activity, style: const TextStyle(fontSize: 14)),
     );
   }
 }
 
+/// One of the three numbers across the top: an icon, the figure and what it
+/// counts, on its own pastel sticker.
 class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
   final String label;
   final String value;
 
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
+      child: StickerCard(
+        color: color,
+        radius: StoryTheme.radiusButton,
+        depth: 3,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
         child: Column(
           children: [
+            Icon(icon, color: palette.ink, size: 22),
+            const SizedBox(height: 4),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
+              style: StoryTheme.display(
+                size: 26,
+                color: palette.ink,
+                weight: 700,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: StoryTheme.body(size: 12, color: palette.ink, height: 1.2),
             ),
           ],
         ),

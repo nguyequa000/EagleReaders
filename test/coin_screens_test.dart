@@ -5,6 +5,8 @@ import 'package:storysprout/screens/child_rewards_screen.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/screens/reward_requests_screen.dart';
+import 'package:storysprout/screens/sticker_kit.dart';
+import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/services/coin_service.dart';
@@ -128,7 +130,7 @@ void main() {
       await openRewards(tester);
 
       expect(find.text('10 coins'), findsOneWidget);
-      expect(find.widgetWithText(ElevatedButton, 'Redeem'), findsOneWidget);
+      expect(find.widgetWithText(StoryButton, 'Redeem'), findsOneWidget);
       expect(find.text('15 more coins to go'), findsOneWidget);
     });
 
@@ -139,7 +141,7 @@ void main() {
       await rewards.create(title: 'Sticker', coinCost: 10);
       await openRewards(tester);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Redeem'));
+      await tester.tap(find.widgetWithText(StoryButton, 'Redeem'));
       await tester.pumpAndSettle();
       expect(find.text('This spends 10 of your 15 coins.'), findsOneWidget);
       await tester.tap(find.text('Yes, redeem!'));
@@ -163,7 +165,7 @@ void main() {
       await rewards.create(title: 'Sticker', coinCost: 10);
       await openRewards(tester);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Redeem'));
+      await tester.tap(find.widgetWithText(StoryButton, 'Redeem'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Not yet'));
       await tester.pumpAndSettle();
@@ -243,7 +245,7 @@ void main() {
 
       final stickerCard = find.ancestor(
         of: find.text('Mika redeemed "Sticker"'),
-        matching: find.byType(Card),
+        matching: find.byType(StickerCard),
       );
       await tester.tap(
         find.descendant(of: stickerCard, matching: find.text('Mark as given')),
@@ -252,13 +254,13 @@ void main() {
       expect(find.text('Mark as given'), findsOneWidget);
       expect(find.text('Mika: Sticker'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Decline'));
+      await tester.tap(find.widgetWithText(StoryButton, 'Decline'));
       await tester.pumpAndSettle();
       expect(
         find.text('Mika gets their 10 coins back for "Ice cream".'),
         findsOneWidget,
       );
-      await tester.tap(find.widgetWithText(TextButton, 'Decline').last);
+      await tester.tap(find.widgetWithText(TextButton, 'Decline'));
       await tester.pumpAndSettle();
 
       expect(find.text('No requests right now.'), findsOneWidget);

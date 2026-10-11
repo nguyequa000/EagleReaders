@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/child_profiles.dart';
 import 'parent_dashboard_screen.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 /// Shown once, right after a parent creates their account: how many children,
 /// and a name + 4-digit PIN for each. Saved to Firestore via [ChildProfileStore].
@@ -104,133 +107,129 @@ class _ChildSetupScreenState extends State<ChildSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Your Children'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerPage(
+      title: 'Add Your Children',
+      forParent: true,
+      // Straight after registration; there is nothing to go back to.
+      allowBack: false,
       // Scrollable so the dynamic rows + keyboard don't overflow (see CLAUDE.md).
-      body: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Set up a profile and PIN for each child on this account.',
-                    style: TextStyle(fontSize: 15, color: Colors.black54),
+      body: SingleChildScrollView(
+        // Extra room right and below for the hard shadows.
+        padding: const EdgeInsets.fromLTRB(20, 20, 24, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Set up a profile and PIN for each child on this account.',
+              style: StoryTheme.body(color: palette.inkMuted),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Text(
+                  'How many children?',
+                  style: StoryTheme.display(
+                    size: 18,
+                    color: palette.ink,
+                    weight: 700,
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Text(
-                        'How many children?',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      DropdownButton<int>(
-                        value: _count,
-                        onChanged: _saving
-                            ? null
-                            : (val) {
-                                if (val != null) _setCount(val);
-                              },
-                        items: [
-                          for (
-                            var n = 1;
-                            n <= ChildSetupScreen.maxChildren;
-                            n++
-                          )
-                            DropdownMenuItem(value: n, child: Text('$n')),
-                        ],
-                      ),
+                ),
+                const Spacer(),
+                StickerPill(
+                  child: DropdownButton<int>(
+                    value: _count,
+                    underline: const SizedBox.shrink(),
+                    isDense: true,
+                    style: StoryTheme.display(size: 18, color: palette.ink),
+                    dropdownColor: palette.surface,
+                    iconEnabledColor: palette.ink,
+                    onChanged: _saving
+                        ? null
+                        : (val) {
+                            if (val != null) _setCount(val);
+                          },
+                    items: [
+                      for (var n = 1; n <= ChildSetupScreen.maxChildren; n++)
+                        DropdownMenuItem(value: n, child: Text('$n')),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  for (var i = 0; i < _count; i++) _childCard(i),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _saving ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Done', style: TextStyle(fontSize: 16)),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
+            const SizedBox(height: 18),
+            for (var i = 0; i < _count; i++) ...[
+              _childCard(i),
+              const SizedBox(height: 16),
+            ],
+            if (_error != null) ...[
+              StickerErrorNote(_error!),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 8),
+            StoryButton(
+              label: _saving ? 'Saving…' : 'Done',
+              accent: palette.action,
+              onPressed: _saving ? null : _save,
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _childCard(int i) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Child ${i + 1}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _nameCtrls[i],
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              StickerEmoji(
+                emoji: '🧒',
+                color: i.isEven ? palette.tintYellow : palette.tintBlue,
+                size: 40,
               ),
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _pinCtrls[i],
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              decoration: const InputDecoration(
-                labelText: '4-digit PIN',
-                border: OutlineInputBorder(),
-                counterText: '',
+              const SizedBox(width: 12),
+              Text(
+                'Child ${i + 1}',
+                style: StoryTheme.display(
+                  size: 18,
+                  color: palette.ink,
+                  weight: 700,
+                ),
               ),
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _nameCtrls[i],
+            textCapitalization: TextCapitalization.words,
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(palette, label: 'Name'),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _pinCtrls[i],
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(
+              palette,
+              label: '4-digit PIN',
+              counterText: '',
             ),
-          ],
-        ),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+          ),
+        ],
       ),
     );
   }

@@ -5,12 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../reading_theme.dart';
 import '../services/book_library.dart';
 import '../services/child_profiles.dart';
 import '../services/device_memory.dart';
 import '../services/epub_metadata.dart';
 import 'book_cover.dart';
+import 'sticker_kit.dart';
+import 'story/paper_background.dart';
+import 'story/story_theme.dart';
 import 'paged_text_view.dart';
 
 /// Manage Shelf: the parent imports the family's books once, then chooses
@@ -334,22 +336,27 @@ class _BookShelfScreenState extends State<BookShelfScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.auto_stories_rounded,
-                size: 72,
-                color: readingGreen,
+              StickerIconDisc(
+                icon: Icons.auto_stories_rounded,
+                color: StoryTheme.of(context).tintGreen,
+                size: 96,
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Your next adventure starts here',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                style: StoryTheme.display(
+                  size: 24,
+                  color: StoryTheme.of(context).ink,
+                  weight: 700,
+                ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Import EPUB books, then choose which children each one is '
                 'for.',
                 textAlign: TextAlign.center,
+                style: StoryTheme.body(color: StoryTheme.of(context).ink),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
@@ -373,80 +380,92 @@ class _BookShelfScreenState extends State<BookShelfScreen>
       itemCount: _books.length,
       itemBuilder: (context, index) {
         final book = _books[index];
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+        final palette = StoryTheme.of(context);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+            boxShadow: palette.cardShadow(),
           ),
-          child: InkWell(
-            onTap: () => _chooseReaders(book),
-            onLongPress: () => _remove(book),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 4, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox.expand(
-                          child: BookCover(
-                            path: book.coverPath,
-                            fallback: bookCoverFallback(book),
+          child: Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _chooseReaders(book),
+              onLongPress: () => _remove(book),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 4, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox.expand(
+                            child: BookCover(
+                              path: book.coverPath,
+                              fallback: bookCoverFallback(book),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    book.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (book.author.isNotEmpty)
+                    const SizedBox(height: 10),
                     Text(
-                      book.author,
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: StoryTheme.display(
+                        size: 16,
+                        color: palette.ink,
+                        weight: 700,
+                      ),
+                    ),
+                    if (book.author.isNotEmpty)
+                      Text(
+                        book.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: StoryTheme.body(
+                          size: 13,
+                          color: palette.inkMuted,
+                        ),
+                      ),
+                    Text(
+                      _readersLabel(book),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: StoryTheme.body(
+                        size: 12,
+                        color: palette.ink,
+                        weight: 700,
+                      ),
                     ),
-                  Text(
-                    _readersLabel(book),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: readingGreen),
-                  ),
-                  // Their own row: beside the label they left it no room on
-                  // a phone's two-column grid.
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        tooltip: 'Rename ${book.title}',
-                        onPressed: () => _rename(book),
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                      IconButton(
-                        tooltip: 'Choose who reads ${book.title}',
-                        onPressed: () => _chooseReaders(book),
-                        icon: const Icon(Icons.group_outlined),
-                      ),
-                      IconButton(
-                        tooltip: 'Remove ${book.title}',
-                        onPressed: () => _remove(book),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ],
-                  ),
-                ],
+                    // Their own row: beside the label they left it no room on
+                    // a phone's two-column grid.
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          tooltip: 'Rename ${book.title}',
+                          onPressed: () => _rename(book),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Choose who reads ${book.title}',
+                          onPressed: () => _chooseReaders(book),
+                          icon: const Icon(Icons.group_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove ${book.title}',
+                          onPressed: () => _remove(book),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -465,14 +484,19 @@ class _BookShelfScreenState extends State<BookShelfScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Fill the family shelf',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+                style: StoryTheme.display(
+                  size: 26,
+                  color: StoryTheme.of(context).ink,
+                  weight: 700,
+                ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Choose EPUB files from your device. Check each title and '
                 'author, and who it is for, before adding them.',
+                style: StoryTheme.body(color: StoryTheme.of(context).inkMuted),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
@@ -512,7 +536,6 @@ class _BookShelfScreenState extends State<BookShelfScreen>
 
   Widget _draftCard(_BookDraft draft) => Card(
     key: ObjectKey(draft),
-    elevation: 0,
     margin: const EdgeInsets.only(top: 20),
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -541,10 +564,7 @@ class _BookShelfScreenState extends State<BookShelfScreen>
           TextFormField(
             controller: draft.title,
             enabled: !_busy,
-            decoration: const InputDecoration(
-              labelText: 'Book title',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Book title'),
             validator: (value) => value == null || value.trim().isEmpty
                 ? 'Enter a book title.'
                 : null,
@@ -553,10 +573,7 @@ class _BookShelfScreenState extends State<BookShelfScreen>
           TextFormField(
             controller: draft.author,
             enabled: !_busy,
-            decoration: const InputDecoration(
-              labelText: 'Author (optional)',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Author (optional)'),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -602,68 +619,76 @@ class _BookShelfScreenState extends State<BookShelfScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Theme(
-    data: readingTheme(context),
-    child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Shelf'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(icon: Icon(Icons.menu_book_outlined), text: 'Shelf'),
-            Tab(icon: Icon(Icons.add_circle_outline), text: 'Import'),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (_status case final status?)
-              Material(
-                color: readingGreen.withValues(alpha: 0.1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(status)),
-                    ],
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Theme(
+      data: StoryTheme.formsFor(Theme.of(context), palette),
+      child: Scaffold(
+        backgroundColor: palette.ground,
+        body: PaperBackground(
+          child: Column(
+            children: [
+              StickerHeader(
+                title: 'Manage Shelf',
+                showBack: Navigator.of(context).canPop(),
+                forParent: true,
+                trailing: const [ThemeSticker()],
+              ),
+              TabBar(
+                controller: _tabs,
+                tabs: const [
+                  Tab(icon: Icon(Icons.menu_book_outlined), text: 'Shelf'),
+                  Tab(icon: Icon(Icons.add_circle_outline), text: 'Import'),
+                ],
+              ),
+              if (_status case final status?)
+                Material(
+                  color: palette.tintYellow,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(status)),
+                      ],
+                    ),
                   ),
                 ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [_shelfTab(), _importTab()],
+                ),
               ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [_shelfTab(), _importTab()],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// The first letter of [book]'s title, for a book without a cover.
-Widget bookCoverFallback(Book book) => ColoredBox(
-  color: readingGreen.withValues(alpha: 0.1),
-  child: Center(
-    child: Text(
-      book.title.trim().substring(0, 1).toUpperCase(),
-      style: const TextStyle(
-        fontSize: 64,
-        fontWeight: FontWeight.w700,
-        color: readingGreen,
+Widget bookCoverFallback(Book book) => Builder(
+  builder: (context) {
+    final palette = StoryTheme.of(context);
+    return ColoredBox(
+      color: palette.tintBlue,
+      child: Center(
+        child: Text(
+          book.title.trim().substring(0, 1).toUpperCase(),
+          style: StoryTheme.display(size: 64, color: palette.ink, weight: 700),
+        ),
       ),
-    ),
-  ),
+    );
+  },
 );
 
 class _BookDraft {
@@ -870,19 +895,19 @@ class _ChildShelfScreenState extends State<ChildShelfScreen> {
   @override
   Widget build(BuildContext context) {
     final books = _books;
+    final palette = StoryTheme.of(context);
     return Theme(
-      data: readingTheme(context),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text("${widget.childName}'s Books"),
-          actions: [
-            TextButton.icon(
-              onPressed: _manageShelf,
-              icon: const Icon(Icons.library_add),
-              label: const Text('Manage Shelf'),
-            ),
-          ],
-        ),
+      data: StoryTheme.formsFor(Theme.of(context), palette),
+      child: StickerPage(
+        title: "${widget.childName}'s Books",
+        forParent: true,
+        actions: [
+          StickerIconButton(
+            icon: Icons.library_add,
+            tooltip: 'Manage Shelf',
+            onTap: _manageShelf,
+          ),
+        ],
         body: books == null
             ? const Center(child: CircularProgressIndicator())
             : books.isEmpty
@@ -892,18 +917,20 @@ class _ChildShelfScreenState extends State<ChildShelfScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'The family shelf is empty.',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+                        style: StoryTheme.display(
+                          size: 20,
+                          color: palette.ink,
+                          weight: 700,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
+                      Text(
                         'Import books in Manage Shelf, then tick the ones '
                         'for this child here.',
                         textAlign: TextAlign.center,
+                        style: StoryTheme.body(color: palette.ink),
                       ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
@@ -920,7 +947,10 @@ class _ChildShelfScreenState extends State<ChildShelfScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Text('Tick the books ${widget.childName} can read.'),
+                    child: Text(
+                      'Tick the books ${widget.childName} can read.',
+                      style: StoryTheme.body(color: palette.ink),
+                    ),
                   ),
                   for (final book in books)
                     CheckboxListTile(
@@ -934,11 +964,8 @@ class _ChildShelfScreenState extends State<ChildShelfScreen> {
                           child: BookCover(
                             path: book.coverPath,
                             fallback: ColoredBox(
-                              color: readingGreen.withValues(alpha: 0.1),
-                              child: const Icon(
-                                Icons.menu_book,
-                                color: readingGreen,
-                              ),
+                              color: palette.tintBlue,
+                              child: Icon(Icons.menu_book, color: palette.ink),
                             ),
                           ),
                         ),
@@ -947,8 +974,21 @@ class _ChildShelfScreenState extends State<ChildShelfScreen> {
                         book.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                        style: StoryTheme.display(
+                          size: 16,
+                          color: palette.ink,
+                          weight: 700,
+                        ),
                       ),
-                      subtitle: book.author.isEmpty ? null : Text(book.author),
+                      subtitle: book.author.isEmpty
+                          ? null
+                          : Text(
+                              book.author,
+                              style: StoryTheme.body(
+                                size: 13,
+                                color: palette.inkMuted,
+                              ),
+                            ),
                     ),
                 ],
               ),

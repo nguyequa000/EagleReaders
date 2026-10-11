@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/rewards_store.dart';
 import 'live_refresh.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 /// Parent-facing reward catalog: create rewards and set what they cost in
 /// coins (CR #2). Children see the active ones on their own screen.
@@ -60,48 +63,46 @@ class _RewardsManagerScreenState extends State<RewardsManagerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final rewards = _rewards;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Rewards'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('New Reward'),
-      ),
+    return StickerPage(
+      title: 'Rewards',
+      forParent: true,
       body: rewards == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+              // Room at the bottom so the last card clears the button.
+              padding: const EdgeInsets.fromLTRB(18, 18, 22, 28),
               children: [
-                const Text(
+                Text(
                   'Rewards your children can spend coins on. You decide what '
                   'each one costs, and you hand it over yourself — coins have '
                   'no cash value.',
-                  style: TextStyle(color: Colors.black54, height: 1.4),
+                  style: StoryTheme.body(color: palette.inkMuted, height: 1.4),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
+                StoryButton(
+                  label: 'New Reward',
+                  accent: palette.action,
+                  showArrow: false,
+                  onPressed: () => _openEditor(),
+                ),
+                const SizedBox(height: 22),
                 if (_error != null) ...[
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 12),
+                  StickerErrorNote(_error!),
+                  const SizedBox(height: 16),
                 ],
                 if (rewards.isEmpty)
                   const _EmptyRewards()
                 else
-                  ...rewards.map(
-                    (reward) => _RewardCard(
+                  for (final (i, reward) in rewards.indexed)
+                    _RewardCard(
+                      index: i,
                       reward: reward,
                       onEdit: () => _openEditor(existing: reward),
                       onToggleActive: () => _toggleActive(reward),
                     ),
-                  ),
               ],
             ),
     );
@@ -113,25 +114,30 @@ class _EmptyRewards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final palette = StoryTheme.of(context);
+    return StickerCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.redeem, size: 48, color: Colors.black26),
-          SizedBox(height: 12),
+          StickerIconDisc(
+            icon: Icons.redeem,
+            color: palette.tintMagenta,
+            size: 64,
+          ),
+          const SizedBox(height: 14),
           Text(
             'No rewards yet',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: StoryTheme.display(
+              size: 18,
+              color: palette.ink,
+              weight: 700,
+            ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
             'Add one and it shows up on your child\'s screen straight away.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black54),
+            style: StoryTheme.body(color: palette.inkMuted),
           ),
         ],
       ),
@@ -141,60 +147,84 @@ class _EmptyRewards extends StatelessWidget {
 
 class _RewardCard extends StatelessWidget {
   const _RewardCard({
+    required this.index,
     required this.reward,
     required this.onEdit,
     required this.onToggleActive,
   });
 
+  /// Position in the list, which picks the gift's tint.
+  final int index;
   final Reward reward;
   final VoidCallback onEdit;
   final VoidCallback onToggleActive;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Opacity(
-        opacity: reward.active ? 1 : 0.55,
-        child: ListTile(
-          contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-          title: Text(
-            reward.title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (reward.description.isNotEmpty) Text(reward.description),
-              const SizedBox(height: 4),
-              Text(
-                reward.active
-                    ? '${reward.coinCost} coins'
-                    : '${reward.coinCost} coins · hidden from children',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: reward.active ? Colors.green.shade800 : Colors.black54,
-                ),
+    final palette = StoryTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: StickerCard(
+        // A retired reward sits flat on the page, as the children no longer
+        // see it.
+        color: reward.active ? palette.surface : palette.ground,
+        radius: StoryTheme.radiusButton,
+        depth: reward.active ? 3 : 0,
+        padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+        child: Row(
+          children: [
+            StickerIconDisc(
+              icon: Icons.redeem,
+              color: reward.active
+                  ? palette.tintForIndex(index + 1)
+                  : palette.disabled,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reward.title,
+                    style: StoryTheme.display(
+                      size: 17,
+                      color: palette.ink,
+                      weight: 700,
+                    ),
+                  ),
+                  if (reward.description.isNotEmpty)
+                    Text(
+                      reward.description,
+                      style: StoryTheme.body(size: 13, color: palette.inkMuted),
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    reward.active
+                        ? '${reward.coinCost} coins'
+                        : '${reward.coinCost} coins · hidden from children',
+                    style: StoryTheme.body(
+                      size: 13,
+                      color: reward.active ? palette.ink : palette.inkMuted,
+                      weight: 700,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Edit',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: onEdit,
+            ),
+            IconButton(
+              tooltip: 'Edit',
+              icon: Icon(Icons.edit_outlined, color: palette.ink),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              tooltip: reward.active ? 'Retire' : 'Restore',
+              icon: Icon(
+                reward.active ? Icons.visibility_off_outlined : Icons.undo,
+                color: palette.ink,
               ),
-              IconButton(
-                tooltip: reward.active ? 'Retire' : 'Restore',
-                icon: Icon(
-                  reward.active ? Icons.visibility_off_outlined : Icons.undo,
-                ),
-                onPressed: onToggleActive,
-              ),
-            ],
-          ),
+              onPressed: onToggleActive,
+            ),
+          ],
         ),
       ),
     );
@@ -289,6 +319,7 @@ class _RewardEditorSheetState extends State<_RewardEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return Padding(
       // Lifts the sheet above the soft keyboard.
       padding: EdgeInsets.only(
@@ -296,16 +327,17 @@ class _RewardEditorSheetState extends State<_RewardEditorSheet> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 widget.existing == null ? 'New Reward' : 'Edit Reward',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                style: StoryTheme.display(
+                  size: 22,
+                  color: palette.ink,
+                  weight: 700,
                 ),
               ),
               const SizedBox(height: 16),
@@ -313,46 +345,45 @@ class _RewardEditorSheetState extends State<_RewardEditorSheet> {
                 controller: _titleController,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => _clearError(),
-                decoration: const InputDecoration(
-                  labelText: 'Reward',
-                  hintText: 'Trip for ice cream',
+                style: StoryTheme.body(color: palette.ink),
+                decoration: stickerInputDecoration(
+                  palette,
+                  label: 'Reward',
+                  hint: 'Trip for ice cream',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextField(
                 controller: _descriptionController,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Details (optional)',
-                  hintText: 'Saturday afternoon',
+                style: StoryTheme.body(color: palette.ink),
+                decoration: stickerInputDecoration(
+                  palette,
+                  label: 'Details (optional)',
+                  hint: 'Saturday afternoon',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextField(
                 controller: _costController,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => _clearError(),
-                decoration: const InputDecoration(
-                  labelText: 'Cost to redeem',
-                  suffixText: 'coins',
+                style: StoryTheme.body(color: palette.ink),
+                decoration: stickerInputDecoration(
+                  palette,
+                  label: 'Cost to redeem (coins)',
                 ),
               ),
               if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 14),
+                StickerErrorNote(_error!),
               ],
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(_saving ? 'Saving...' : 'Save Reward'),
-                ),
+              StoryButton(
+                label: _saving ? 'Saving...' : 'Save Reward',
+                accent: palette.action,
+                showArrow: false,
+                onPressed: _saving ? null : _save,
               ),
             ],
           ),

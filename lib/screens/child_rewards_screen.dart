@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/coin_service.dart';
 import '../services/rewards_store.dart';
 import 'live_refresh.dart';
+import 'sticker_kit.dart';
+import 'story/paper_background.dart';
+import 'story/story_button.dart';
+import 'story/story_row_label.dart';
+import 'story/story_theme.dart';
 
 /// What a child can work toward (CR #2): their coin balance, the rewards their
 /// parent has set up (cheapest first) with a Redeem button on each one they
@@ -72,25 +77,14 @@ class _ChildRewardsScreenState extends State<ChildRewardsScreen>
   Future<void> _redeem(Reward reward) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Get "${reward.title}"?'),
-        content: Text(
-          'This spends ${reward.coinCost} of your $_balance coins.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not yet'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Yes, redeem!'),
-          ),
-        ],
+      builder: (context) => _StickerDialog(
+        emoji: '🎁',
+        title: 'Get "${reward.title}"?',
+        message: 'This spends ${reward.coinCost} of your $_balance coins.',
+        primaryLabel: 'Yes, redeem!',
+        onPrimary: () => Navigator.pop(context, true),
+        secondaryLabel: 'Not yet',
+        onSecondary: () => Navigator.pop(context, false),
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -120,77 +114,99 @@ class _ChildRewardsScreenState extends State<ChildRewardsScreen>
     setState(() => _redeeming = false);
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('🎉 You did it!'),
-        content: Text(
-          'You redeemed "${reward.title}". Your grown-up has been told!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Yay!'),
-          ),
-        ],
+      builder: (context) => _StickerDialog(
+        emoji: '🎉',
+        title: 'You did it!',
+        message: 'You redeemed "${reward.title}". Your grown-up has been told!',
+        primaryLabel: 'Yay!',
+        onPrimary: () => Navigator.pop(context),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final rewards = _rewards;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('My Rewards'),
-        backgroundColor: Colors.amber,
-        foregroundColor: Colors.white,
-      ),
-      body: rewards == null
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _BalanceCard(childName: widget.childName, coins: _balance),
-                  const SizedBox(height: 16),
-                  if (_error != null) ...[
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 15),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (rewards.isEmpty)
-                    const _NoRewardsYet()
-                  else
-                    ...rewards.map(
-                      (r) => _RewardTile(
-                        reward: r,
-                        balance: _balance,
-                        onRedeem: _redeeming ? null : () => _redeem(r),
-                      ),
-                    ),
-                  if (_requests.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text(
-                      'My requests',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ..._requests.map((r) => _RequestTile(request: r)),
-                  ],
-                ],
-              ),
+      backgroundColor: palette.ground,
+      body: PaperBackground(
+        child: Column(
+          children: [
+            const StickerHeader(
+              title: 'My Rewards',
+              showBack: true,
+              trailing: [ThemeSticker()],
             ),
+            Expanded(
+              child: rewards == null
+                  ? Center(
+                      child: CircularProgressIndicator(color: palette.action),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      color: palette.action,
+                      child: ListView(
+                        // Extra room right and below for the hard shadows.
+                        padding: const EdgeInsets.fromLTRB(20, 20, 24, 28),
+                        children: [
+                          _BalanceCard(
+                            childName: widget.childName,
+                            coins: _balance,
+                          ),
+                          const SizedBox(height: 22),
+                          if (_error != null) ...[
+                            StickerCard(
+                              color: palette.tintCoral,
+                              radius: StoryTheme.radiusButton,
+                              depth: 3,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              child: Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: StoryTheme.body(
+                                  color: palette.ink,
+                                  weight: 700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                          ],
+                          if (rewards.isEmpty)
+                            const _NoRewardsYet()
+                          else
+                            for (final (i, r) in rewards.indexed)
+                              _RewardTile(
+                                index: i,
+                                reward: r,
+                                balance: _balance,
+                                onRedeem: _redeeming ? null : () => _redeem(r),
+                              ),
+                          if (_requests.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: StoryRowLabel(text: 'My requests'),
+                            ),
+                            const SizedBox(height: 10),
+                            ..._requests.map((r) => _RequestTile(request: r)),
+                          ],
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
+/// The coin total on a yellow sticker, tipped like the dashboard's cards.
 class _BalanceCard extends StatelessWidget {
   const _BalanceCard({required this.childName, required this.coins});
 
@@ -199,15 +215,14 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade100,
-        borderRadius: BorderRadius.circular(16),
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      color: palette.tintYellow,
+      tilt: stickerTilt(0),
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          const Text('🪙', style: TextStyle(fontSize: 40)),
+          StickerEmoji(emoji: '🪙', color: palette.surface, size: 64),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -216,16 +231,21 @@ class _BalanceCard extends StatelessWidget {
                 Text(
                   '$coins ${coins == 1 ? 'coin' : 'coins'}',
                   key: const Key('rewardsBalance'),
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
+                  style: StoryTheme.display(
+                    size: 28,
+                    color: palette.ink,
+                    weight: 700,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   'Read, finish quizzes and make stories to earn more, '
                   '$childName!',
-                  style: const TextStyle(fontSize: 13, color: Colors.black54),
+                  style: StoryTheme.body(
+                    size: 14,
+                    color: palette.ink,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -241,20 +261,18 @@ class _NoRewardsYet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      tilt: stickerTilt(1),
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Column(
+      child: Column(
         children: [
-          Text('🎁', style: TextStyle(fontSize: 48)),
-          SizedBox(height: 12),
+          StickerEmoji(emoji: '🎁', color: palette.tintMagenta, size: 72),
+          const SizedBox(height: 14),
           Text(
             'Ask a grown-up to add some rewards!',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 15, color: Colors.black54),
+            style: StoryTheme.display(size: 18, color: palette.ink),
           ),
         ],
       ),
@@ -264,113 +282,150 @@ class _NoRewardsYet extends StatelessWidget {
 
 class _RewardTile extends StatelessWidget {
   const _RewardTile({
+    required this.index,
     required this.reward,
     required this.balance,
     required this.onRedeem,
   });
 
+  /// Position in the list, which picks the gift's tint and the card's tilt.
+  final int index;
   final Reward reward;
   final int balance;
   final VoidCallback? onRedeem;
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final affordable = balance >= reward.coinCost;
     final short = reward.coinCost - balance;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
-                  shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: StickerCard(
+        // Past the balance card's tilt, so neighbours lean opposite ways.
+        tilt: stickerTilt(index + 1),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                StickerEmoji(
+                  emoji: '🎁',
+                  color: palette.tintForIndex(index + 1),
+                  size: 52,
                 ),
-                child: const Center(
-                  child: Text('🎁', style: TextStyle(fontSize: 26)),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      reward.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (reward.description.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        reward.description,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
+                        reward.title,
+                        style: StoryTheme.display(
+                          size: 18,
+                          color: palette.ink,
+                          weight: 700,
+                        ),
+                      ),
+                      if (reward.description.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          reward.description,
+                          style: StoryTheme.body(
+                            size: 14,
+                            color: palette.inkMuted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                StickerPill(
+                  color: palette.tintYellow,
+                  child: Column(
+                    children: [
+                      Text(
+                        '${reward.coinCost}',
+                        style: StoryTheme.display(
+                          size: 20,
+                          color: palette.ink,
+                          weight: 700,
+                        ),
+                      ),
+                      Text(
+                        reward.coinCost == 1 ? 'coin' : 'coins',
+                        style: StoryTheme.body(
+                          size: 12,
+                          color: palette.ink,
+                          height: 1.1,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                children: [
-                  Text(
-                    '${reward.coinCost}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber.shade800,
-                    ),
-                  ),
-                  Text(
-                    reward.coinCost == 1 ? 'coin' : 'coins',
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (affordable)
+              StoryButton(
+                label: 'Redeem',
+                accent: palette.action,
+                showArrow: false,
+                onPressed: onRedeem,
+              )
+            else ...[
+              _CoinProgress(value: balance / reward.coinCost),
+              const SizedBox(height: 6),
+              Text(
+                '$short more ${short == 1 ? 'coin' : 'coins'} to go',
+                style: StoryTheme.body(size: 14, color: palette.inkMuted),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          if (affordable)
-            ElevatedButton(
-              onPressed: onRedeem,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Redeem'),
-            )
-          else ...[
-            LinearProgressIndicator(
-              value: balance / reward.coinCost,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-              color: Colors.amber,
-              backgroundColor: Colors.amber.shade50,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$short more ${short == 1 ? 'coin' : 'coins'} to go',
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
-            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// How close the child is to a reward, drawn like the story flow's progress
+/// bar: an inked track with the action colour filling it.
+class _CoinProgress extends StatelessWidget {
+  const _CoinProgress({required this.value});
+
+  /// 0 to 1.
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Semantics(
+      value: '${(value * 100).round()}%',
+      child: Container(
+        height: 14,
+        decoration: BoxDecoration(
+          color: palette.track,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: palette.outline,
+            width: StoryTheme.outlineWidthThin,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: value.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(color: palette.action),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -383,28 +438,157 @@ class _RequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, icon, color) = switch (request.status) {
-      'given' => ('Given', Icons.check_circle, Colors.green),
+    final palette = StoryTheme.of(context);
+    final (label, icon, tint) = switch (request.status) {
+      'given' => ('Given', Icons.check_rounded, palette.tintGreen),
       'declined' => (
         'Not this time, coins returned',
-        Icons.undo,
-        Colors.black45,
+        Icons.undo_rounded,
+        palette.surface,
       ),
-      _ => ('Waiting for a grown-up', Icons.hourglass_top, Colors.orange),
+      _ => (
+        'Waiting for a grown-up',
+        Icons.hourglass_top_rounded,
+        palette.tintYellow,
+      ),
     };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StickerCard(
+        radius: StoryTheme.radiusButton,
+        depth: 3,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: tint,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: palette.outline,
+                  width: StoryTheme.outlineWidthThin,
+                ),
+              ),
+              child: Icon(icon, color: palette.ink, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.title,
+                    style: StoryTheme.display(
+                      size: 16,
+                      color: palette.ink,
+                      weight: 700,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: StoryTheme.body(size: 13, color: palette.inkMuted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${request.cost} 🪙',
+              style: StoryTheme.display(
+                size: 16,
+                color: palette.ink,
+                weight: 700,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(request.title),
-        subtitle: Text(label),
-        trailing: Text(
-          '${request.cost} 🪙',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
+}
+
+/// A paper sticker of a dialog: an emoji on top, then the question, then the
+/// buttons stacked full width so a small finger can't miss them.
+class _StickerDialog extends StatelessWidget {
+  const _StickerDialog({
+    required this.emoji,
+    required this.title,
+    required this.message,
+    required this.primaryLabel,
+    required this.onPrimary,
+    this.secondaryLabel,
+    this.onSecondary,
+  });
+
+  final String emoji;
+  final String title;
+  final String message;
+  final String primaryLabel;
+  final VoidCallback onPrimary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
+    return Dialog(
+      backgroundColor: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(StoryTheme.radiusTile),
+        side: BorderSide(
+          color: palette.outline,
+          width: StoryTheme.outlineWidth,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: StickerEmoji(
+                emoji: emoji,
+                color: palette.tintYellow,
+                size: 72,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: StoryTheme.display(
+                size: 22,
+                color: palette.ink,
+                weight: 700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: StoryTheme.body(size: 16, color: palette.ink),
+            ),
+            const SizedBox(height: 22),
+            StoryButton(
+              label: primaryLabel,
+              accent: palette.action,
+              showArrow: false,
+              onPressed: onPrimary,
+            ),
+            if (secondaryLabel != null) ...[
+              const SizedBox(height: 12),
+              StoryButton(
+                label: secondaryLabel!,
+                accent: palette.action,
+                showArrow: false,
+                filled: false,
+                onPressed: onSecondary,
+              ),
+            ],
+          ],
         ),
       ),
     );

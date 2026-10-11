@@ -117,6 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const StickerHeader(
               title: 'Story Sprout',
               trailing: [ThemeSticker()],
+              forParent: true,
             ),
             // Scrollable so the form still fits when the on-screen keyboard
             // is up and an error line is showing.

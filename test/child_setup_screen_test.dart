@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/child_setup_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
@@ -49,7 +50,7 @@ void main() {
     await tester.enterText(fields.at(2), 'Noah');
     await tester.enterText(fields.at(3), '2222');
 
-    final done = find.widgetWithText(ElevatedButton, 'Done');
+    final done = find.widgetWithText(StoryButton, 'Done');
     await tester.ensureVisible(done);
     await tester.pumpAndSettle();
     await tester.tap(done);
@@ -70,7 +71,7 @@ void main() {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'Emma');
     await tester.enterText(fields.at(1), '12'); // too short
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Done'));
+    await tester.tap(find.widgetWithText(StoryButton, 'Done'));
     await tester.pump();
 
     expect(

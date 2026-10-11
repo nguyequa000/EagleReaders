@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../services/session_prefs.dart';
 import 'login_screen.dart';
 import 'parent_or_child_screen.dart';
+import 'sticker_kit.dart';
+import 'story/paper_background.dart';
+import 'story/story_theme.dart';
 
 /// The app's first screen: decides whether this device is still signed in.
 ///
@@ -49,16 +52,23 @@ class _AuthGateState extends State<AuthGate> {
       future: _signedIn,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            backgroundColor: Colors.white,
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('🌱', style: TextStyle(fontSize: 64)),
-                  SizedBox(height: 24),
-                  CircularProgressIndicator(color: Colors.green),
-                ],
+          final palette = StoryTheme.of(context);
+          return Scaffold(
+            backgroundColor: palette.ground,
+            body: PaperBackground(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StickerEmoji(
+                      emoji: '🌱',
+                      color: palette.tintGreen,
+                      size: 104,
+                    ),
+                    const SizedBox(height: 28),
+                    const CircularProgressIndicator(),
+                  ],
+                ),
               ),
             ),
           );

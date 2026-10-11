@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storysprout/screens/login_screen.dart';
 import 'package:storysprout/screens/parent_settings_screen.dart';
+import 'package:storysprout/screens/story/story_button.dart';
 
 void main() {
   testWidgets('Sign Out clears the session and returns to the login screen '
@@ -16,7 +17,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ParentSettingsScreen(auth: auth)),
     );
-    final signOut = find.widgetWithText(ElevatedButton, 'Sign Out');
+    final signOut = find.widgetWithText(StoryButton, 'Sign Out');
     await tester.ensureVisible(signOut);
     await tester.pumpAndSettle();
     await tester.tap(signOut);

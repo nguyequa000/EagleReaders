@@ -6,6 +6,9 @@ import '../services/family_settings.dart';
 import 'child_rules_screen.dart';
 import 'live_refresh.dart';
 import 'login_screen.dart';
+import 'sticker_kit.dart';
+import 'story/story_button.dart';
+import 'story/story_theme.dart';
 
 class ParentSettingsScreen extends StatefulWidget {
   const ParentSettingsScreen({super.key, this.auth, this.settings, this.store});
@@ -120,47 +123,59 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Parent Settings'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerPage(
+      title: 'Parent Settings',
+      forParent: true,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        // Extra room right and below for the hard shadows.
+        padding: const EdgeInsets.fromLTRB(18, 18, 22, 28),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Profile header
             _buildProfileHeader(context),
             const SizedBox(height: 24),
 
             // Security Settings
-            _buildSectionLabel('Security Settings'),
-            _buildTappableItem('Change Email', onTap: _changeEmail),
-            const SizedBox(height: 8),
-            _buildTappableItem('Change Password', onTap: _changePassword),
+            const StickerSectionTitle('Security Settings'),
+            StickerRow(
+              leading: StickerIconDisc(
+                icon: Icons.email_outlined,
+                color: palette.tintBlue,
+              ),
+              title: 'Change Email',
+              onTap: _changeEmail,
+            ),
+            const SizedBox(height: 10),
+            StickerRow(
+              leading: StickerIconDisc(
+                icon: Icons.lock_outline,
+                color: palette.tintBlue,
+              ),
+              title: 'Change Password',
+              onTap: _changePassword,
+            ),
             const SizedBox(height: 24),
 
             // Laid out straight away (disabled until loaded) rather than
             // behind a spinner, so nothing below jumps when the load lands.
             // AI Settings
-            _buildSectionLabel('AI Settings'),
+            const StickerSectionTitle('AI Settings'),
             _buildToggleItem(
               'AI story writing',
               'Sprout writes stories from your child\'s picks',
               _ai.aiStories,
               (val) => _update(_ai.copyWith(aiStories: val)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _buildToggleItem(
               'AI reading quizzes',
               'Short quizzes after chapters, books and stories',
               _ai.aiQuizzes,
               (val) => _update(_ai.copyWith(aiQuizzes: val)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _buildToggleItem(
               "Sprout's writing ideas",
               'Idea questions while your child writes a story',
@@ -170,14 +185,14 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
             const SizedBox(height: 24),
 
             // App Preferences
-            _buildSectionLabel('App Preferences'),
+            const StickerSectionTitle('App Preferences'),
             _buildToggleItem(
               'Read Aloud',
               'Stories can be read out loud',
               _ai.readAloud,
               (val) => _update(_ai.copyWith(readAloud: val)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _buildToggleItem(
               'Reading Reminders',
               "A nudge on your child's home screen if they haven't read today",
@@ -187,72 +202,67 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
             const SizedBox(height: 24),
 
             // Content Settings
-            _buildSectionLabel('Content Settings'),
-            _buildTappableItem(
-              'Age Restrictions',
-              trailing: const Text(
-                'Edit',
-                style: TextStyle(color: Colors.green),
+            const StickerSectionTitle('Content Settings'),
+            StickerRow(
+              leading: StickerIconDisc(
+                icon: Icons.child_care,
+                color: palette.tintYellow,
               ),
+              title: 'Age Restrictions',
+              trailing: _editLabel(palette),
               onTap: _openChildRules,
             ),
-            const SizedBox(height: 8),
-            _buildTappableItem(
-              'Time Limit',
-              trailing: const Text(
-                'Edit',
-                style: TextStyle(color: Colors.green),
+            const SizedBox(height: 10),
+            StickerRow(
+              leading: StickerIconDisc(
+                icon: Icons.timer_outlined,
+                color: palette.tintYellow,
               ),
+              title: 'Time Limit',
+              trailing: _editLabel(palette),
               onTap: _openChildRules,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
-            // Sign Out
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await _auth.signOut();
-                  if (!context.mounted) return;
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade400,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Sign Out', style: TextStyle(fontSize: 16)),
-              ),
+            // Sign Out: the quiet button, so it never reads as the main
+            // thing to do on this screen.
+            StoryButton(
+              label: 'Sign Out',
+              accent: palette.action,
+              filled: false,
+              showArrow: false,
+              onPressed: () async {
+                await _auth.signOut();
+                if (!context.mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
             ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
+  Widget _editLabel(StoryPalette palette) => Text(
+    'Edit',
+    style: StoryTheme.display(size: 15, color: palette.ink, weight: 700),
+  );
+
   Widget _buildProfileHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.green,
-            child: Icon(Icons.person, color: Colors.white, size: 28),
+          StickerIconDisc(
+            icon: Icons.people_alt_outlined,
+            color: palette.tintMagenta,
+            size: 56,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,60 +270,21 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
                 Text(
                   _name == null ? 'Hello!' : 'Hello, $_name',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: StoryTheme.display(
+                    size: 20,
+                    color: palette.ink,
+                    weight: 700,
                   ),
                 ),
-                const Text(
+                Text(
                   'Parent Account',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                  style: StoryTheme.body(size: 13, color: palette.inkMuted),
                 ),
               ],
             ),
           ),
-          TextButton(
-            onPressed: _editName,
-            child: const Text('Edit', style: TextStyle(color: Colors.green)),
-          ),
+          TextButton(onPressed: _editName, child: const Text('Edit')),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildTappableItem(
-    String label, {
-    Widget? trailing,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
-        child: Row(
-          children: [
-            Text(label, style: const TextStyle(fontSize: 15)),
-            const Spacer(),
-            trailing ??
-                const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
-          ],
-        ),
       ),
     );
   }
@@ -324,39 +295,44 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
     bool value,
     ValueChanged<bool> onChanged,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
+    final palette = StoryTheme.of(context);
+    return StickerCard(
+      radius: StoryTheme.radiusButton,
+      depth: 3,
+      padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 15)),
+                Text(
+                  label,
+                  style: StoryTheme.display(
+                    size: 16,
+                    color: palette.ink,
+                    weight: 700,
+                  ),
+                ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: StoryTheme.body(
+                    size: 13,
+                    color: palette.inkMuted,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: _loading ? null : onChanged,
-            activeThumbColor: Colors.green,
-          ),
+          Switch(value: value, onChanged: _loading ? null : onChanged),
         ],
       ),
     );
   }
 }
 
-/// Firebase error codes, in the words the login screen uses.
+// Firebase error codes, in the words the login screen uses.
 String _authMessage(FirebaseAuthException e) => switch (e.code) {
   'wrong-password' ||
   'invalid-credential' ||
@@ -404,6 +380,7 @@ class _NameDialogState extends State<_NameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final valid = _name.text.trim().isNotEmpty;
     return AlertDialog(
       title: const Text('Your name'),
@@ -412,7 +389,8 @@ class _NameDialogState extends State<_NameDialog> {
         autofocus: true,
         maxLength: 30,
         textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(labelText: 'Name'),
+        style: StoryTheme.body(color: palette.ink),
+        decoration: stickerInputDecoration(palette, label: 'Name'),
         onChanged: (_) => setState(() {}),
       ),
       actions: [
@@ -483,27 +461,34 @@ class _ChangeEmailDialogState extends State<_ChangeEmailDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return AlertDialog(
       title: const Text('Change Email'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        spacing: 12,
         children: [
           TextField(
             key: const Key('new-email'),
             controller: _email,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'New email'),
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(palette, label: 'New email'),
           ),
           TextField(
             key: const Key('current-password'),
             controller: _password,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Current password'),
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(
+              palette,
+              label: 'Current password',
+            ),
           ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              child: StickerErrorNote(_error!),
             ),
         ],
       ),
@@ -586,35 +571,44 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     return AlertDialog(
       title: const Text('Change Password'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        spacing: 12,
         children: [
           TextField(
             key: const Key('current-password'),
             controller: _current,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Current password'),
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(
+              palette,
+              label: 'Current password',
+            ),
           ),
           TextField(
             key: const Key('new-password'),
             controller: _next,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'New password'),
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(palette, label: 'New password'),
           ),
           TextField(
             key: const Key('confirm-password'),
             controller: _confirm,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Confirm new password',
+            style: StoryTheme.body(color: palette.ink),
+            decoration: stickerInputDecoration(
+              palette,
+              label: 'Confirm new password',
             ),
           ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              child: StickerErrorNote(_error!),
             ),
         ],
       ),

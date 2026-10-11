@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/activity_service.dart';
 import 'live_refresh.dart';
 import 'book_shelf_screen.dart';
+import 'sticker_kit.dart';
+import 'story/story_theme.dart';
 
 /// Parent-facing view of one child's reading profile, and which of the
 /// family's books they have.
@@ -49,97 +51,115 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = StoryTheme.of(context);
     final stats = _stats;
     final l10n = MaterialLocalizations.of(context);
     final score = stats?.lastComprehensionScorePct;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: Text("${widget.childName}'s Profile"),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
+    return StickerPage(
+      title: "${widget.childName}'s Profile",
+      forParent: true,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              // Extra room right and below for the hard shadows.
+              padding: const EdgeInsets.fromLTRB(18, 20, 22, 28),
               children: [
                 Center(
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.amber.withValues(alpha: 0.2),
-                    child: const Text('🧒', style: TextStyle(fontSize: 36)),
+                  child: StickerEmoji(
+                    emoji: '🧒',
+                    color: palette.tintYellow,
+                    size: 88,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Center(
                   child: Text(
                     widget.childName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    style: StoryTheme.display(
+                      size: 24,
+                      color: palette.ink,
+                      weight: 700,
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.library_add, color: Colors.green),
-                    title: Text("Choose ${widget.childName}'s books"),
-                    subtitle: const Text('Pick books from the family shelf'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ChildShelfScreen(
-                          childId: widget.childId,
-                          childName: widget.childName,
-                        ),
+                StickerRow(
+                  leading: StickerIconDisc(
+                    icon: Icons.library_add,
+                    color: palette.tintGreen,
+                  ),
+                  title: "Choose ${widget.childName}'s books",
+                  subtitle: 'Pick books from the family shelf',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChildShelfScreen(
+                        childId: widget.childId,
+                        childName: widget.childName,
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+                const StickerSectionTitle('Reading'),
                 _tile(
                   Icons.menu_book,
+                  palette.tintBlue,
                   'Books finished',
                   '${stats?.booksFinished ?? 0}',
                 ),
                 _tile(
                   Icons.timer,
+                  palette.tintCoral,
                   'Minutes read this week',
                   '${stats?.minutesThisWeek ?? 0}',
                 ),
                 _tile(
                   Icons.edit_note,
+                  palette.tintMagenta,
                   'Stories created',
                   '${stats?.storiesCreated ?? 0}',
                 ),
                 _tile(
                   Icons.quiz,
+                  palette.tintGreen,
                   'Last quiz score',
                   score == null ? 'No quiz yet' : '${score.round()}%',
                 ),
                 _tile(
                   Icons.bookmark,
+                  palette.tintYellow,
                   'Currently reading',
                   stats?.currentlyReading ?? 'Nothing right now',
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  'All Activity',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
+                const StickerSectionTitle('All Activity'),
                 if (_events.isEmpty)
-                  const Card(child: ListTile(title: Text('No activity yet.')))
+                  StickerRow(
+                    leading: StickerIconDisc(
+                      icon: Icons.info_outline,
+                      color: palette.surface,
+                      size: 34,
+                    ),
+                    title: 'No activity yet.',
+                  )
                 else
                   for (final event in _events.reversed)
-                    Card(
-                      child: ListTile(
-                        title: Text(event.describe(widget.childName)),
-                        subtitle: Text(
-                          '${l10n.formatShortDate(event.dateTime)} '
-                          '${l10n.formatTimeOfDay(TimeOfDay.fromDateTime(event.dateTime))}',
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: StickerRow(
+                        leading: StickerIconDisc(
+                          icon: event.type == 'story_created'
+                              ? Icons.edit
+                              : Icons.menu_book,
+                          color: event.type == 'story_created'
+                              ? palette.tintMagenta
+                              : palette.tintBlue,
+                          size: 34,
                         ),
+                        title: event.describe(widget.childName),
+                        subtitle:
+                            '${l10n.formatShortDate(event.dateTime)} '
+                            '${l10n.formatTimeOfDay(TimeOfDay.fromDateTime(event.dateTime))}',
                       ),
                     ),
               ],
@@ -147,22 +167,30 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
     );
   }
 
-  Widget _tile(IconData icon, String label, String value) => Card(
-    child: ListTile(
-      leading: Icon(icon, color: Colors.green),
-      title: Text(label),
-      // Capped, because a long book file name would otherwise take the whole
-      // row and fail layout, blanking the screen.
-      trailing: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 160),
-        child: Text(
-          value,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.end,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+  Widget _tile(IconData icon, Color tint, String label, String value) {
+    final palette = StoryTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: StickerRow(
+        leading: StickerIconDisc(icon: icon, color: tint, size: 38),
+        title: label,
+        // Capped, because a long book file name would otherwise take the whole
+        // row and fail layout, blanking the screen.
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: StoryTheme.display(
+              size: 16,
+              color: palette.ink,
+              weight: 700,
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

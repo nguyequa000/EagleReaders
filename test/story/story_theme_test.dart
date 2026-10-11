@@ -25,6 +25,8 @@ void main() {
           palette.surface,
           palette.header,
           palette.headerInk,
+          palette.headerParent,
+          palette.headerParentInk,
           palette.ink,
           palette.inkMuted,
           palette.line,
@@ -147,6 +149,24 @@ void main() {
             reason: 'an option label on $tint is unreadable',
           );
         }
+      }
+    });
+
+    test('both header bands can carry their titles', () {
+      for (final palette in <StoryPalette>[
+        StoryPalette.light,
+        StoryPalette.dark,
+      ]) {
+        expect(
+          contrast(palette.headerInk, palette.header),
+          greaterThanOrEqualTo(4.5),
+          reason: "the child's header title is unreadable",
+        );
+        expect(
+          contrast(palette.headerParentInk, palette.headerParent),
+          greaterThanOrEqualTo(4.5),
+          reason: "the parent's header title is unreadable",
+        );
       }
     });
 
