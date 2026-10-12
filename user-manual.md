@@ -1,4 +1,4 @@
-# Story Sprouts – User Manual
+# Story Sprouts - User Manual
 
 **Version:** 1.0
 **Team Number:** Team #1
