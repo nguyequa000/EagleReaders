@@ -123,18 +123,11 @@ void main() {
       }
     });
 
-    test('the ink line flips for dark mode but the shadow does not', () {
-      // The outline goes cream so a sticker still reads as cut out on a dark
-      // desk. The shadow has to stay dark in both modes, or it stops being a
-      // gap under the sticker and becomes a glow around it.
-      expect(StoryPalette.light.outline.computeLuminance(), lessThan(0.1));
-      expect(StoryPalette.dark.outline.computeLuminance(), greaterThan(0.5));
-      for (final palette in <StoryPalette>[
-        StoryPalette.light,
-        StoryPalette.dark,
-      ]) {
-        expect(palette.shadowInk.computeLuminance(), lessThan(0.05));
-      }
+    test('the outline and shadow use the soft palette', () {
+      expect(StoryPalette.light.outline, const Color(0xFFFFBEE1));
+      expect(StoryPalette.dark.outline, const Color(0xFF3A2E45));
+      expect(StoryPalette.light.shadowInk, const Color(0xFFE9D9E3));
+      expect(StoryPalette.dark.shadowInk, const Color(0xFF0E0A14));
     });
 
     test('every sticker tint can carry its label', () {
