@@ -239,30 +239,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Sprout on a round sticker and the greeting on a tag, both a little
-  /// crooked, like the story tiles.
+  /// The logo and the greeting on a tag, both straight, like the story
+  /// tiles.
   Widget _buildWelcome(StoryPalette palette) {
     return Column(
       children: [
-        Transform.rotate(
-          angle: stickerTilt(0),
-          child: Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              color: palette.tintGreen,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: palette.outline,
-                width: StoryTheme.outlineWidth,
-              ),
-              boxShadow: palette.cardShadow(),
-            ),
-            child: const Center(
-              child: Text('🌱', style: TextStyle(fontSize: 54)),
-            ),
-          ),
-        ),
+        Image.asset('assets/images/storysprout_logo.png', width: 220),
         const SizedBox(height: 20),
         StickerCard(
           color: palette.tintYellow,

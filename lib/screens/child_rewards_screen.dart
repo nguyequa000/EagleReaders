@@ -206,7 +206,7 @@ class _ChildRewardsScreenState extends State<ChildRewardsScreen>
   }
 }
 
-/// The coin total on a yellow sticker, tipped like the dashboard's cards.
+/// The coin total on a yellow sticker, straight like the dashboard's cards.
 class _BalanceCard extends StatelessWidget {
   const _BalanceCard({required this.childName, required this.coins});
 
@@ -288,7 +288,7 @@ class _RewardTile extends StatelessWidget {
     required this.onRedeem,
   });
 
-  /// Position in the list, which picks the gift's tint and the card's tilt.
+  /// Position in the list, which picks the gift's tint.
   final int index;
   final Reward reward;
   final int balance;
@@ -303,7 +303,7 @@ class _RewardTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: StickerCard(
-        // Past the balance card's tilt, so neighbours lean opposite ways.
+        // Every entry in the tilt table is 0, so the card sits straight.
         tilt: stickerTilt(index + 1),
         padding: const EdgeInsets.all(16),
         child: Column(

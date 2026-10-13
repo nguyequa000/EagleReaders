@@ -401,7 +401,7 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     );
   }
 
-  /// Each answer is a tinted sticker, tipped like the story tiles. Once one
+  /// Each answer is a tinted sticker, straight like the story tiles. Once one
   /// is picked, the right answer turns green with a tick, a wrong pick turns
   /// coral with a cross, and the rest fade back so the result stands out.
   List<Widget> _buildAnswerTiles(StoryPalette palette) {

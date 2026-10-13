@@ -18,14 +18,14 @@ import 'story/story_theme_controller.dart';
 /// How far the [index]th sticker in a row or grid is tipped, in radians.
 ///
 /// The same fixed table the story flow's option grid uses, so a dashboard card
-/// leans the way a story tile does, and never re-tilts when the screen
-/// rebuilds. The alternating signs keep a row from leaning as a whole.
+/// sits the way a story tile does. Every entry is 0, so every sticker is
+/// straight.
 double stickerTilt(int index) => _tilts[index % _tilts.length] * math.pi / 180;
 
-const List<double> _tilts = <double>[-1.6, 1.4, 1.1, -1.2, 0.9];
+const List<double> _tilts = <double>[0, 0, 0, 0, 0];
 
 /// A shape cut out with the ink line and sitting on a hard shadow, optionally
-/// tipped off square and optionally pressable.
+/// pressable.
 ///
 /// Pressing slides it into its shadow's place, the way the story tiles do. The
 /// child is clipped inside the ink line, so a book cover fills the card without
@@ -400,7 +400,7 @@ class StickerFieldShadow extends StatelessWidget {
 }
 
 /// A sticker-book screen laid out like login: the header band, then an
-/// emoji on a round sticker and a prompt on a crooked tag, with [children]
+/// emoji on a round sticker and a prompt on a straight tag, with [children]
 /// under them, all centred and scrollable. The persona picker, the name
 /// picker and the PIN screens are all this shape.
 class StickerPromptPage extends StatelessWidget {
@@ -556,7 +556,7 @@ class StickerEmoji extends StatelessWidget {
 }
 
 /// One choice in a list of who's who: an emoji sticker, a name and an arrow
-/// on a paper card, tipped like the story tiles.
+/// on a paper card, straight like the story tiles.
 class StickerChoiceCard extends StatelessWidget {
   final String emoji;
   final String label;

@@ -511,8 +511,8 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     ];
   }
 
-  /// A sideways-scrolling row. The padding gives the tilted cards and their
-  /// hard shadows room, so the list's edges don't shave their corners off.
+  /// A sideways-scrolling row. The padding gives the cards and their hard
+  /// shadows room, so the list's edges don't shave their corners off.
   Widget _storyRow(List<Widget> cards) => SizedBox(
     height: 200,
     child: ListView.separated(
@@ -721,7 +721,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      // Room for the tilted corners and hard shadows on the outer cards.
+      // Room for the hard shadows on the outer cards.
       clipBehavior: Clip.none,
       padding: const EdgeInsets.fromLTRB(2, 4, 6, 8),
       crossAxisCount: 2,
@@ -734,7 +734,7 @@ class _ChildDashboardScreenState extends State<ChildDashboardScreen>
 }
 
 /// One of the child's stories in a row on the home tab: a tinted sticker,
-/// tipped like the story tiles. An unfinished one is plain paper with a
+/// straight like the story tiles. An unfinished one is plain paper with a
 /// pencil badge, so the two rows don't read the same.
 class _StoryCard extends StatelessWidget {
   final int index;
@@ -1138,8 +1138,7 @@ class _CoinChip extends StatelessWidget {
 }
 
 class _BookCard extends StatelessWidget {
-  /// Position in the grid, which picks the card's tilt (and tint, when
-  /// [tinted]).
+  /// Position in the grid, which picks the card's tint when [tinted].
   final int index;
 
   /// Fills the card with a sticker tint rather than paper — for story ideas,
@@ -1199,7 +1198,7 @@ class _BookCard extends StatelessWidget {
 
 /// Home, My Library and Create as three stickers on a yellow band, cut off from
 /// the page with the ink line like the header. The current tab is the one in
-/// the action colour; each is tipped a little, like the story tiles.
+/// the action colour; each sits straight, like the story tiles.
 class _StickerNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
