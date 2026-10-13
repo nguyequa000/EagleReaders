@@ -89,6 +89,7 @@ flutter:
     - assets/story/pets/
     - assets/story/moods/
     - assets/story/settings/
+    - assets/images/
 
   fonts:
     - family: Fredoka
