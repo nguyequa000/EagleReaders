@@ -25,6 +25,7 @@ void main() {
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
     await tester.enterText(find.byType(TextField).first, 'parent@example.com');
     await tester.enterText(find.byType(TextField).last, 'wrongpass');
+    await tester.ensureVisible(find.text('Log In'));
     await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();
 
@@ -40,6 +41,7 @@ void main() {
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
     await tester.enterText(find.byType(TextField).first, 'parent@example.com');
     await tester.enterText(find.byType(TextField).last, 'hunter2');
+    await tester.ensureVisible(find.text('Log In'));
     await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();
 
@@ -51,6 +53,7 @@ void main() {
     final auth = MockFirebaseAuth();
 
     await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
+    await tester.ensureVisible(find.text('Log In'));
     await tester.tap(find.text('Log In'));
     await tester.pump();
 
@@ -65,6 +68,7 @@ void main() {
         'parent@example.com',
       );
       await tester.enterText(find.byType(TextField).last, 'hunter2');
+      await tester.ensureVisible(find.text('Log In'));
       await tester.tap(find.text('Log In'));
       await tester.pumpAndSettle();
     }
@@ -92,6 +96,7 @@ void main() {
       await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Keep me signed in'));
       await tester.tap(find.text('Keep me signed in'));
       await tester.pump();
       await logIn(tester, auth);
