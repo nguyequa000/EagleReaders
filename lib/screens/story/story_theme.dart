@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 /// The colours of one theme mode.
 ///
-/// The story flow is drawn as a sticker book: saturated shapes cut out with a
-/// heavy ink line and pressed onto a sheet of paper. That is a deliberate
+/// The story flow is drawn as a sticker book: pastel shapes edged with a soft
+/// tinted line and pressed onto a sheet of paper. That is a deliberate
 /// departure from the quiet, pale-tinted cards the parent screens use. The two
 /// registers belong to two different readers — a parent scanning reading stats
 /// wants calm, and a five-year-old inventing a story wants the crayon box.
@@ -38,17 +38,17 @@ class StoryPalette {
   final Color ink;
   final Color inkMuted;
 
-  /// The heavy line every sticker is cut out with.
+  /// The soft edge around every sticker.
   ///
-  /// Dark in light mode, cream in dark mode, so a sticker always reads as a
-  /// shape lifted off the sheet rather than a hole punched in it.
+  /// A pale pink in light mode and a muted plum in dark mode, so a sticker's
+  /// edge is gently marked rather than drawn in heavy ink.
   final Color outline;
 
   /// The hard drop shadow under a sticker.
   ///
-  /// Always dark, in both modes — it stands for the gap between the sticker
-  /// and the page, and a light shadow would read as a glow instead. This is
-  /// why it is its own token rather than reusing [outline].
+  /// A soft blush in light mode and near-black in dark mode, so the lift reads
+  /// gently against the page. It is its own token rather than reusing
+  /// [outline].
   final Color shadowInk;
 
   /// The speckle in the paper. Barely visible by design.
@@ -111,20 +111,20 @@ class StoryPalette {
   /// Warm white paper, plum ink, pastel stickers.
   static const StoryPalette light = StoryPalette(
     brightness: Brightness.light,
-    ground: Color(0xFFFFFDF6),
+    ground: Color(0xFFFFFDF5),
     surface: Color(0xFFFFFFFF),
-    header: Color(0xFFFEEDB7),
-    headerInk: Color(0xFF382732),
-    headerParent: Color(0xFFFEDCED),
-    headerParentInk: Color(0xFF382732),
-    ink: Color(0xFF382732),
-    inkMuted: Color(0xFF756871),
-    outline: Color(0xFF382732),
-    shadowInk: Color(0xFF382732),
+    header: Color(0xFFFFEDB7),
+    headerInk: Color(0xFF3B2A35),
+    headerParent: Color(0xFFFFDBEE),
+    headerParentInk: Color(0xFF3B2A35),
+    ink: Color(0xFF3B2A35),
+    inkMuted: Color(0xFF6D5F68),
+    outline: Color(0xFFFFBEE1),
+    shadowInk: Color(0xFFE9D9E3),
     paperFleck: Color(0xFFF6DCE9),
-    line: Color(0xFFFFBFE2),
-    action: Color(0xFF0CC1E0),
-    onAction: Color(0xFF382732),
+    line: Color(0xFFFFDBEE),
+    action: Color(0xFF0CC0DF),
+    onAction: Color(0xFF10233A),
     disabled: Color(0xFFD8CCD3),
     track: Color(0xFFFFFFFF),
     tintBlue: Color(0xFFCDF2FB),
@@ -140,20 +140,20 @@ class StoryPalette {
   /// same book under a lamp.
   static const StoryPalette dark = StoryPalette(
     brightness: Brightness.dark,
-    ground: Color(0xFF1B1523),
-    surface: Color(0xFF271E2F),
-    header: Color(0xFF271E2F),
-    headerInk: Color(0xFFFBD65F),
-    headerParent: Color(0xFF271E2F),
-    headerParentInk: Color(0xFFFF6EBE),
-    ink: Color(0xFFFDF4F8),
-    inkMuted: Color(0xFFBBADBE),
-    outline: Color(0xFFF1E4EC),
+    ground: Color(0xFF1B1422),
+    surface: Color(0xFF271E30),
+    header: Color(0xFF271E30),
+    headerInk: Color(0xFFFED65F),
+    headerParent: Color(0xFF271E30),
+    headerParentInk: Color(0xFFFF6EBD),
+    ink: Color(0xFFFBF3F8),
+    inkMuted: Color(0xFFBDAFC0),
+    outline: Color(0xFF3A2E45),
     shadowInk: Color(0xFF0E0A14),
     paperFleck: Color(0xFF2A2134),
-    line: Color(0xFF392D43),
-    action: Color(0xFF0CC1E0),
-    onAction: Color(0xFF13202A),
+    line: Color(0xFF3A2E45),
+    action: Color(0xFF0CC0DF),
+    onAction: Color(0xFF10233A),
     disabled: Color(0xFF4A3F55),
     track: Color(0xFF271E2F),
     tintBlue: Color(0xFF17333F),

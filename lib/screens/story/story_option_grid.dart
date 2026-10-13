@@ -9,8 +9,7 @@ import 'story_theme.dart';
 /// The 2x2 selectable option grid shared by the mood and place steps.
 ///
 /// Each tile is a sticker: a saturated fill cut out with the heavy ink line,
-/// sitting on a hard shadow and tipped a degree or two off square. The tilt is
-/// what stops four rounded rectangles reading as a settings screen.
+/// sitting on a hard shadow and set straight.
 ///
 /// The tint is doing real work besides: now that every action is the one cyan,
 /// the tints are what keep four options distinguishable at a glance.
@@ -54,7 +53,7 @@ class StoryOptionGrid extends StatelessWidget {
 class _StoryOptionTile extends StatefulWidget {
   final StoryOption option;
 
-  /// Position in the grid, which picks the tile's tint and its tilt.
+  /// Position in the grid, which picks the tile's tint.
   final int tintIndex;
 
   final bool selected;
@@ -69,12 +68,9 @@ class _StoryOptionTile extends StatefulWidget {
     required this.onTap,
   });
 
-  /// How far each tile is tipped, in degrees.
-  ///
-  /// A fixed table rather than a random roll: a sticker that re-tilts whenever
-  /// the grid rebuilds would be the animation the SRS rules out, and the
-  /// alternating signs keep the grid from leaning as a whole.
-  static const List<double> _tilts = <double>[-1.6, 1.4, 1.1, -1.2, 0.9];
+  /// How far each tile is tipped, in degrees. Every entry is 0, so every tile
+  /// is straight.
+  static const List<double> _tilts = <double>[0, 0, 0, 0, 0];
 
   double get _tilt => _tilts[tintIndex % _tilts.length] * math.pi / 180;
 
