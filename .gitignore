@@ -50,3 +50,5 @@ tool/.cache/
 
 # Local API keys (see secrets.json, passed via --dart-define-from-file)
 secrets.json
+# Firebase App Check debug token (see lib/services/app_check.dart)
+app_check.json

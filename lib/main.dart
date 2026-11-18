@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'services/app_check.dart';
 import 'services/firebase_options.dart';
 import 'screens/auth_gate.dart';
 import 'screens/story/story_theme.dart';
@@ -8,6 +9,7 @@ import 'screens/story/story_theme_controller.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await activateAppCheck();
   // Restores the saved theme before the first frame, so the app never opens in
   // one mode and flips to the other a moment later.
   await storyThemeController.load();

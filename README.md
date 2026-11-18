@@ -38,6 +38,12 @@ flutter run
 ```
 To target a specific platform: `flutter run -d chrome`, `flutter run -d windows`, etc.
 
+Story generation goes through Firebase AI Logic, which requires App Check. Outside a Play Store install, use a debug token registered in the Firebase console (App Check > Apps > Manage debug tokens). Put it in `app_check.json` at the project root (gitignored):
+```
+{ "APP_CHECK_DEBUG_TOKEN": "<token>" }
+```
+then run with `flutter run --dart-define-from-file=app_check.json`, or build a test APK with `flutter build apk --release --dart-define-from-file=app_check.json`. In VS Code, pick the "Story Sprout (App Check token)" launch config. A build without the token can't reach Gemini, and installing it replaces any working build on the device.
+
 ## Testing
 
 Widget tests live in `test/`. Run the test suite with:
