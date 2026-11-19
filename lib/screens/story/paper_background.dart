@@ -32,7 +32,11 @@ class PaperBackground extends StatelessWidget {
             child: CustomPaint(painter: PaperPainter(palette)),
           ),
         ),
-        child,
+        // The paper runs under the system navigation bar (Android 15 draws
+        // apps edge to edge), but the content stops above it, or the bar's
+        // buttons cover the bottom of every screen. The top is left to the
+        // header, which paints its band behind the status bar.
+        SafeArea(top: false, child: child),
       ],
     );
   }

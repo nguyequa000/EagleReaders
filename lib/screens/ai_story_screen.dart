@@ -365,11 +365,14 @@ class _StoryReaderScreenState extends State<StoryReaderScreen> {
               ),
           ],
         ),
-        body: _safetyStop
-            ? _buildSafetyStop(palette)
-            : story == null
-            ? _buildLoading(palette)
-            : _buildBook(palette, story),
+        // Keeps the page buttons above the system navigation bar.
+        body: SafeArea(
+          child: _safetyStop
+              ? _buildSafetyStop(palette)
+              : story == null
+              ? _buildLoading(palette)
+              : _buildBook(palette, story),
+        ),
       ),
     );
   }

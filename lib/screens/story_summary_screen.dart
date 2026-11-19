@@ -319,47 +319,52 @@ class _IdeaSheetState extends State<_IdeaSheet> {
     final palette = StoryTheme.of(context);
     final unkind = hasBadWords(_text.text);
 
-    return Padding(
-      // Stay above the keyboard.
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const StoryRowLabel(text: 'YOUR STORY IDEA'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _text,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 4,
-            maxLength: maxIdeaLength,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() {}),
-            style: StoryTheme.body(size: 16, color: palette.ink),
-            decoration: InputDecoration(
-              hintText: 'A fox finds a map to a hidden treehouse...',
-              errorText: unkind ? badWordsMessage : null,
-              filled: true,
-              fillColor: palette.surface,
-              border: const OutlineInputBorder(),
+    // SafeArea keeps the button above the system navigation bar; with the
+    // keyboard up its bottom padding is 0, so the two never add up.
+    return SafeArea(
+      top: false,
+      child: Padding(
+        // Stay above the keyboard.
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const StoryRowLabel(text: 'YOUR STORY IDEA'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _text,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 4,
+              maxLength: maxIdeaLength,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              style: StoryTheme.body(size: 16, color: palette.ink),
+              decoration: InputDecoration(
+                hintText: 'A fox finds a map to a hidden treehouse...',
+                errorText: unkind ? badWordsMessage : null,
+                filled: true,
+                fillColor: palette.surface,
+                border: const OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          StoryButton(
-            label: 'Use this idea',
-            accent: palette.action,
-            showArrow: false,
-            onPressed: unkind
-                ? null
-                : () => Navigator.pop(context, _text.text.trim()),
-          ),
-        ],
+            const SizedBox(height: 8),
+            StoryButton(
+              label: 'Use this idea',
+              accent: palette.action,
+              showArrow: false,
+              onPressed: unkind
+                  ? null
+                  : () => Navigator.pop(context, _text.text.trim()),
+            ),
+          ],
+        ),
       ),
     );
   }
