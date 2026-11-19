@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_epub_viewer/flutter_epub_viewer.dart' as paged;
 
+import '../services/word_speaker.dart';
 import 'chapter_quiz.dart';
+import 'say_it_button.dart';
 
 /// Whether text books can be shown page by page on this platform.
 ///
@@ -220,6 +222,65 @@ class _PagedTextViewState extends State<PagedTextView> {
   PagedChapter? _chapter;
   bool _loaded = false;
 
+  /// The word the child highlighted (long-press), with where it sits in the
+  /// web view, for the "Say it" button. Null when nothing sayable is selected.
+  ({String text, Rect rect, Size view})? _selection;
+
+  void _onSelection(String text, String _, Rect rect, Rect view) {
+    if (!mounted) return;
+    setState(
+      () => _selection = WordSpeaker.sayable(text) == null
+          ? null
+          : (text: text, rect: rect, view: view.size),
+    );
+  }
+
+  void _clearSelection() {
+    if (mounted && _selection != null) setState(() => _selection = null);
+  }
+
+  /// Clears the highlight in the book too. With the system Copy/Share menu
+  /// hidden nothing else does, and epub.js won't turn a page while text is
+  /// selected.
+  Future<void> _dropSelection() async {
+    _clearSelection();
+    try {
+      await _epub.webViewController?.evaluateJavascript(
+        source: 'clearSelection()',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _turn(VoidCallback turn) async {
+    await _dropSelection();
+    turn();
+  }
+
+  /// Where and when the current touch on the page started (0-1 of the view).
+  ({double x, double y, DateTime at})? _touch;
+
+  /// A quick tap away from the highlighted word drops the highlight. Long
+  /// presses (choosing another word) and drags (moving the handles) don't.
+  void _onTouchUp(double x, double y) {
+    final touch = _touch, selection = _selection;
+    _touch = null;
+    if (touch == null || selection == null) return;
+    final quick =
+        DateTime.now().difference(touch.at) < const Duration(milliseconds: 400);
+    final still = (x - touch.x).abs() < 0.03 && (y - touch.y).abs() < 0.03;
+    final at = Offset(x * selection.view.width, y * selection.view.height);
+    // Generous, so tapping a selection handle isn't "away".
+    if (quick && still && !selection.rect.inflate(32).contains(at)) {
+      _dropSelection();
+    }
+  }
+
+  @override
+  void dispose() {
+    WordSpeaker.instance.stop();
+    super.dispose();
+  }
+
   /// epub.js only knows how far through the book a page is once it has
   /// measured the whole book ("locations"), which takes a moment.
   bool _locationsReady = false;
@@ -286,6 +347,8 @@ class _PagedTextViewState extends State<PagedTextView> {
   Future<void> _onRelocated(paged.EpubLocation location) async {
     final relocation = ++_relocation;
     if (!mounted) return;
+    // A page turn drops the highlight; epub.js doesn't always say so.
+    _clearSelection();
     setState(() => _progress = location.progress);
     final page = await _pageInfo();
     if (!mounted || relocation != _relocation) return;
@@ -543,6 +606,69 @@ if (!window.storySproutResizeHook) {
     );
   }
 
+  /// The epub.js web view. Long-pressing a word selects it and shows the
+  /// "Say it" button over it instead of the system Copy/Share menu.
+  Widget _viewer() => paged.EpubViewer(
+    epubController: _epub,
+    epubSource: widget.book._source,
+    initialCfi: _startCfi,
+    displaySettings: paged.EpubDisplaySettings(
+      fontSize: widget.fontSize.round(),
+      flow: paged.EpubFlow.paginated,
+      // One page at a time on a phone, even in landscape.
+      spread: paged.EpubSpread.none,
+      snap: true,
+      theme: _theme,
+    ),
+    onEpubLoaded: () {
+      // The package calls this on every section it displays, not
+      // once. Doing the setup again re-rendered the book, which on
+      // Android redraws epub.js's stale opening spot: back from a
+      // chapter quiz, the child was a page or more behind.
+      if (!mounted || _loaded) return;
+      // flutter_epub_viewer's loadBook() ends by re-registering the
+      // theme with only a text colour, which drops our background
+      // and line spacing; apply the full theme again. Once is
+      // enough: epub.js applies it to each section it adds.
+      _epub.updateTheme(theme: _theme);
+      // A resize makes epub.js jump away and back, which mustn't
+      // look like turning pages (and so finishing a chapter).
+      _epub.webViewController
+        ?..addJavaScriptHandler(
+          handlerName: 'storySproutResized',
+          callback: (_) =>
+              _jumpSettlesAt = DateTime.now().add(const Duration(seconds: 2)),
+        )
+        ..evaluateJavascript(source: _showHook)
+        ..evaluateJavascript(source: _resizeHook);
+      // The package opens the saved spot with a single display,
+      // which lands early, and the next page turn then saved that
+      // earlier spot: each reopen of a book crept back a few pages.
+      final start = _startCfi;
+      if (start != null) {
+        _rememberPosition(start);
+        _showExactly(start);
+      }
+      setState(() => _loaded = true);
+    },
+    onChaptersLoaded: (toc) {
+      if (!mounted) return;
+      final chapters = pagedChapters(toc, widget.book.spine);
+      setState(() => _chapters = chapters);
+      _quiz = ChapterQuizTrigger([
+        for (final c in chapters) (title: c.title, depth: c.depth),
+      ]);
+    },
+    onLocationLoaded: _onLocationsLoaded,
+    onRelocated: _onRelocated,
+    suppressNativeContextMenu: true,
+    onSelection: _onSelection,
+    onSelectionChanging: _clearSelection,
+    onDeselection: _clearSelection,
+    onTouchDown: (x, y) => _touch = (x: x, y: y, at: DateTime.now()),
+    onTouchUp: _onTouchUp,
+  );
+
   @override
   Widget build(BuildContext context) {
     final chapter = _chapter;
@@ -594,60 +720,17 @@ if (!window.storySproutResizeHook) {
         Expanded(
           child: ColoredBox(
             color: widget.background,
-            child: paged.EpubViewer(
-              epubController: _epub,
-              epubSource: widget.book._source,
-              initialCfi: _startCfi,
-              displaySettings: paged.EpubDisplaySettings(
-                fontSize: widget.fontSize.round(),
-                flow: paged.EpubFlow.paginated,
-                // One page at a time on a phone, even in landscape.
-                spread: paged.EpubSpread.none,
-                snap: true,
-                theme: _theme,
-              ),
-              onEpubLoaded: () {
-                // The package calls this on every section it displays, not
-                // once. Doing the setup again re-rendered the book, which on
-                // Android redraws epub.js's stale opening spot: back from a
-                // chapter quiz, the child was a page or more behind.
-                if (!mounted || _loaded) return;
-                // flutter_epub_viewer's loadBook() ends by re-registering the
-                // theme with only a text colour, which drops our background
-                // and line spacing; apply the full theme again. Once is
-                // enough: epub.js applies it to each section it adds.
-                _epub.updateTheme(theme: _theme);
-                // A resize makes epub.js jump away and back, which mustn't
-                // look like turning pages (and so finishing a chapter).
-                _epub.webViewController
-                  ?..addJavaScriptHandler(
-                    handlerName: 'storySproutResized',
-                    callback: (_) => _jumpSettlesAt = DateTime.now().add(
-                      const Duration(seconds: 2),
+            child: Stack(
+              children: [
+                Positioned.fill(child: _viewer()),
+                if (_selection case final selection?)
+                  Positioned.fill(
+                    child: SayItPopup(
+                      selection: selection.rect,
+                      onTap: () => WordSpeaker.instance.say(selection.text),
                     ),
-                  )
-                  ..evaluateJavascript(source: _showHook)
-                  ..evaluateJavascript(source: _resizeHook);
-                // The package opens the saved spot with a single display,
-                // which lands early, and the next page turn then saved that
-                // earlier spot: each reopen of a book crept back a few pages.
-                final start = _startCfi;
-                if (start != null) {
-                  _rememberPosition(start);
-                  _showExactly(start);
-                }
-                setState(() => _loaded = true);
-              },
-              onChaptersLoaded: (toc) {
-                if (!mounted) return;
-                final chapters = pagedChapters(toc, widget.book.spine);
-                setState(() => _chapters = chapters);
-                _quiz = ChapterQuizTrigger([
-                  for (final c in chapters) (title: c.title, depth: c.depth),
-                ]);
-              },
-              onLocationLoaded: _onLocationsLoaded,
-              onRelocated: _onRelocated,
+                  ),
+              ],
             ),
           ),
         ),
@@ -657,7 +740,7 @@ if (!window.storySproutResizeHook) {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _canTurn ? _epub.prev : null,
+                  onPressed: _canTurn ? () => _turn(_epub.prev) : null,
                   icon: const Icon(Icons.chevron_left),
                   label: const Text('Previous'),
                 ),
@@ -675,7 +758,7 @@ if (!window.storySproutResizeHook) {
                       ? null
                       : _atEnd
                       ? widget.onFinish
-                      : _epub.next,
+                      : () => _turn(_epub.next),
                   icon: Icon(_atEnd ? Icons.check : Icons.chevron_right),
                   label: Text(_atEnd ? 'Finish book' : 'Next'),
                 ),
