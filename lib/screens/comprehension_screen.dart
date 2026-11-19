@@ -194,14 +194,19 @@ class _ComprehensionScreenState extends State<ComprehensionScreen>
     }
   }
 
-  /// Coins for finishing the quiz (CR #2). A failed award must never stop the
-  /// child getting back to the book, so errors are swallowed.
+  /// Coins for the quiz's right answers (CR #2). A failed award must never
+  /// stop the child getting back to the book, so errors are swallowed.
   Future<void> _awardCoins() async {
     final messenger = ScaffoldMessenger.maybeOf(context);
+    if (_correctCount == 0) {
+      messenger?.showSnackBar(noCoinsSnackBar());
+      return;
+    }
     try {
       final coins = await CoinService.instance.awardQuiz(
         widget.childId,
         widget.bookTitle,
+        correct: _correctCount,
       );
       if (coins > 0) messenger?.showSnackBar(coinsEarnedSnackBar(coins));
     } catch (_) {}

@@ -27,7 +27,7 @@ void main() {
 
   group('earning', () {
     test('a quiz writes an earn row and bumps the cached balance', () async {
-      expect(await fb.coins.awardQuiz('1', 'Alice'), CoinService.coinsPerQuiz);
+      expect(await fb.coins.awardQuiz('1', 'Alice', correct: 3), 6);
       expect(await fb.coins.awardStory('1', 'Dragon in Forest'), 5);
 
       final rows = await ledgerDocs(fb.firestore, '1');
@@ -35,19 +35,30 @@ void main() {
       expect(rows[0]['type'], 'earn');
       expect(rows[0]['reason'], 'quiz');
       expect(rows[0]['title'], 'Alice');
-      expect(rows[0]['amount'], 5);
-      expect(rows[0]['balanceAfter'], 5);
+      expect(rows[0]['amount'], 6);
+      expect(rows[0]['balanceAfter'], 6);
       expect(rows[1]['reason'], 'story');
-      expect(rows[1]['balanceAfter'], 10);
-      expect(await fb.coins.balance('1'), 10);
-      expect((await childDoc('1'))?['coinBalance'], 10);
+      expect(rows[1]['balanceAfter'], 11);
+      expect(await fb.coins.balance('1'), 11);
+      expect((await childDoc('1'))?['coinBalance'], 11);
+    });
+
+    test('a quiz pays for each right answer and nothing for none', () async {
+      expect(CoinService.coinsPerCorrectAnswer, 2);
+      expect(await fb.coins.awardQuiz('1', 'Alice', correct: 1), 2);
+      expect(await fb.coins.awardQuiz('1', 'Alice', correct: 2), 4);
+      expect(await fb.coins.awardQuiz('1', 'Alice', correct: 0), 0);
+
+      final rows = await ledgerDocs(fb.firestore, '1');
+      expect([for (final r in rows) r['amount']], [2, 4]);
+      expect(await fb.coins.balance('1'), 6);
     });
 
     test('earning does not disturb the child profile fields', () async {
       await fb.store.save([
         ChildProfile.withPin(id: '1', name: 'Mika', pin: '1234'),
       ]);
-      await fb.coins.awardQuiz('1', 'Alice');
+      await fb.coins.awardQuiz('1', 'Alice', correct: 3);
       expect((await childDoc('1'))?['name'], 'Mika');
       expect((await childDoc('1'))?['pinHash'], isNotNull);
       // A later profile save (rename) must not wipe the balance either.
@@ -57,13 +68,13 @@ void main() {
 
       final doc = await childDoc('1');
       expect(doc?['name'], 'Mika R');
-      expect(doc?['coinBalance'], 5);
+      expect(doc?['coinBalance'], 6);
     });
 
     test('signed out: earning returns 0 and writes nothing', () async {
       final firestore = FakeFirebaseFirestore();
       final coins = CoinService(firestore: firestore, auth: MockFirebaseAuth());
-      expect(await coins.awardQuiz('1', 'Alice'), 0);
+      expect(await coins.awardQuiz('1', 'Alice', correct: 3), 0);
       expect(await coins.balance('1'), 0);
       expect(await coins.ledger('1'), isEmpty);
       expect((await firestore.collection('parents').get()).docs, isEmpty);
@@ -77,7 +88,7 @@ void main() {
   group('redeeming', () {
     Future<void> earn(int times) async {
       for (var i = 0; i < times; i++) {
-        await fb.coins.awardQuiz('1', 'Alice');
+        await fb.coins.earn('1', reason: 'quiz', title: 'Alice', amount: 5);
       }
     }
 
@@ -171,8 +182,8 @@ void main() {
 
   group('parent follow-up', () {
     Future<CoinTransaction> pendingSticker() async {
-      await fb.coins.awardQuiz('1', 'Alice');
-      await fb.coins.awardQuiz('1', 'Alice');
+      await fb.coins.earn('1', reason: 'quiz', title: 'Alice', amount: 5);
+      await fb.coins.earn('1', reason: 'quiz', title: 'Alice', amount: 5);
       final reward = await rewards.create(title: 'Sticker', coinCost: 10);
       return fb.coins.redeem('1', reward.id);
     }
@@ -232,7 +243,7 @@ void main() {
 
   group('feed and notifications', () {
     test('ledger rows read as parent-facing feed lines', () async {
-      await fb.coins.awardQuiz('1', 'Alice');
+      await fb.coins.awardQuiz('1', 'Alice', correct: 3);
       await fb.coins.awardStory('1', 'Dragon in Forest');
       final reward = await rewards.create(title: 'Sticker', coinCost: 10);
       final tx = await fb.coins.redeem('1', reward.id);
@@ -243,7 +254,7 @@ void main() {
           row.toActivityEvent().describe('Mika'),
       ];
       expect(lines, [
-        'Mika earned 5 coins for a quiz on "Alice"',
+        'Mika earned 6 coins for a quiz on "Alice"',
         'Mika earned 5 coins for creating "Dragon in Forest"',
         'Mika redeemed "Sticker" for 10 coins',
         'Mika got 10 coins back for "Sticker"',
@@ -256,7 +267,7 @@ void main() {
         ChildProfile.withPin(id: '2', name: 'Salma', pin: '1234'),
       ];
       for (final child in children) {
-        await fb.coins.awardQuiz(child.id, 'Alice');
+        await fb.coins.awardQuiz(child.id, 'Alice', correct: 3);
       }
       final reward = await rewards.create(title: 'Sticker', coinCost: 5);
 
@@ -287,8 +298,8 @@ void main() {
       ChildProfile.withPin(id: '1', name: 'Mika', pin: '1234'),
       ChildProfile.withPin(id: '2', name: 'Salma', pin: '1234'),
     ]);
-    await fb.coins.awardQuiz('1', 'Alice');
-    await fb.coins.awardQuiz('2', 'Alice');
+    await fb.coins.awardQuiz('1', 'Alice', correct: 1);
+    await fb.coins.awardQuiz('2', 'Alice', correct: 1);
 
     await fb.store.save([
       ChildProfile.withPin(id: '2', name: 'Salma', pin: '1234'),

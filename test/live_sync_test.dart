@@ -70,10 +70,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('🪙 0'), findsOneWidget);
 
-    await fb.coins.awardQuiz('1', 'Alice');
+    await fb.coins.awardQuiz('1', 'Alice', correct: 3);
     await sync(tester);
 
-    expect(find.text('🪙 ${CoinService.coinsPerQuiz}'), findsOneWidget);
+    expect(
+      find.text('🪙 ${3 * CoinService.coinsPerCorrectAnswer}'),
+      findsOneWidget,
+    );
   });
 
   group('child rewards screen', () {
@@ -119,8 +122,8 @@ void main() {
       tester,
     ) async {
       final reward = await rewards.create(title: 'Sticker', coinCost: 5);
-      await fb.coins.awardQuiz('1', 'Alice');
-      await fb.coins.awardQuiz('1', 'Alice');
+      await fb.coins.earn('1', reason: 'quiz', title: 'Alice', amount: 5);
+      await fb.coins.earn('1', reason: 'quiz', title: 'Alice', amount: 5);
       await open(tester);
       expect(balance(tester), '10 coins');
 

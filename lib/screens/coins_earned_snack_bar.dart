@@ -18,13 +18,26 @@ SnackBar coinsEarnedSnackBar(int coins) => SnackBar(
   padding: EdgeInsets.zero,
   behavior: SnackBarBehavior.floating,
   duration: const Duration(seconds: 2),
-  content: _CoinsToast(coins: coins),
+  content: _CoinsToast(text: '🪙 +$coins coins!'),
 );
 
-class _CoinsToast extends StatelessWidget {
-  const _CoinsToast({required this.coins});
+/// Shown instead when a quiz had no right answers, so finishing it still
+/// gets a kind word rather than silence.
+SnackBar noCoinsSnackBar() => SnackBar(
+  backgroundColor: Colors.transparent,
+  elevation: 0,
+  padding: EdgeInsets.zero,
+  behavior: SnackBarBehavior.floating,
+  duration: const Duration(seconds: 2),
+  content: const _CoinsToast(text: noCoinsMessage),
+);
 
-  final int coins;
+const String noCoinsMessage = "No coins this time. You'll get them next quiz!";
+
+class _CoinsToast extends StatelessWidget {
+  const _CoinsToast({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +54,7 @@ class _CoinsToast extends StatelessWidget {
         boxShadow: palette.cardShadow(depth: 3),
       ),
       child: Text(
-        '🪙 +$coins coins!',
+        text,
         textAlign: TextAlign.center,
         style: StoryTheme.display(size: 18, color: palette.ink, weight: 700),
       ),

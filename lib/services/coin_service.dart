@@ -136,7 +136,8 @@ class CoinService {
   /// at in-memory fakes before any screen touches Firebase.
   static CoinService instance = CoinService();
 
-  static const int coinsPerQuiz = 5;
+  /// A quiz pays for each right answer, so 3 of 3 earns 6 and 0 earns none.
+  static const int coinsPerCorrectAnswer = 2;
   static const int coinsPerStory = 5;
 
   // Resolved lazily, like ActivityService: constructing the default instance
@@ -217,8 +218,18 @@ class CoinService {
     return amount;
   }
 
-  Future<int> awardQuiz(String childId, String bookTitle) =>
-      earn(childId, reason: 'quiz', title: bookTitle, amount: coinsPerQuiz);
+  /// Pays [coinsPerCorrectAnswer] for each of the [correct] answers; with
+  /// none right it writes nothing and returns 0.
+  Future<int> awardQuiz(
+    String childId,
+    String bookTitle, {
+    required int correct,
+  }) => earn(
+    childId,
+    reason: 'quiz',
+    title: bookTitle,
+    amount: correct * coinsPerCorrectAnswer,
+  );
 
   Future<int> awardStory(String childId, String storyTitle) =>
       earn(childId, reason: 'story', title: storyTitle, amount: coinsPerStory);

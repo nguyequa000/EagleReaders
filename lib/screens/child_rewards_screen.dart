@@ -239,7 +239,7 @@ class _BalanceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Read, finish quizzes and make stories to earn more, '
+                  'Answer quiz questions right and make stories to earn more, '
                   '$childName!',
                   style: StoryTheme.body(
                     size: 14,

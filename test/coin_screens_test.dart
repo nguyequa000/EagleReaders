@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_rewards_screen.dart';
+import 'package:storysprout/screens/coins_earned_snack_bar.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/screens/reward_requests_screen.dart';
@@ -44,7 +45,7 @@ void main() {
 
   Future<void> earn(String childId, int times) async {
     for (var i = 0; i < times; i++) {
-      await fb.coins.awardQuiz(childId, 'Alice');
+      await fb.coins.earn(childId, reason: 'quiz', title: 'Alice', amount: 5);
     }
   }
 
@@ -77,24 +78,54 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('finishing awards coins and shows the toast', (tester) async {
-      await openQuiz(tester);
-      // The demo pair; one wrong answer still earns the flat amount.
-      await tester.tap(find.text('Snow and darkness'));
+    Future<void> answer(
+      WidgetTester tester,
+      String first,
+      String second,
+    ) async {
+      await tester.tap(find.text(first));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Next Question →'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('In a garden'));
+      await tester.tap(find.text(second));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Keep Reading →'));
       await tester.pumpAndSettle();
+    }
+
+    testWidgets('finishing pays for each right answer and shows the toast', (
+      tester,
+    ) async {
+      await openQuiz(tester);
+      // One wrong, one right: 1 × 2 coins.
+      await answer(tester, 'Snow and darkness', 'In a garden');
 
       expect(find.byType(ComprehensionScreen), findsNothing);
-      expect(find.text('🪙 +5 coins!'), findsOneWidget);
+      expect(find.text('🪙 +2 coins!'), findsOneWidget);
       final rows = await ledgerDocs(fb.firestore, '1');
       expect(rows.single['reason'], 'quiz');
-      expect(rows.single['amount'], CoinService.coinsPerQuiz);
-      expect(await fb.coins.balance('1'), 5);
+      expect(rows.single['amount'], CoinService.coinsPerCorrectAnswer);
+      expect(await fb.coins.balance('1'), 2);
+    });
+
+    testWidgets('all right pays 2 coins an answer', (tester) async {
+      await openQuiz(tester);
+      await answer(tester, 'Water and sunlight', 'In a garden');
+
+      expect(find.text('🪙 +4 coins!'), findsOneWidget);
+      expect(await fb.coins.balance('1'), 4);
+    });
+
+    testWidgets('none right earns nothing but gets a kind word', (
+      tester,
+    ) async {
+      await openQuiz(tester);
+      await answer(tester, 'Snow and darkness', 'In the ocean');
+
+      expect(find.byType(ComprehensionScreen), findsNothing);
+      expect(find.text(noCoinsMessage), findsOneWidget);
+      expect(find.textContaining('coins!'), findsNothing);
+      expect(await ledgerDocs(fb.firestore, '1'), isEmpty);
     });
 
     testWidgets('skipping earns nothing', (tester) async {
