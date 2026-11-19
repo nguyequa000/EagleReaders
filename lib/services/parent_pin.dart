@@ -65,6 +65,21 @@ class ParentPin {
     return ChildProfile.hashPin(pin, stored.salt) == stored.hash;
   }
 
+  /// Proves it's the parent before the PIN is changed or reset: the account
+  /// password, which a child holding the phone doesn't know. Throws
+  /// [FirebaseAuthException] (`invalid-credential`, `wrong-password`, …) when
+  /// it's wrong.
+  Future<void> reauthenticate(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw FirebaseAuthException(code: 'requires-recent-login');
+    }
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: password),
+    );
+  }
+
   /// Replaces the PIN, leaving the rest of the parent document alone.
   Future<void> set(String pin) async {
     if (!isValid(pin)) throw ArgumentError.value(pin, 'pin', 'not 4 digits');

@@ -18,6 +18,8 @@ import 'my_story_screen.dart';
 import 'story_saving.dart';
 import 'story_writer_screen.dart';
 import '../services/parent_pin.dart';
+import '../services/pin_attempts.dart';
+import 'pin_lockout.dart';
 import 'reading_module_page.dart';
 import 'sticker_kit.dart';
 import 'story/paper_background.dart';
@@ -1040,9 +1042,14 @@ class _GrownUpPinDialog extends StatefulWidget {
   State<_GrownUpPinDialog> createState() => _GrownUpPinDialogState();
 }
 
-class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
+class _GrownUpPinDialogState extends State<_GrownUpPinDialog>
+    with PinLockout<_GrownUpPinDialog> {
   final _pin = TextEditingController();
   String? _error;
+
+  // Shares the parent PIN screen's count, so neither gets around the other.
+  @override
+  String get pinAttemptsKey => PinAttempts.parent;
 
   @override
   void dispose() {
@@ -1051,17 +1058,21 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
   }
 
   Future<void> _submit() async {
+    if (await checkLock() || !mounted) return;
     bool ok;
     try {
       ok = await ParentPin.instance.verify(_pin.text);
     } catch (_) {
       ok = false;
     }
-    if (!mounted) return;
     if (ok) {
-      Navigator.pop(context, true);
+      await pinSucceeded();
+      if (mounted) Navigator.pop(context, true);
     } else {
-      setState(() => _error = 'Incorrect PIN. Try again.');
+      final locked = await pinFailed();
+      if (!mounted) return;
+      _pin.clear();
+      setState(() => _error = locked ? null : 'Incorrect PIN. Try again.');
     }
   }
 
@@ -1087,6 +1098,7 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
       ),
       content: TextField(
         controller: _pin,
+        enabled: !isLocked,
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
@@ -1095,9 +1107,9 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
         decoration: stickerInputDecoration(
           palette,
           label: 'Parent PIN',
-          errorText: _error,
+          errorText: lockMessage ?? _error,
           counterText: '',
-        ),
+        ).copyWith(errorMaxLines: 2),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
@@ -1108,7 +1120,7 @@ class _GrownUpPinDialogState extends State<_GrownUpPinDialog> {
         ),
         TextButton(
           style: actionStyle,
-          onPressed: _submit,
+          onPressed: isLocked ? null : _submit,
           child: const Text('Unlock'),
         ),
       ],

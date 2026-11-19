@@ -18,8 +18,11 @@ import 'package:storysprout/services/coin_service.dart';
   FakeFirebaseFirestore firestore,
   MockFirebaseAuth auth,
 })
-signedIn({String uid = 'parent-1'}) {
-  final auth = MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: uid));
+signedIn({String uid = 'parent-1', String? email}) {
+  final auth = MockFirebaseAuth(
+    signedIn: true,
+    mockUser: MockUser(uid: uid, email: email),
+  );
   final firestore = FakeFirebaseFirestore();
   return (
     store: ChildProfileStore(firestore: firestore, auth: auth),

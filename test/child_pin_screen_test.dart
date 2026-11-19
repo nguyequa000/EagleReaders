@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/child_dashboard_screen.dart';
 import 'package:storysprout/screens/child_pin_screen.dart';
 import 'package:storysprout/services/child_profiles.dart';
@@ -8,6 +9,9 @@ void main() {
   final child = ChildProfile.withPin(id: '1', name: 'Alex', pin: '4321');
 
   Widget wrap(Widget child) => MaterialApp(home: child);
+
+  // Wrong guesses are counted in shared preferences.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('correct PIN opens the child dashboard', (tester) async {
     await tester.pumpWidget(wrap(ChildPinScreen(child: child)));

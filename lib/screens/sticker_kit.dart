@@ -634,6 +634,12 @@ class StickerPinPage extends StatelessWidget {
   /// Draws the parent's pink header band; see [StickerHeader.forParent].
   final bool forParent;
 
+  /// False while the PIN is locked out: the field and button are greyed.
+  final bool enabled;
+
+  /// Shown under the button, e.g. a "Forgot PIN?" link.
+  final Widget? footer;
+
   const StickerPinPage({
     super.key,
     required this.title,
@@ -646,6 +652,8 @@ class StickerPinPage extends StatelessWidget {
     this.error,
     this.onChanged,
     this.forParent = false,
+    this.enabled = true,
+    this.footer,
   });
 
   @override
@@ -661,6 +669,7 @@ class StickerPinPage extends StatelessWidget {
         StickerFieldShadow(
           child: TextField(
             controller: controller,
+            enabled: enabled,
             obscureText: true,
             keyboardType: TextInputType.number,
             maxLength: 4,
@@ -695,8 +704,9 @@ class StickerPinPage extends StatelessWidget {
           label: buttonLabel,
           accent: palette.action,
           showArrow: false,
-          onPressed: onSubmit,
+          onPressed: enabled ? onSubmit : null,
         ),
+        if (footer != null) ...[const SizedBox(height: 12), footer!],
       ],
     );
   }

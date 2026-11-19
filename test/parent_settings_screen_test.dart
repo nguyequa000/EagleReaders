@@ -9,6 +9,7 @@ import 'package:storysprout/screens/child_rules_screen.dart';
 import 'package:storysprout/screens/parent_settings_screen.dart';
 import 'package:storysprout/services/child_profiles.dart';
 import 'package:storysprout/services/family_settings.dart';
+import 'package:storysprout/services/parent_pin.dart';
 import 'package:storysprout/services/reader_audience.dart';
 
 void main() {
@@ -259,5 +260,76 @@ void main() {
           .value,
       AgeBand.ages3to5,
     );
+  });
+
+  group('Change Parent PIN', () {
+    late ParentPin pins;
+
+    setUp(() async {
+      pins = ParentPin(firestore: firestore, auth: auth);
+      ParentPin.instance = pins;
+      await pins.set('1234');
+    });
+    tearDown(() => ParentPin.instance = ParentPin());
+
+    Future<void> fill(
+      WidgetTester tester, {
+      String password = 'hunter2',
+      String pin = '2468',
+      String confirm = '2468',
+    }) async {
+      await tapText(tester, 'Change Parent PIN');
+      await tester.enterText(
+        find.byKey(const Key('pin-account-password')),
+        password,
+      );
+      await tester.enterText(find.byKey(const Key('new-parent-pin')), pin);
+      await tester.enterText(
+        find.byKey(const Key('confirm-parent-pin')),
+        confirm,
+      );
+      await tester.tap(find.text('Save PIN'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the account password sets a new PIN', (tester) async {
+      await pump(tester);
+      await fill(tester);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Your parent PIN has been changed.'), findsOneWidget);
+      expect(await pins.verify('2468'), isTrue);
+      expect(await pins.verify('1234'), isFalse);
+    });
+
+    testWidgets('a wrong password keeps the old PIN', (tester) async {
+      whenCalling(
+        Invocation.method(#reauthenticateWithCredential, null),
+      ).on(user).thenThrow(FirebaseAuthException(code: 'wrong-password'));
+      await pump(tester);
+      await fill(tester);
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Your password is incorrect.'), findsOneWidget);
+      expect(await pins.verify('1234'), isTrue);
+    });
+
+    testWidgets('a PIN that is not 4 digits or does not match is refused', (
+      tester,
+    ) async {
+      await pump(tester);
+      await fill(tester, pin: '12', confirm: '12');
+      expect(find.text('Choose 4 digits for the new PIN.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('new-parent-pin')), '2468');
+      await tester.enterText(
+        find.byKey(const Key('confirm-parent-pin')),
+        '2469',
+      );
+      await tester.tap(find.text('Save PIN'));
+      await tester.pumpAndSettle();
+      expect(find.text("The new PINs don't match."), findsOneWidget);
+      expect(await pins.verify('1234'), isTrue);
+    });
   });
 }

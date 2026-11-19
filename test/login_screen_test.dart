@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:storysprout/screens/forgot_password_dialog.dart';
 import 'package:storysprout/screens/login_screen.dart';
 import 'package:storysprout/screens/parent_or_child_screen.dart';
 import 'package:storysprout/services/session_prefs.dart';
@@ -136,6 +137,63 @@ void main() {
         find.widgetWithText(CheckboxListTile, 'Keep me signed in'),
       );
       expect(box.value, isFalse);
+    });
+  });
+
+  group('Forgot password', () {
+    Future<void> openReset(WidgetTester tester, MockFirebaseAuth auth) async {
+      await tester.pumpWidget(wrap(LoginScreen(auth: auth)));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).first,
+        'parent@example.com',
+      );
+      await tester.ensureVisible(find.byKey(const Key('forgot-password')));
+      await tester.tap(find.byKey(const Key('forgot-password')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sends a reset link to the typed email', (tester) async {
+      final auth = MockFirebaseAuth();
+      await openReset(tester, auth);
+
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('reset-email')),
+      );
+      expect(field.controller!.text, 'parent@example.com');
+      await tester.tap(find.text('Send link'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text(ForgotPasswordDialog.sentMessage), findsOneWidget);
+    });
+
+    testWidgets('an unknown email gets the same answer', (tester) async {
+      final auth = MockFirebaseAuth();
+      whenCalling(
+        Invocation.method(#sendPasswordResetEmail, null),
+      ).on(auth).thenThrow(FirebaseAuthException(code: 'user-not-found'));
+      await openReset(tester, auth);
+      await tester.tap(find.text('Send link'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ForgotPasswordDialog.sentMessage), findsOneWidget);
+    });
+
+    testWidgets('a bad email is explained in the dialog', (tester) async {
+      final auth = MockFirebaseAuth();
+      whenCalling(
+        Invocation.method(#sendPasswordResetEmail, null),
+      ).on(auth).thenThrow(FirebaseAuthException(code: 'invalid-email'));
+      await openReset(tester, auth);
+      await tester.tap(find.text('Send link'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.text("That doesn't look like a valid email."),
+        findsOneWidget,
+      );
     });
   });
 }

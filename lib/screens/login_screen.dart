@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/session_prefs.dart';
+import 'forgot_password_dialog.dart';
 import 'sticker_kit.dart';
 import 'story/paper_background.dart';
 import 'story/story_button.dart';
@@ -87,6 +88,18 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final sent = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          ForgotPasswordDialog(auth: _auth, initialEmail: _email.text.trim()),
+    );
+    if (sent != true || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(ForgotPasswordDialog.sentMessage)),
+    );
+  }
+
   String _messageFor(String code) {
     switch (code) {
       case 'invalid-email':
@@ -163,7 +176,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              key: const Key('forgot-password'),
+                              onPressed: _loading ? null : _forgotPassword,
+                              child: Text(
+                                'Forgot password?',
+                                style: StoryTheme.body(
+                                  color: palette.ink,
+                                  weight: 700,
+                                ),
+                              ),
+                            ),
+                          ),
                           CheckboxListTile(
                             value: _keepSignedIn,
                             onChanged: _loading

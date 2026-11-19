@@ -15,6 +15,7 @@ import 'package:storysprout/services/activity_service.dart';
 import 'package:storysprout/services/coin_service.dart';
 import 'package:storysprout/services/family_settings.dart';
 import 'package:storysprout/services/parent_pin.dart';
+import 'package:storysprout/services/pin_attempts.dart';
 import 'package:storysprout/services/reader_audience.dart';
 import 'package:storysprout/services/story_generator.dart';
 
@@ -216,6 +217,37 @@ void main() {
       expect(find.byKey(const Key('done-for-today')), findsNothing);
       final rules = await FamilySettings.instance.loadChild('1');
       expect(rules.limitUnlockedOn, dayKey(DateTime.now()));
+    });
+
+    testWidgets('a parent PIN lock-out also locks the grown-up unlock', (
+      tester,
+    ) async {
+      for (var i = 0; i < PinAttempts.freeTries; i++) {
+        await PinAttempts.instance.recordFailure(PinAttempts.parent);
+      }
+      await FamilySettings.instance.saveChild(
+        '1',
+        const ChildRules(dailyLimitMinutes: 15),
+      );
+      await activity.logEvent('1', 'reading_session', {
+        'title': 'Alice',
+        'minutes': 20,
+      });
+      await pumpDashboard(tester);
+
+      await tester.tap(find.text('Create a Story'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('sheet-unlock')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Too many tries. Try again in 1 minute.'),
+        findsOneWidget,
+      );
+      final unlock = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Unlock'),
+      );
+      expect(unlock.onPressed, isNull);
     });
 
     testWidgets('under the limit, nothing is locked', (tester) async {

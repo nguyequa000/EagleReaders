@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/child_profiles.dart';
 import '../services/family_settings.dart';
+import 'change_parent_pin_dialog.dart';
 import 'child_rules_screen.dart';
 import 'live_refresh.dart';
 import 'login_screen.dart';
@@ -114,6 +115,14 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
     if (changed == true && mounted) _snack('Your password has been changed.');
   }
 
+  Future<void> _changeParentPin() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const ChangeParentPinDialog(),
+    );
+    if (changed == true && mounted) _snack('Your parent PIN has been changed.');
+  }
+
   void _openChildRules() => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) =>
@@ -155,6 +164,15 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen>
               ),
               title: 'Change Password',
               onTap: _changePassword,
+            ),
+            const SizedBox(height: 10),
+            StickerRow(
+              leading: StickerIconDisc(
+                icon: Icons.pin_outlined,
+                color: palette.tintBlue,
+              ),
+              title: 'Change Parent PIN',
+              onTap: _changeParentPin,
             ),
             const SizedBox(height: 24),
 
