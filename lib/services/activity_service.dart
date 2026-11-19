@@ -13,6 +13,7 @@
 // Other fields depend on `type`:
 //   book_opened          {title}
 //   book_finished        {title}
+//   chapter_finished     {title, chapter, chapterTitle}   // see ChapterTalkService
 //   reading_session      {title, minutes, bookType}   // time spent reading
 //   comprehension_result {title, chapter, score, correct, total}
 //   story_created        {title}
@@ -50,6 +51,8 @@ class ActivityEvent {
     return switch (type) {
       'book_opened' => '$childName started reading "$title"',
       'book_finished' => '$childName finished "$title"',
+      'chapter_finished' =>
+        '$childName finished Chapter ${data['chapter']} of "$title"',
       'reading_session' =>
         '$childName read "$title" for ${data['minutes']} min',
       'comprehension_result' =>

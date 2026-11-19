@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/activity_service.dart';
 import '../services/family_settings.dart';
 import '../services/book_library.dart';
+import '../services/chapter_talk.dart';
 import '../services/device_memory.dart';
 import '../services/story_generator.dart';
 import '../reading_theme.dart';
@@ -359,6 +360,17 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     // and the few pixels it takes resize the paged reader's web view, which
     // makes epub.js jump back to where the book was opened.
     if (!mounted || _busy || _chapterQuizOpen) return;
+    // The parent's "Talk about it" questions, written in the background
+    // from this chapter, quiz or no quiz.
+    unawaited(
+      ChapterTalkService.instance.chapterFinished(
+        widget.childId,
+        title: _bookTitle,
+        chapter: chapter.number,
+        chapterTitle: chapter.title,
+        write: _chapterTalkWriter(chapter, from, to),
+      ),
+    );
     // Parent Settings → AI reading quizzes.
     if (!FamilySettings.instance.ai.aiQuizzes) return;
     _chapterQuizOpen = true;
@@ -385,19 +397,15 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
     _sessionStart = ActivityService.instance.startSession();
   }
 
-  /// What Gemini is given for [chapter]: the page images of a picture book,
+  /// What Gemini is given for a chapter: the page images of a picture book,
   /// otherwise the chapter's text.
-  Future<List<ComprehensionQuestion>> Function() _chapterQuizWriter(
-    FinishedChapter chapter,
+  ({List<Uint8List>? pages, List<String> html}) _chapterContent(
     int from,
     int to,
   ) {
-    final title = _bookTitle;
     final pictures = _pictureBook;
     if (pictures != null) {
-      final pages = pictures.pages.sublist(from, to);
-      return () =>
-          ReadingModulePage.writePictureQuiz(title, chapter.title, pages);
+      return (pages: pictures.pages.sublist(from, to), html: const []);
     }
     final html = _pagedText != null
         ? _pagedText!.spineHtml.sublist(from, to)
@@ -406,7 +414,35 @@ class _ReadingModulePageState extends State<ReadingModulePage> {
                 in (_document?.Chapters ?? <EpubChapter>[]).sublist(from, to))
               section.HtmlContent ?? '',
           ];
-    return () => ReadingModulePage.writeChapterQuiz(title, chapter.title, html);
+    return (pages: null, html: html);
+  }
+
+  Future<List<ComprehensionQuestion>> Function() _chapterQuizWriter(
+    FinishedChapter chapter,
+    int from,
+    int to,
+  ) {
+    final title = _bookTitle;
+    final content = _chapterContent(from, to);
+    if (content.pages case final pages?) {
+      return () =>
+          ReadingModulePage.writePictureQuiz(title, chapter.title, pages);
+    }
+    return () =>
+        ReadingModulePage.writeChapterQuiz(title, chapter.title, content.html);
+  }
+
+  Future<ChapterTalkPoints> Function() _chapterTalkWriter(
+    FinishedChapter chapter,
+    int from,
+    int to,
+  ) {
+    final title = _bookTitle;
+    final content = _chapterContent(from, to);
+    if (content.pages case final pages?) {
+      return () => generatePictureChapterTalk(title, chapter.title, pages);
+    }
+    return () => generateChapterTalk(title, chapter.title, content.html);
   }
 
   /// A chapter's quiz is written once and kept, so reading the chapter again

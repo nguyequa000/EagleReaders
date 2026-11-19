@@ -7,6 +7,7 @@ import '../services/coin_service.dart';
 import '../services/family_settings.dart';
 import 'book_shelf_screen.dart';
 import 'child_profile_screen.dart';
+import 'child_reading_screen.dart';
 import 'live_refresh.dart';
 import 'parent_settings_screen.dart';
 import 'reward_requests_screen.dart';
@@ -436,11 +437,29 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                     ),
                   ),
                 if (reading != null)
-                  Text(
-                    'Reading: $reading',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: StoryTheme.body(size: 13, color: palette.inkMuted),
+                  // Questions to ask about the chapter they just finished.
+                  StickerPill(
+                    key: Key('talk-${child.id}'),
+                    color: palette.tintGreen,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ChildReadingScreen(
+                          childId: child.id,
+                          childName: child.name,
+                          bookTitle: reading,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      '💬 Talk about $reading',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: StoryTheme.body(
+                        size: 13,
+                        color: palette.ink,
+                        weight: 700,
+                      ),
+                    ),
                   ),
               ],
             ),

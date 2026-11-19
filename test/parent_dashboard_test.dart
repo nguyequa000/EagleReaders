@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:storysprout/screens/story/story_button.dart';
 import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/child_profile_screen.dart';
+import 'package:storysprout/screens/child_reading_screen.dart';
 import 'package:storysprout/screens/parent_dashboard_screen.dart';
 import 'package:storysprout/services/activity_service.dart';
+import 'package:storysprout/services/chapter_talk.dart';
 import 'package:storysprout/services/child_profiles.dart';
 
 import 'test_helpers.dart';
@@ -54,7 +56,7 @@ void main() {
       MaterialApp(home: ParentDashboardScreen(store: fb.store)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Reading: alice.epub'), findsOneWidget);
+    expect(find.text('💬 Talk about alice.epub'), findsOneWidget);
     await tester.tap(find.widgetWithText(StoryButton, 'View'));
     await tester.pumpAndSettle();
 
@@ -75,6 +77,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Parent Dashboard'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Talk about opens the questions for what the child reads', (
+    tester,
+  ) async {
+    final fb = signedIn();
+    ActivityService.instance = fb.activity;
+    ChapterTalkService.instance = ChapterTalkService(
+      firestore: fb.firestore,
+      auth: fb.auth,
+    );
+    addTearDown(() => ChapterTalkService.instance = ChapterTalkService());
+    await fb.store.save([
+      ChildProfile.withPin(id: '1', name: 'Alex', pin: '1234'),
+    ]);
+    await fb.activity.logEvent('1', 'book_opened', {'title': 'Alice'});
+    await ChapterTalkService.instance.chapterFinished(
+      '1',
+      title: 'Alice',
+      chapter: 1,
+      chapterTitle: 'Down the Rabbit-Hole',
+      write: () async => (
+        summary: 'Alice follows a rabbit.',
+        questions: ['Why did Alice follow the rabbit?'],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: ParentDashboardScreen(store: fb.store)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('talk-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChildReadingScreen), findsOneWidget);
+    expect(find.text('Why did Alice follow the rabbit?'), findsOneWidget);
   });
 
   testWidgets('Child profile renders safely with no activity', (tester) async {

@@ -12,6 +12,8 @@ import 'package:storysprout/screens/book_shelf_screen.dart';
 import 'package:storysprout/screens/comprehension_screen.dart';
 import 'package:storysprout/screens/reading_module_page.dart';
 import 'package:storysprout/services/activity_service.dart';
+import 'package:storysprout/services/chapter_talk.dart';
+import 'package:storysprout/services/family_settings.dart';
 import 'package:storysprout/services/story_generator.dart';
 
 import 'reading_test_helpers.dart';
@@ -243,54 +245,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  /// Imports Alice, opens it and reads out of Chapter I into Chapter II.
+  /// Returns the chapters Gemini was asked to write a quiz for.
+  Future<List<(String, String)>> readOutOfChapterOne(
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    MethodChannelFilePicker.registerWith();
+    final bytes = File(
+      'assets/books/alice_in_wonderland.epub',
+    ).readAsBytesSync();
+    const channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => [
+        {'name': 'alice.epub', 'size': bytes.length, 'bytes': bytes},
+      ],
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final asked = <(String, String)>[];
+    ReadingModulePage.writeChapterQuiz = (book, chapter, html) async {
+      asked.add((chapter, bookExcerpt(html)));
+      return const [
+        ComprehensionQuestion(
+          question: 'What did Alice follow?',
+          answers: ['A White Rabbit', 'A cat', 'A dog'],
+          correctIndex: 0,
+        ),
+      ];
+    };
+    addTearDown(
+      () => ReadingModulePage.writeChapterQuiz = generateChapterQuestions,
+    );
+    await importBook(tester, testLibrary(), 'My Alice book');
+    await openShelfBook(tester, 'My Alice book');
+
+    final controller = tester
+        .widget<EpubView>(find.byType(EpubView))
+        .controller;
+    final toc = controller.tableOfContents();
+    final one = toc.indexWhere((c) => c.title!.startsWith('CHAPTER I.'));
+    // Read into Chapter I, then on into Chapter II.
+    for (final chapter in [one, one + 1]) {
+      controller.jumpTo(index: toc[chapter].startIndex);
+      await tester.pumpAndSettle();
+    }
+    return asked;
+  }
+
   testWidgets(
     'Reading out of a chapter brings up a quiz Gemini wrote from it',
     (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      MethodChannelFilePicker.registerWith();
-      final bytes = File(
-        'assets/books/alice_in_wonderland.epub',
-      ).readAsBytesSync();
-      const channel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        channel,
-        (_) async => [
-          {'name': 'alice.epub', 'size': bytes.length, 'bytes': bytes},
-        ],
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          channel,
-          null,
-        ),
-      );
-      final asked = <(String, String)>[];
-      ReadingModulePage.writeChapterQuiz = (book, chapter, html) async {
-        asked.add((chapter, bookExcerpt(html)));
-        return const [
-          ComprehensionQuestion(
-            question: 'What did Alice follow?',
-            answers: ['A White Rabbit', 'A cat', 'A dog'],
-            correctIndex: 0,
-          ),
-        ];
-      };
-      addTearDown(
-        () => ReadingModulePage.writeChapterQuiz = generateChapterQuestions,
-      );
-      await importBook(tester, testLibrary(), 'My Alice book');
-      await openShelfBook(tester, 'My Alice book');
-
-      final controller = tester
-          .widget<EpubView>(find.byType(EpubView))
-          .controller;
-      final toc = controller.tableOfContents();
-      final one = toc.indexWhere((c) => c.title!.startsWith('CHAPTER I.'));
-      // Read into Chapter I, then on into Chapter II.
-      for (final chapter in [one, one + 1]) {
-        controller.jumpTo(index: toc[chapter].startIndex);
-        await tester.pumpAndSettle();
-      }
+      final talk = _RecordingTalk();
+      ChapterTalkService.instance = talk;
+      addTearDown(() => ChapterTalkService.instance = ChapterTalkService());
+      final asked = await readOutOfChapterOne(tester);
 
       expect(find.byType(ComprehensionScreen), findsOneWidget);
       expect(find.text('What did Alice follow?'), findsOneWidget);
@@ -300,12 +314,33 @@ void main() {
       // Chapter I's own text, not the next chapter's.
       expect(text, contains('White Rabbit'));
       expect(text, isNot(contains('Pool of Tears')));
+      // The parent's "Talk about it" questions are asked for too.
+      expect(talk.finished.single.$1, 'My Alice book');
+      expect(talk.finished.single.$2, 1);
+      expect(talk.finished.single.$3, startsWith('CHAPTER I.'));
 
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
       expect(find.byType(EpubView), findsOneWidget);
     },
   );
+
+  testWidgets('with AI quizzes off a chapter end still tells the parent', (
+    tester,
+  ) async {
+    final talk = _RecordingTalk();
+    ChapterTalkService.instance = talk;
+    FamilySettings.instance.ai = const AiSettings(aiQuizzes: false);
+    addTearDown(() {
+      ChapterTalkService.instance = ChapterTalkService();
+      FamilySettings.instance.ai = const AiSettings();
+    });
+    final asked = await readOutOfChapterOne(tester);
+
+    expect(find.byType(ComprehensionScreen), findsNothing);
+    expect(asked, isEmpty);
+    expect(talk.finished.single.$2, 1);
+  });
 
   testWidgets('Renders EPUB markup and embedded images, not flattened text', (
     tester,
@@ -386,4 +421,18 @@ void main() {
     expect(find.text('Import'), findsOneWidget);
     expect(find.byTooltip('Remove Alice'), findsOneWidget);
   });
+}
+
+/// Notes each finished chapter without asking Gemini for anything.
+class _RecordingTalk extends ChapterTalkService {
+  final finished = <(String, int, String)>[];
+
+  @override
+  Future<void> chapterFinished(
+    String childId, {
+    required String title,
+    required int chapter,
+    required String chapterTitle,
+    required Future<ChapterTalkPoints> Function() write,
+  }) async => finished.add((title, chapter, chapterTitle));
 }
