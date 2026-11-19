@@ -5,14 +5,14 @@
       "name": "Story Sprout",
       "type": "dart",
       "request": "launch",
-      "program": "lib/main.dart"
-    },
-    {
-      "name": "Story Sprout (App Check token)",
-      "type": "dart",
-      "request": "launch",
       "program": "lib/main.dart",
       "toolArgs": ["--dart-define-from-file=app_check.json"]
+    },
+    {
+      "name": "Story Sprout (no App Check token)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart"
     },
     {
       "name": "Story Sprout (story dev, no Firebase)",

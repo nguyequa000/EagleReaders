@@ -42,7 +42,7 @@ Story generation goes through Firebase AI Logic, which requires App Check. Outsi
 ```
 { "APP_CHECK_DEBUG_TOKEN": "<token>" }
 ```
-then run with `flutter run --dart-define-from-file=app_check.json`, or build a test APK with `flutter build apk --release --dart-define-from-file=app_check.json`. In VS Code, pick the "Story Sprout (App Check token)" launch config. A build without the token can't reach Gemini, and installing it replaces any working build on the device.
+then run with `flutter run --dart-define-from-file=app_check.json`, or build a test APK with `flutter build apk --release --dart-define-from-file=app_check.json`. In VS Code, the default "Story Sprout" launch config passes it; "Story Sprout (no App Check token)" is for machines without the file. A build without the token can't reach Gemini (debug runs print an "APP CHECK TOKEN MISSING" banner at startup), and installing it replaces any working build on the device.
 
 ## Testing
 
